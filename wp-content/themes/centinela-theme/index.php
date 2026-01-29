@@ -31,11 +31,19 @@ get_header();
             foreach ($posts as $post) {
                 ?>
                 <div class="api-data-item">
-                    <h3 class="api-data-title"><?php echo esc_html($post['title']); ?></h3>
-                    <div class="api-data-content"><?php echo esc_html($post['body']); ?></div>
-                    <small class="api-data-meta">
-                        <?php printf(__('Post ID: %d | User ID: %d', 'centinela-theme'), $post['id'], $post['userId']); ?>
-                    </small>
+                    <?php if (isset($post['title'])): ?>
+                        <h3 class="api-data-title"><?php echo esc_html($post['title']); ?></h3>
+                    <?php endif; ?>
+                    
+                    <?php if (isset($post['body'])): ?>
+                        <div class="api-data-content"><?php echo esc_html($post['body']); ?></div>
+                    <?php endif; ?>
+                    
+                    <?php if (isset($post['id']) && isset($post['userId'])): ?>
+                        <small class="api-data-meta">
+                            <?php printf(__('Post ID: %d | User ID: %d', 'centinela-theme'), $post['id'], $post['userId']); ?>
+                        </small>
+                    <?php endif; ?>
                 </div>
                 <?php
             }

@@ -37,11 +37,19 @@ get_header();
             ?>
             <div class="api-data-container">
                 <div class="api-data-item">
-                    <h4 class="api-data-title"><?php echo esc_html($custom_data['title']); ?></h4>
-                    <div class="api-data-content"><?php echo esc_html($custom_data['body']); ?></div>
-                    <small class="api-data-meta">
-                        <?php printf(__('Post ID: %d | User ID: %d', 'centinela-theme'), $custom_data['id'], $custom_data['userId']); ?>
-                    </small>
+                    <?php if (isset($custom_data['title'])): ?>
+                        <h4 class="api-data-title"><?php echo esc_html($custom_data['title']); ?></h4>
+                    <?php endif; ?>
+                    
+                    <?php if (isset($custom_data['body'])): ?>
+                        <div class="api-data-content"><?php echo esc_html($custom_data['body']); ?></div>
+                    <?php endif; ?>
+                    
+                    <?php if (isset($custom_data['id']) && isset($custom_data['userId'])): ?>
+                        <small class="api-data-meta">
+                            <?php printf(__('Post ID: %d | User ID: %d', 'centinela-theme'), $custom_data['id'], $custom_data['userId']); ?>
+                        </small>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php

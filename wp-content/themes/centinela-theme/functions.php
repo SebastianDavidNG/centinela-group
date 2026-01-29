@@ -160,11 +160,21 @@ class Centinela_API_Service {
     
     /**
      * Clear API cache
+     * 
+     * Note: This method uses direct database queries as WordPress doesn't provide
+     * a built-in function to delete transients by pattern. If using object caching
+     * (Redis, Memcached), you may need to flush the entire cache or implement
+     * a custom solution.
      */
     public function clear_cache() {
         global $wpdb;
+        
+        // Delete transients and their timeout options
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_api_%'");
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_centinela_api_%'");
+        
+        // If using object caching, consider calling wp_cache_flush() instead
+        // or implementing cache-specific clearing logic
     }
 }
 
@@ -271,11 +281,12 @@ function centinela_api_settings_page() {
     }
     
     // Handle form submission
-    if (isset($_POST['centinela_api_settings_nonce']) && 
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
+        isset($_POST['centinela_api_settings_nonce']) && 
         wp_verify_nonce($_POST['centinela_api_settings_nonce'], 'centinela_api_settings')) {
         
-        update_option('centinela_api_url', sanitize_text_field($_POST['api_url']));
-        update_option('centinela_cache_time', intval($_POST['cache_time']));
+        update_option('centinela_api_url', esc_url_raw($_POST['api_url']));
+        update_option('centinela_cache_time', max(0, intval($_POST['cache_time'])));
         
         // Clear cache
         if (isset($_POST['clear_cache'])) {
