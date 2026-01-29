@@ -1,0 +1,50 @@
+# WordPress core files
+wp-admin/
+wp-includes/
+*.log
+
+# WordPress config
+wp-config.php
+
+# Database dumps
+*.sql
+*.sql.gz
+
+# Uploads
+wp-content/uploads/
+
+# Cache
+wp-content/cache/
+wp-content/advanced-cache.php
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/upgrade/
+
+# Plugins (keep only if custom)
+wp-content/plugins/akismet/
+wp-content/plugins/hello.php
+
+# Themes (keep only custom theme)
+wp-content/themes/twenty*/
+
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Build artifacts
+dist/
+build/
