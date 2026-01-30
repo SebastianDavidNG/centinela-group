@@ -1,0 +1,23 @@
+// =============================================================================
+// Centinela Group Theme - Variables
+// Colores del sitio y tipografía (BEM: usar en componentes/plugins)
+// =============================================================================
+
+// --- Colores del sitio
+$blue-color:   #021C37;
+$blue-color-2: #1543A0;
+$green-color:  #229379;
+$grey-color:   #54595F;
+$white-color:  #FFFFFF;
+$black-color:  #000000;
+
+// --- Tipografía: Roboto (todos los pesos disponibles)
+// Pesos: 100 Thin, 300 Light, 400 Regular, 500 Medium, 700 Bold, 900 Black
+$font-family-base: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+$font-weight-thin:   100;
+$font-weight-light:  300;
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-bold:   700;
+$font-weight-black:  900;

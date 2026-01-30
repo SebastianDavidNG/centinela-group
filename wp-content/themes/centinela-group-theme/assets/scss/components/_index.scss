@@ -1,0 +1,10 @@
+// =============================================================================
+// Componentes del tema (BEM)
+// Importar aquí cada componente: @use 'nombre-componente';
+// =============================================================================
+
+@use '../variables' as *;
+
+@use 'header';
+
+// Añadir más: @use 'buttons'; @use 'cards'; etc.

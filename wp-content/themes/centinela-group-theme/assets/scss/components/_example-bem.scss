@@ -1,0 +1,29 @@
+// =============================================================================
+// Ejemplo de componente BEM - Borrar o renombrar al crear componentes reales
+// BEM: Block__Element--Modifier
+// =============================================================================
+
+@use '../variables' as *;
+
+// Block: .centinela-card
+.centinela-card {
+  background-color: $white-color;
+  color: $grey-color;
+  font-family: $font-family-base;
+
+  // Element: .centinela-card__title
+  &__title {
+    color: $blue-color;
+    font-weight: $font-weight-bold;
+  }
+
+  // Element: .centinela-card__body
+  &__body {
+    font-weight: $font-weight-regular;
+  }
+
+  // Modifier: .centinela-card--highlight
+  &--highlight {
+    border-left: 4px solid $green-color;
+  }
+}

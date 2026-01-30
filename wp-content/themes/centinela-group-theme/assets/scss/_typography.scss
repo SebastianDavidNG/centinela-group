@@ -1,0 +1,18 @@
+// =============================================================================
+// Tipografía base del tema (Roboto)
+// =============================================================================
+
+@use 'variables' as *;
+
+body {
+  font-family: $font-family-base;
+  font-weight: $font-weight-regular;
+}
+
+// Clases de utilidad por peso (BEM-friendly: usar en componentes)
+.font-thin    { font-weight: $font-weight-thin; }
+.font-light   { font-weight: $font-weight-light; }
+.font-regular { font-weight: $font-weight-regular; }
+.font-medium  { font-weight: $font-weight-medium; }
+.font-bold    { font-weight: $font-weight-bold; }
+.font-black   { font-weight: $font-weight-black; }

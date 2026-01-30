@@ -1,0 +1,17 @@
+{
+  "name": "centinela-group-theme",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/css/input.css -o ./assets/css/tailwind.min.css --minify",
+    "build:scss": "sass assets/scss/theme.scss assets/css/theme.min.css --style=compressed --no-source-map",
+    "watch:css": "tailwindcss -i ./assets/css/input.css -o ./assets/css/tailwind.min.css --watch",
+    "watch:scss": "sass assets/scss/theme.scss assets/css/theme.min.css --watch",
+    "build": "npm run build:css && npm run build:scss",
+    "watch": "npm run watch:css & npm run watch:scss"
+  },
+  "devDependencies": {
+    "sass": "^1.69.0",
+    "tailwindcss": "^3.4.0"
+  }
+}

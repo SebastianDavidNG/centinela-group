@@ -1,0 +1,21 @@
+// =============================================================================
+// Centinela Group Theme - Entrada principal SCSS
+// Metodología BEM para componentes y plugins.
+// Compilar a: assets/css/theme.min.css
+// =============================================================================
+
+@use 'variables' as *;
+@use 'typography';
+@use 'components/index' as components;
+@use 'plugins/index' as plugins;
+
+// Estilos globales que usan variables (opcional)
+:root {
+  --centinela-blue:   #{$blue-color};
+  --centinela-blue-2: #{$blue-color-2};
+  --centinela-green:  #{$green-color};
+  --centinela-grey:   #{$grey-color};
+  --centinela-white:  #{$white-color};
+  --centinela-black:  #{$black-color};
+  --centinela-font:   #{$font-family-base};
+}
