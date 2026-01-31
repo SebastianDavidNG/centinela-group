@@ -59,8 +59,55 @@ add_action( 'after_setup_theme', 'centinela_theme_elementor_support' );
  */
 require_once CENTINELA_THEME_DIR . '/inc/class-syscom-api.php';
 require_once CENTINELA_THEME_DIR . '/inc/syscom-settings.php';
+require_once CENTINELA_THEME_DIR . '/inc/hero-slider.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-header.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-footer.php';
+
+/**
+ * Registrar Swiper y hero-slider para que Elementor los encole cuando use el widget Hero Slider
+ */
+function centinela_register_hero_slider_assets() {
+	wp_register_style(
+		'swiper',
+		'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css',
+		array(),
+		'11'
+	);
+	wp_register_script(
+		'swiper',
+		'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js',
+		array(),
+		'11',
+		true
+	);
+	wp_register_script(
+		'centinela-hero-slider',
+		CENTINELA_THEME_URI . '/assets/js/hero-slider.js',
+		array( 'swiper' ),
+		CENTINELA_THEME_VERSION,
+		true
+	);
+	wp_register_script(
+		'centinela-video-modal',
+		CENTINELA_THEME_URI . '/assets/js/video-modal.js',
+		array(),
+		CENTINELA_THEME_VERSION,
+		true
+	);
+}
+add_action( 'wp_enqueue_scripts', 'centinela_register_hero_slider_assets', 5 );
+
+/**
+ * Cargar widgets de Elementor (Hero Slider, etc.) cuando Elementor esté activo
+ */
+function centinela_load_elementor_widgets() {
+	if ( ! did_action( 'elementor/loaded' ) ) {
+		add_action( 'elementor/loaded', 'centinela_load_elementor_widgets' );
+		return;
+	}
+	require_once CENTINELA_THEME_DIR . '/inc/elementor/register-widgets.php';
+}
+add_action( 'after_setup_theme', 'centinela_load_elementor_widgets', 20 );
 
 /**
  * Encolar estilos y scripts con foco en performance

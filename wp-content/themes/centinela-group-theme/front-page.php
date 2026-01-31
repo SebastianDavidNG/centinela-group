@@ -7,6 +7,10 @@
  */
 
 get_header();
+
+if ( apply_filters( 'centinela_show_hero_on_front', true ) ) {
+	echo do_shortcode( '[centinela_hero_slider]' );
+}
 ?>
 
 <div class="site-content">

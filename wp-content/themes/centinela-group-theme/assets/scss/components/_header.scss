@@ -9,14 +9,24 @@
 
 $header-link-underline-active: 3px;
 
+// Barra fija sobre el hero (header + submenu). Ref. WiseGuard home-alternative
+.centinela-header-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  width: 100%;
+}
+
 .centinela-header {
-  background-color: $blue-color;
+  background-color: transparent;
   font-family: $font-family-base;
-  position: sticky;
+  position: relative;
   top: 0;
   z-index: 50;
   min-height: 110px;
-  box-shadow: 0 1px 0 rgba($white-color, 0.08);
+  box-shadow: none;
 
   &__inner {
     display: flex;

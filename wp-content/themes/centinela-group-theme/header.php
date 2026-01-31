@@ -22,8 +22,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 <div id="page" class="site flex flex-col min-h-screen">
 
-	<?php centinela_theme_default_header(); ?>
-
-	<?php centinela_theme_submenu(); ?>
+	<div class="centinela-header-bar" role="banner">
+		<?php centinela_theme_default_header(); ?>
+		<?php centinela_theme_submenu(); ?>
+	</div>
 
 	<main id="content" class="site-main flex-grow">

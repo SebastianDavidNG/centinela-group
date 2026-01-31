@@ -1,0 +1,302 @@
+// =============================================================================
+// Hero Slider – Full width, detrás del header (ref. WiseGuard)
+// Overlay siempre presente: estilo Rectangle 1642 (Figma)
+// BEM: .centinela-hero
+// =============================================================================
+
+@use 'sass:color';
+@use '../variables' as *;
+
+// Overlay tipo Rectangle 1642: oscuro, siempre visible sobre la imagen
+$hero-overlay: linear-gradient(
+  90deg,
+  rgba($blue-color, 0.92) 0%,
+  rgba($blue-color, 0.75) 35%,
+  rgba($blue-color, 0.45) 70%,
+  rgba($blue-color, 0.2) 100%
+);
+
+// Altura aproximada del header + submenú para dejar espacio al contenido
+$hero-offset-top: 10rem; // ~160px (header 110px + submenu)
+
+// Evitar espacio superior: contenedor principal y contenedores Elementor (.e-con > .e-con-inner)
+.site-main {
+  padding-top: 0;
+}
+
+.e-con:has(.centinela-hero) > .e-con-inner {
+  padding-block-start: 0 !important;
+}
+
+.centinela-hero {
+  position: relative;
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: 0;
+  margin-bottom: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  font-family: $font-family-base;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  &__swiper {
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+  }
+
+  &__track {
+    height: 100%;
+  }
+
+  &__slide {
+    position: relative;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  &__bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: $blue-color;
+
+    &--no-image {
+      background-image: linear-gradient(135deg, color.adjust($blue-color, $lightness: 2%) 0%, $blue-color 50%, color.adjust($blue-color, $lightness: -5%) 100%);
+    }
+  }
+
+  /* Overlay siempre presente (Rectangle 1642 – Figma) */
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: $hero-overlay;
+    pointer-events: none;
+  }
+
+  &__inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: $hero-offset-top 1rem 4rem;
+    max-width: 80rem;
+    margin: 0 auto;
+    box-sizing: border-box;
+
+    @media (min-width: 768px) {
+      padding: $hero-offset-top 2rem 5rem;
+    }
+
+    @media (min-width: 1024px) {
+      padding: $hero-offset-top 2rem 6rem;
+    }
+  }
+
+  &__content {
+    max-width: 36rem;
+  }
+
+  &__title {
+    margin: 0 0 1rem;
+    color: $white-color;
+    font-size: 1.75rem;
+    font-weight: $font-weight-bold;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+
+    @media (min-width: 768px) {
+      font-size: 2.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    @media (min-width: 1024px) {
+      font-size: 2.75rem;
+      margin-bottom: 1.5rem;
+    }
+  }
+
+  &__text {
+    margin: 0 0 1.5rem;
+    color: rgba($white-color, 0.9);
+    font-size: 1rem;
+    font-weight: $font-weight-regular;
+    line-height: 1.6;
+
+    @media (min-width: 768px) {
+      font-size: 1.125rem;
+      margin-bottom: 2rem;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.25rem;
+  }
+
+  &__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: $font-weight-medium;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    border: none;
+    cursor: pointer;
+
+    &--primary {
+      min-height: 68px;
+      height: 68px;
+      padding: 0 1.5rem;
+      background-color: $green-color;
+      color: $white-color;
+
+      &:hover {
+        background-color: color.adjust($green-color, $lightness: -6%);
+        color: $white-color;
+      }
+    }
+
+    &--primary &-icon {
+      flex-shrink: 0;
+    }
+
+    // Botón circular tipo play – 98×98, borde 12px 30%, ::before (Figma). Hover ref. WiseGuard con green-color
+    &--play {
+      position: relative;
+      width: 98px;
+      height: 98px;
+      min-width: 98px;
+      min-height: 98px;
+      padding: 0;
+      border-radius: 50%;
+      background-color: transparent;
+      color: $blue-color;
+      border: 12px solid hsla(0, 0%, 100%, 0.3);
+      transition: border-color 0.35s ease, color 0.35s ease, transform 0.35s ease, box-shadow 0.35s ease;
+
+      &::before {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: $white-color;
+        content: '';
+        border-radius: 100%;
+        transition: background 0.35s ease;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      &:hover,
+      &:focus-visible {
+        border-color: $green-color;
+        color: $white-color;
+        transform: scale(1.08);
+        box-shadow: 0 4px 20px rgba($green-color, 0.4);
+
+        &::before {
+          background: $green-color;
+        }
+
+        .centinela-hero__cta-play-icon {
+          fill: currentColor;
+        }
+      }
+
+      .centinela-hero__cta-play-icon {
+        position: relative;
+        z-index: 1;
+        width: 36px;
+        height: 36px;
+        fill: currentColor;
+        transition: fill 0.35s ease;
+      }
+    }
+
+    &:focus {
+      outline: 2px solid $green-color;
+      outline-offset: 2px;
+    }
+  }
+
+  // Swiper: pagination (puntos)
+  &__pagination {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 0;
+    right: 0;
+    z-index: 2;
+
+    .swiper-pagination-bullet {
+      width: 10px;
+      height: 10px;
+      background: rgba($white-color, 0.5);
+      opacity: 1;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .swiper-pagination-bullet-active {
+      background: $green-color;
+      transform: scale(1.2);
+    }
+  }
+
+  // Swiper: flechas (solo icono, sin fondo – ref. WiseGuard)
+  &__prev,
+  &__next {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: rgba($white-color, 0.6);
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: $white-color;
+    }
+
+    &:focus {
+      outline: 2px solid $green-color;
+      outline-offset: 2px;
+    }
+
+    // Solo el pseudo-elemento (flecha): más delgado, blanco con opacidad
+    &::after {
+      font-size: 1rem;
+      font-weight: $font-weight-medium;
+    }
+  }
+
+  &__prev {
+    left: 1rem;
+  }
+
+  &__next {
+    right: 1rem;
+  }
+}
