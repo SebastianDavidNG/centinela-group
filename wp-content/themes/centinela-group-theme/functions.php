@@ -55,6 +55,39 @@ function centinela_theme_elementor_support() {
 add_action( 'after_setup_theme', 'centinela_theme_elementor_support' );
 
 /**
+ * Asegurar que la plantilla Tienda aparezca en el desplegable de Páginas (editor clásico y bloques).
+ */
+function centinela_theme_page_templates( $templates, $theme = null, $post = null ) {
+	$our = get_template_directory() . '/page-tienda.php';
+	if ( file_exists( $our ) ) {
+		$templates['page-tienda.php'] = __( 'Tienda (Centinela)', 'centinela-group-theme' );
+	}
+	return $templates;
+}
+add_filter( 'theme_page_templates', 'centinela_theme_page_templates', 10, 3 );
+
+/**
+ * Si la página tiene slug "tienda", usar siempre la plantilla page-tienda.php
+ * (así la tienda funciona aunque en el editor no se guarde bien la plantilla).
+ */
+function centinela_force_tienda_template( $template ) {
+	global $wp_query;
+	if ( ! is_singular( 'page' ) ) {
+		return $template;
+	}
+	$page = get_queried_object();
+	if ( ! $page || ! isset( $page->post_name ) || $page->post_name !== 'tienda' ) {
+		return $template;
+	}
+	$tienda_file = get_template_directory() . '/page-tienda.php';
+	if ( file_exists( $tienda_file ) ) {
+		return $tienda_file;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'centinela_force_tienda_template', 99 );
+
+/**
  * Incluir partes del tema (header/footer por defecto)
  */
 require_once CENTINELA_THEME_DIR . '/inc/class-syscom-api.php';
@@ -62,6 +95,8 @@ require_once CENTINELA_THEME_DIR . '/inc/syscom-settings.php';
 require_once CENTINELA_THEME_DIR . '/inc/hero-slider.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-header.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-footer.php';
+require_once CENTINELA_THEME_DIR . '/inc/woocommerce-productos.php';
+require_once CENTINELA_THEME_DIR . '/inc/tienda-ajax.php';
 
 /**
  * Registrar Swiper y hero-slider para que Elementor los encole cuando use el widget Hero Slider
@@ -153,7 +188,7 @@ function centinela_theme_scripts() {
 	// JS del tema (menú móvil, buscador) – siempre para que el header funcione igual en el editor
 	wp_enqueue_script(
 		'centinela-theme-script',
-		CENTINELA_THEME_URI . '/assets/js/theme.min.js',
+		CENTINELA_THEME_URI . '/assets/js/theme.js',
 		array(),
 		CENTINELA_THEME_VERSION,
 		true

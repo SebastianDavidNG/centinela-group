@@ -1,0 +1,425 @@
+// =============================================================================
+// Página Tienda – Estilo Hotlock
+// Hero + sidebar categorías + grid de productos.
+// BEM: .centinela-tienda
+// =============================================================================
+
+@use 'sass:color';
+@use '../variables' as *;
+
+.centinela-tienda {
+  padding-bottom: 3rem;
+}
+
+.centinela-tienda__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    gap: 2.5rem;
+  }
+}
+
+// Contenedor del contenido de Elementor (hero personalizado, etc.)
+.centinela-tienda-elementor-content {
+  margin-bottom: 0;
+
+  &:empty {
+    display: none;
+  }
+}
+
+// Sidebar – Estilo Hotlock (ref. https://hotlock.axiomthemes.com/)
+.centinela-tienda__sidebar {
+  flex-shrink: 0;
+  width: 100%;
+
+  @media (min-width: 768px) {
+    width: 280px;
+  }
+}
+
+.centinela-tienda__filters {
+  background: $white-color;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1.5rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.centinela-tienda__sidebar-title {
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid $green-color;
+  font-family: $font-family-base;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-bold;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $blue-color;
+}
+
+.centinela-tienda__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+// Animación compartida con menú móvil (estilo WiseGuard: slide down + fade)
+$centinela-expand-ease: cubic-bezier(0.4, 0, 0.2, 1);
+$centinela-expand-duration: 0.35s;
+
+@keyframes centinela-tienda-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Categorías desplegables (details/summary) – animación suave tipo WiseGuard
+.centinela-tienda__cat-details {
+  border-bottom: 1px solid #f3f4f6;
+  display: grid;
+  grid-template-rows: auto 0fr;
+  transition: grid-template-rows $centinela-expand-duration $centinela-expand-ease;
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+
+  &[open] {
+    grid-template-rows: auto 1fr;
+
+    .centinela-tienda__cat-children {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    // Subítems en cascada (misma idea que menú móvil / WiseGuard)
+    .centinela-tienda__cat-children > .centinela-tienda__cat-link,
+    .centinela-tienda__sub > li {
+      animation: centinela-tienda-item-in 0.3s $centinela-expand-ease forwards;
+    }
+
+    .centinela-tienda__cat-children > .centinela-tienda__cat-link { animation-delay: 0.05s; }
+    .centinela-tienda__sub > li:nth-child(1) { animation-delay: 0.08s; }
+    .centinela-tienda__sub > li:nth-child(2) { animation-delay: 0.11s; }
+    .centinela-tienda__sub > li:nth-child(3) { animation-delay: 0.14s; }
+    .centinela-tienda__sub > li:nth-child(4) { animation-delay: 0.17s; }
+    .centinela-tienda__sub > li:nth-child(5) { animation-delay: 0.2s; }
+    .centinela-tienda__sub > li:nth-child(6) { animation-delay: 0.23s; }
+    .centinela-tienda__sub > li:nth-child(7) { animation-delay: 0.26s; }
+    .centinela-tienda__sub > li:nth-child(8) { animation-delay: 0.29s; }
+    .centinela-tienda__sub > li:nth-child(9) { animation-delay: 0.32s; }
+    .centinela-tienda__sub > li:nth-child(10) { animation-delay: 0.35s; }
+  }
+
+  &--sub {
+    border-bottom: none;
+  }
+}
+
+.centinela-tienda__cat-summary {
+  list-style: none;
+  padding: 0.625rem 1.75rem 0.625rem 0;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  color: $blue-color;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  &::marker,
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:hover {
+    color: $green-color;
+  }
+
+  &--sub {
+    font-size: 0.875rem;
+    font-weight: $font-weight-regular;
+    color: $grey-color;
+    padding-left: 1rem;
+  }
+}
+
+// Enlace dentro del summary (evita categoría duplicada; clic en nombre = ir a categoría).
+.centinela-tienda__cat-summary-link {
+  color: inherit;
+  text-decoration: none;
+  flex: 1;
+  min-width: 0;
+
+  &:hover {
+    color: inherit;
+  }
+
+  &--active {
+    font-weight: $font-weight-bold;
+    color: $green-color;
+  }
+
+  &--sub {
+    font-weight: inherit;
+  }
+}
+
+// Mismo SVG que el botón "Pedir cotización" (uniformidad). Sin ::after; solo este ícono.
+// Cerrado = flecha a la derecha; abierto/desplegado = flecha hacia abajo.
+.centinela-tienda__cat-summary-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  transform: rotate(0deg);
+  transition: transform 0.25s $centinela-expand-ease;
+  color: currentColor;
+}
+
+.centinela-tienda__cat-details[open] .centinela-tienda__cat-summary-icon {
+  transform: rotate(90deg);
+}
+
+.centinela-tienda__cat-children {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0.25rem 0 0.75rem 0.5rem;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.3s $centinela-expand-ease, transform 0.3s $centinela-expand-ease;
+
+  > .centinela-tienda__cat-link {
+    margin-bottom: 0.25rem;
+  }
+}
+
+.centinela-tienda__cat-group {
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.centinela-tienda__cat-link {
+  display: block;
+  padding: 0.625rem 0.75rem 0.625rem 0;
+  font-size: 0.9375rem;
+  color: $blue-color;
+  text-decoration: none;
+  transition: color 0.2s, padding-left 0.2s;
+
+  &:hover {
+    color: $green-color;
+  }
+
+  &--sub {
+    padding-left: 1rem;
+    font-size: 0.875rem;
+    color: $grey-color;
+  }
+
+  &--nested {
+    padding-left: 1.5rem;
+    font-size: 0.8125rem;
+    color: color.adjust($grey-color, $lightness: -5%);
+  }
+
+  &--active {
+    font-weight: $font-weight-bold;
+    color: $green-color;
+    padding-left: 0.25rem;
+    border-left: 3px solid $green-color;
+    margin-left: -3px;
+
+    &.centinela-tienda__cat-link--sub,
+    &.centinela-tienda__cat-link--nested {
+      padding-left: 1.25rem;
+      margin-left: 0;
+    }
+  }
+}
+
+.centinela-tienda__sub {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.5rem 0;
+  border-left: none;
+  margin-left: 0;
+
+  &--deep {
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  li {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.centinela-tienda__empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: $grey-color;
+
+  &--main {
+    padding: 2rem;
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+}
+
+// Main content – grid
+.centinela-tienda__main {
+  min-width: 0;
+}
+
+.centinela-tienda__main-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.centinela-tienda__grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.75rem;
+  }
+}
+
+.centinela-tienda__card {
+  margin: 0;
+  background: $white-color;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.25s, border-color 0.25s;
+
+  &:hover {
+    border-color: rgba($green-color, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.centinela-tienda__card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.centinela-tienda__card-image {
+  position: relative;
+  aspect-ratio: 1;
+  background: #f1f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 0.75rem;
+  }
+}
+
+.centinela-tienda__card-placeholder {
+  font-size: 0.8125rem;
+  color: #adb5bd;
+}
+
+.centinela-tienda__card-body {
+  padding: 1rem 1.25rem;
+}
+
+.centinela-tienda__card-title {
+  margin: 0 0 0.5rem;
+  font-family: $font-family-base;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  line-height: 1.35;
+  color: $blue-color;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.centinela-tienda__card-price {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: $font-weight-bold;
+  color: $green-color;
+}
+
+.centinela-tienda__pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2.5rem;
+}
+
+.centinela-tienda__page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  color: $blue-color;
+  background: $white-color;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+
+  &:hover {
+    background: #f8f9fa;
+    border-color: $green-color;
+    color: $green-color;
+  }
+
+  &--current {
+    background: $green-color;
+    border-color: $green-color;
+    color: $white-color;
+
+    &:hover {
+    background: color.adjust($green-color, $lightness: -6%);
+    border-color: color.adjust($green-color, $lightness: -6%);
+      color: $white-color;
+    }
+  }
+}

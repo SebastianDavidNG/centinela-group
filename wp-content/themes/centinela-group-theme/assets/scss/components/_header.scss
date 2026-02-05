@@ -69,12 +69,16 @@ $header-link-underline-active: 3px;
     align-items: center;
   }
 
-  // Acciones: CTA + buscador (estilo Figma hero / referencia WiseGuard)
+  // Acciones: CTA + buscador (estilo Figma hero / referencia WiseGuard). En móvil se oculta (lupa en nav, CTA en overlay).
   &__actions {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
+
+    @media (max-width: 767px) {
+      display: none !important;
+    }
   }
 
   &__cta {
@@ -192,6 +196,45 @@ $header-link-underline-active: 3px;
     }
   }
 
+  // CTA "Pedir cotización": en desktop; en móvil va dentro del overlay (oculto aquí)
+  &__cta--desktop {
+    @media (max-width: 767px) {
+      display: none !important;
+    }
+  }
+
+  // Búsqueda: en desktop dentro de actions; en móvil dentro de nav a la izquierda del hamburguesa
+  &__search--desktop {
+    @media (max-width: 767px) {
+      display: none !important;
+    }
+  }
+
+  &__search--mobile {
+    display: none;
+    @media (max-width: 767px) {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: $white-color;
+      cursor: pointer;
+      border-radius: 0.375rem;
+
+      &:hover {
+        background-color: rgba($white-color, 0.1);
+      }
+      &:focus {
+        outline: 2px solid $green-color;
+        outline-offset: 2px;
+      }
+    }
+  }
+
   // Menú móvil: botón hamburguesa
   &__toggle {
     display: none;
@@ -218,20 +261,183 @@ $header-link-underline-active: 3px;
     }
   }
 
-  // Panel móvil
-  &__menu-mobile {
-    display: none;
-    padding: 1rem;
-    border-top: 1px solid rgba($white-color, 0.1);
-    background-color: color.adjust($blue-color, $lightness: -2%);
+  // Overlay móvil (estilo Hotlock): fondo + panel deslizable
+  &__menu-mobile.centinela-mobile-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    padding: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0.3s ease, opacity 0.3s ease;
+    pointer-events: none;
 
-    .centinela-header__menu {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
+    &.is-open {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+}
+
+// Backdrop y panel del overlay – full width, de arriba hacia abajo (referencia Hotlock)
+.centinela-mobile-overlay {
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1;
+  }
+
+  &__panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    background-color: color.adjust($blue-color, $lightness: -6%);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(-100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .centinela-header__menu-mobile.is-open &__panel {
+    transform: translateY(0);
+  }
+
+  &__header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba($white-color, 0.12);
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: $font-weight-bold;
+    color: $white-color;
+  }
+
+  &__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: $white-color;
+    cursor: pointer;
+    border-radius: 0.375rem;
+    transition: color 0.2s ease, background-color 0.2s ease;
+
+    &:hover {
+      color: $green-color;
+      background-color: rgba($white-color, 0.1);
+    }
+    &:focus {
+      outline: 2px solid $green-color;
+      outline-offset: 2px;
+    }
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    padding: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    margin-top: auto;
+    background-color: transparent;
+  }
+
+  &__cta,
+  a.centinela-mobile-overlay__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    background-color: $white-color;
+    color: $blue-color-2;
+    text-decoration: none;
+    font-weight: $font-weight-medium;
+    font-size: 0.9375rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    border: none;
+    cursor: pointer;
+
+    &:hover {
+      background-color: $green-color;
+      color: $white-color;
+    }
+    &:focus {
+      outline: 2px solid $green-color;
+      outline-offset: 2px;
     }
 
-    .centinela-header__item {
+    span {
+      flex: 1 1 auto;
+      text-align: center;
+    }
+    svg {
+      flex-shrink: 0;
+    }
+  }
+}
+
+.centinela-header {
+  // Contenido del panel: lista en una sola columna (un ítem por línea), scroll vertical
+  &__menu-mobile .centinela-mobile-overlay__panel {
+    .centinela-header__menu.centinela-mobile-menu,
+    #primary-menu-mobile-list.centinela-mobile-menu {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+
+      > li {
+        width: 100%;
+        flex: 0 0 auto;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+    }
+  }
+
+  // Panel móvil (compatibilidad)
+  &__menu-mobile {
+
+  // Menú móvil: categorías Productos dentro del drawer (estilo Hotlock – acordeón). Una columna, un ítem por línea.
+  .centinela-mobile-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+
+    > li {
+      width: 100%;
+      flex: 0 0 auto;
       border-bottom: 1px solid rgba($white-color, 0.08);
 
       &:last-child {
@@ -239,16 +445,152 @@ $header-link-underline-active: 3px;
       }
     }
 
-    .centinela-header__link {
-      padding: 0.75rem 0;
+    a {
+      display: block;
+      padding: 0.75rem 0.5rem;
+      color: $white-color;
+      text-decoration: none;
+      font-size: 0.9375rem;
+      transition: color 0.2s ease, background-color 0.2s ease;
+
+      &:hover {
+        color: $green-color;
+        background-color: rgba($white-color, 0.05);
+      }
     }
 
-    @media (max-width: 767px) {
-      &.is-open {
-        display: block;
+    .sub-menu {
+      list-style: none;
+      margin: 0;
+      padding: 0 0 0 1rem;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.25s ease;
+
+      a {
+        padding: 0.5rem 0.35rem;
+        font-size: 0.875rem;
+        color: rgba($white-color, 0.9);
+      }
+
+      .sub-menu {
+        padding-left: 1rem;
+        border-left: 1px solid rgba($white-color, 0.12);
+        margin-left: 0.35rem;
+      }
+    }
+
+    // Ítem con hijos: fila = enlace + botón al lado; debajo = submenú (mismo nivel visual que Hotlock)
+    .menu-item-has-children {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0;
+
+      > a {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding-right: 0.5rem;
+      }
+
+      > .centinela-mobile-menu__sub-toggle {
+        flex-shrink: 0;
+        order: 0;
+      }
+
+      > .sub-menu {
+        flex-basis: 100%;
+        width: 100%;
+        order: 1;
       }
     }
   }
+
+  .centinela-mobile-menu__cat-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+
+    .centinela-mobile-menu__cat-label {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .centinela-mobile-menu__cat-toggle {
+      flex-shrink: 0;
+    }
+  }
+
+  .centinela-mobile-menu__cat-toggle,
+  .centinela-mobile-menu__sub-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: $white-color;
+    cursor: pointer;
+    transition: transform 0.2s ease, color 0.2s ease;
+
+    &:hover {
+      color: $green-color;
+    }
+
+    svg {
+      display: block;
+      transition: transform 0.2s ease;
+    }
+  }
+
+  .centinela-mobile-menu__cat-wrap .centinela-mobile-menu__cat-toggle svg,
+  .menu-item-has-children .centinela-mobile-menu__sub-toggle svg {
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .centinela-mobile-menu__cat-wrap.is-open .centinela-mobile-menu__cat-toggle svg,
+  .menu-item-has-children.is-open .centinela-mobile-menu__sub-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  // Cerrado: slide up + fade (misma animación que sidebar tienda y ref. WiseGuard)
+  #centinela-mobile-cats,
+  .centinela-mobile-menu .menu-item-has-children > .sub-menu {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .centinela-mobile-menu__cat-wrap.is-open #centinela-mobile-cats,
+  .menu-item-has-children.is-open > .sub-menu {
+    max-height: 80vh;
+    overflow-y: auto;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  // Subítems en cascada al desplegar (misma animación que dropdown desktop / WiseGuard)
+  .centinela-mobile-menu__cat-wrap.is-open #centinela-mobile-cats > li,
+  .menu-item-has-children.is-open > .sub-menu > li {
+    animation: centinela-submenu-item-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @for $i from 1 through 20 {
+    .centinela-mobile-menu__cat-wrap.is-open #centinela-mobile-cats > li:nth-child(#{$i}),
+    .menu-item-has-children.is-open > .sub-menu > li:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.03}s;
+    }
+  }
+
+  } // cierre &__menu-mobile
 
   @media (min-width: 768px) {
     &__menu-mobile {
@@ -273,35 +615,70 @@ $header-link-underline-active: 3px;
 }
 
 // =============================================================================
-// Submenú de categorías (API Syscom) – debajo del header, estilo Figma
+// Submenú de categorías (API Syscom) – debajo del header, estilo Figma / Syscom
+// Barra principal + dropdown de subcategorías (hover desktop, acordeón móvil)
+// Animación tipo WiseGuard: slide down + fade y subítems en cascada
 // BEM: .centinela-submenu
 // =============================================================================
 
-.centinela-submenu {
-  background-color: $blue-color;
-  font-family: $font-family-base;
-  border-top: 1px solid rgba($white-color, 0.08);
-  z-index: 49;
+@keyframes centinela-submenu-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  &__inner {
-    max-width: 80rem;
-    margin: 0 auto;
-    padding: 0 1rem;
+// Submenú full width como el hero; fondo transparente (Figma: Sub Menu)
+// En móvil se oculta: las categorías van dentro del menú hamburguesa (estilo Hotlock)
+.centinela-submenu {
+  width: 100vw;
+  max-width: 100%;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background-color: transparent !important;
+  background-image: none !important;
+  font-family: $font-family-base;
+  border-top: 1px solid rgba($white-color, 0.12);
+  z-index: 49;
+  position: relative;
+  box-sizing: border-box;
+
+  @media (max-width: 767px) {
+    display: none !important;
   }
 
+  // Inner full width como el hero: mismo breakout para que el primer nivel quede en una sola línea (Figma)
+  &__inner {
+    width: 100vw;
+    max-width: 100%;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding: 0 1rem;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  // Barra principal full width – primer nivel centrado en una sola línea (Figma)
   &__list {
     list-style: none;
     margin: 0;
     padding: 0.5rem 0;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0 0.25rem;
+    justify-content: center;
+    gap: 0 0.5rem;
+    min-width: 0;
   }
 
   &__item {
     display: inline-flex;
     align-items: center;
+    position: relative;
 
     &:not(:last-child)::after {
       content: '';
@@ -310,19 +687,211 @@ $header-link-underline-active: 3px;
       margin-left: 0.75rem;
       background-color: rgba($white-color, 0.4);
     }
+
+    &--has-dropdown {
+      &::after {
+        margin-left: 0.25rem;
+      }
+    }
   }
 
+  // Ítems principales: 13px (Figma Sub Menu); indicador activo = ancho del ítem (Videovigilancia, Energía, etc.)
   &__link {
     color: $white-color;
     text-decoration: none;
-    font-weight: $font-weight-regular;
-    font-size: 0.8125rem;
-    padding: 0.35rem 0.5rem;
+    font-weight: $font-weight-medium;
+    font-size: 13px;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    padding: 0.5rem 0.6rem;
     display: inline-block;
-    transition: color 0.2s ease;
+    position: relative;
+    transition: color 0.2s ease, background-color 0.2s ease;
+    border-radius: 2px;
+
+    &:hover {
+      color: rgba($white-color, 0.95);
+      background-color: rgba($white-color, 0.06);
+    }
+
+    &:focus {
+      outline: 2px solid $green-color;
+      outline-offset: 2px;
+    }
+
+    // Active status (Figma): barra del ancho del ítem bajo el texto, en lugar de border-top del dropdown
+    .centinela-submenu__item--has-dropdown:hover &::after,
+    .centinela-submenu__item--has-dropdown.is-active &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background-color: $green-color;
+    }
+  }
+
+  // Botón para abrir subcategorías (visible en móvil; en desktop opcional o oculto)
+  &__toggle {
+    display: none;
+    margin: 0;
+    padding: 0.25rem;
+    border: 0;
+    background: transparent;
+    color: $white-color;
+    cursor: pointer;
+    border-radius: 2px;
+    align-items: center;
+    justify-content: center;
 
     &:hover {
       color: rgba($white-color, 0.9);
+      background-color: rgba($white-color, 0.08);
+    }
+
+    &:focus {
+      outline: 2px solid $green-color;
+      outline-offset: 2px;
+    }
+
+    &[aria-expanded='true'] .centinela-submenu__toggle-icon {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__toggle-icon {
+    display: block;
+    transition: transform 0.2s ease;
+  }
+
+  // Contenedor de todos los dropdowns – pegado a la barra para verse integrado con el active
+  &__dropdown-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: -0.5rem;
+    padding: 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-12px);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  &.is-dropdown-open &__dropdown-wrap {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  // Panel de subcategorías – sin border-radius, pegado al active; padding horizontal para alinear título y grupos
+  &__dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    max-height: 65vh;
+    overflow-y: auto;
+    background-color: $white-color;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    padding: 1rem 1rem 1.25rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-12px);
+    transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.28s ease, transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  &__dropdown.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  // Subítems con animación en cascada (WiseGuard: cada ítem aparece uno tras otro)
+  &__dropdown.is-open &__subitem {
+    animation: centinela-submenu-item-in 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @for $i from 1 through 25 {
+    &__dropdown.is-open &__subitem:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.025}s;
+    }
+  }
+
+  // Título de categoría alineado con __groups (mismo padding horizontal del dropdown + max-width)
+  &__dropdown-title {
+    margin: 0 auto 0.75rem;
+    padding: 0 0 0.5rem;
+    max-width: 80rem;
+    color: $green-color;
+    font-size: 0.9375rem;
+    font-weight: $font-weight-bold;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    border-bottom: 1px solid rgba($grey-color, 0.15);
+    text-align: left;
+  }
+
+  // Contenedor de grupos (cada grupo = categoría nivel 2 con sus nivel 3, como Syscom)
+  &__groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0 1.5rem;
+    padding: 0 0 1rem;
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  &__group {
+    min-width: 0;
+  }
+
+  // Título del grupo (nivel 2: Accesorios Generales, Cámaras Analógicas y DVRs, etc.)
+  &__group-title {
+    margin: 0 0 0.5rem;
+    padding: 0 0 0.35rem;
+    color: $green-color;
+    font-size: 0.8125rem;
+    font-weight: $font-weight-bold;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    border-bottom: 1px solid rgba($grey-color, 0.12);
+  }
+
+  &__sublist {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0.5rem;
+    display: block;
+  }
+
+  &__subitem {
+    margin: 0;
+    opacity: 0;
+  }
+
+  // Subcategorías (Figma: texto oscuro sobre blanco)
+  &__sublink {
+    color: $grey-color;
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: $font-weight-regular;
+    line-height: 1.4;
+    padding: 0.4rem 0.5rem;
+    display: block;
+    transition: color 0.2s ease, background-color 0.2s ease;
+    border-radius: 2px;
+
+    &:hover {
+      color: $green-color;
+      background-color: rgba($green-color, 0.06);
     }
 
     &:focus {
@@ -331,22 +900,121 @@ $header-link-underline-active: 3px;
     }
   }
 
+  // Mobile: acordeón más compacto y menos disruptivo; alineación del título con grupos
   @media (max-width: 767px) {
     &__list {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      padding-bottom: 0.5rem;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0;
+      overflow: visible;
     }
 
-    &__item::after {
-      margin-left: 0.5rem;
+    &__item {
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba($white-color, 0.08);
+
+      &::after {
+        display: none;
+      }
+
+      &--has-dropdown {
+        flex-wrap: wrap;
+      }
     }
 
     &__link {
       white-space: nowrap;
-      font-size: 0.75rem;
+      font-size: 13px;
+      padding: 0.5rem 0.5rem;
+      flex: 1 1 auto;
+    }
+
+    &__toggle {
+      display: flex;
+      flex-shrink: 0;
+      padding: 0.4rem 0.5rem;
+    }
+
+    &__dropdown-wrap {
+      margin-top: 0;
+      padding: 0 0 0.25rem;
+    }
+
+    &__dropdown {
+      position: static;
+      opacity: 0;
+      visibility: hidden;
+      max-height: 0;
+      overflow: hidden;
+      padding: 0 1rem;
+      box-shadow: none;
+      transform: none;
+      transition: max-height 0.28s ease, opacity 0.2s ease;
+      background-color: rgba($white-color, 0.06);
+      border-radius: 4px;
+      margin: 0 0.5rem 0.25rem;
+      border: 1px solid rgba($white-color, 0.1);
+
+      &.is-open {
+        opacity: 1;
+        visibility: visible;
+        max-height: 50vh;
+        overflow-y: auto;
+        padding: 0.6rem 1rem 0.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+    }
+
+    &__dropdown-title {
+      color: $green-color;
+      border-bottom-color: rgba($grey-color, 0.2);
+      padding: 0 0 0.4rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    &__sublink {
+      color: $grey-color;
+      padding: 0.4rem 0.5rem;
+
+      &:hover {
+        color: $green-color;
+        background-color: rgba($green-color, 0.06);
+      }
+    }
+
+    &__item--has-dropdown:hover &__dropdown,
+    &__item--has-dropdown:focus-within &__dropdown {
+      opacity: 0;
+      visibility: hidden;
+      max-height: 0;
+    }
+
+    &__item--has-dropdown .centinela-submenu__dropdown.is-open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    &__groups {
+      grid-template-columns: 1fr;
+      gap: 0.5rem 0;
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: 0.25rem;
+    }
+
+    &__group-title {
+      font-size: 0.8125rem;
+    }
+
+    &__sublist {
+      padding-left: 0.5rem;
+      padding-bottom: 0.35rem;
+    }
+
+    &__sublink {
+      padding: 0.35rem 0;
+      font-size: 0.8125rem;
     }
   }
 }

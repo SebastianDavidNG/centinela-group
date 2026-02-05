@@ -113,6 +113,9 @@ __( 'Version' ) } ${ cellLinkProps.text }` } <Icon className="eicon-editor-exter
 
 		if ( withStatus ) {
 			headers.splice( 1, 0, 'Status' );
+__( 'Importing your content, templates and site settings', 'elementor' );
+__( 'This allows Elementor to scan your SVGs for malicious content. Otherwise, you can skip any SVGs in this import.', 'elementor' );
+__( 'Nothing to worry about, just continue without importing SVGs or go back and start the import again.', 'elementor' );
 __( 'Previous', 'elementor' );
 __( 'Next', 'elementor' );
 __( 'Learn More', 'elementor' );
@@ -121,9 +124,6 @@ __( 'Parts of this kit overlap with your site’s templates, design and settings
 __( 'Note:', 'elementor' );
 __( "Your site's homepage will be determined by the kit. You can change this later.", 'elementor' );
 __( 'Select the items you want to keep and apply:', 'elementor' );
-__( 'Importing your content, templates and site settings', 'elementor' );
-__( 'This allows Elementor to scan your SVGs for malicious content. Otherwise, you can skip any SVGs in this import.', 'elementor' );
-__( 'Nothing to worry about, just continue without importing SVGs or go back and start the import again.', 'elementor' );
 __( 'Activating plugins:', 'elementor' );
 __( 'Select which plugins to include', 'elementor' );
 __( 'All items are already selected by default. Uncheck the ones you don\'t want.', 'elementor' );
@@ -138,12 +138,9 @@ __( 'Heads up!', 'elementor' );
 __( 'Before applying a new template, we recommend backing up your site so you can roll back any undesired changes.', 'elementor' );
 __( 'Choose a file to import', 'elementor' );
 __( 'Drag & drop the .zip file with your website template', 'elementor' );
-__( 'Import from files' ) }
-						/>
-
-						{ dialog.isOpen &&
-							<Dialog
-								title={ __( 'Warning: JSON or ZIP files may be unsafe', 'elementor' );
+__( 'Or', 'elementor' );
+__( 'Import from files', 'elementor' );
+__( 'Warning: JSON or ZIP files may be unsafe', 'elementor' );
 __( 'Uploading JSON or ZIP files from unknown sources can be harmful and put your site at risk. For maximum safety, upload only JSON or ZIP files from trusted sources.', 'elementor' );
 __( 'Continue', 'elementor' );
 __( 'Cancel', 'elementor' );
@@ -197,6 +194,8 @@ __( 'Go Back', 'elementor' );
 __( 'Required plugins are still missing.', 'elementor' );
 __( "If you don't include them, this kit may not work properly.", 'elementor' );
 __( 'Go Back', 'elementor' );
+__( 'See It Live', 'elementor' );
+__( 'Got It', 'elementor' );
 __( 'Learn more', 'elementor' );
 __( 'Important:', 'elementor' );
 __( "There are few plugins that we couldn't install:", 'elementor' );
@@ -208,8 +207,6 @@ __( 'Save to library', 'elementor' );
 __( 'Save to library', 'elementor' );
 __( 'Back', 'elementor' );
 __( 'Export as .zip', 'elementor' );
-__( 'See It Live', 'elementor' );
-__( 'Got It', 'elementor' );
 __( 'Must add a name', 'elementor' );
 __( 'Name', 'elementor' );
 __( 'Type name here...', 'elementor' );

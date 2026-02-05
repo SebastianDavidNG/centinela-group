@@ -28,6 +28,20 @@ $hero-offset-top: 10rem; // ~160px (header 110px + submenu)
   padding-block-start: 0 !important;
 }
 
+// En el editor de Elementor: que el widget Hero Slider sea visible (estilos y altura)
+.elementor-widget-centinela_hero_slider {
+  .centinela-hero {
+    display: block;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .centinela-hero__swiper,
+  .centinela-hero__track,
+  .centinela-hero__slide {
+    min-height: inherit;
+  }
+}
+
 .centinela-hero {
   position: relative;
   width: 100vw;

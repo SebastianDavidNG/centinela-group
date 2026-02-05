@@ -37,7 +37,7 @@ class Centinela_Hero_Slider_Widget extends \Elementor\Widget_Base {
 	}
 
 	public function get_style_depends() {
-		return array( 'swiper' );
+		return array( 'swiper', 'centinela-theme-scss' );
 	}
 
 	protected function register_controls() {
