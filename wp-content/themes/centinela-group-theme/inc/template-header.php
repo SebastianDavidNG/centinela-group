@@ -46,6 +46,36 @@ function centinela_theme_default_header() {
 				?>
 			</nav>
 			<div class="centinela-header__actions">
+				<div class="centinela-header__action-wrap centinela-header__cart-wrap">
+					<a href="<?php echo esc_url( home_url( '/tienda/' ) ); ?>" class="centinela-header__icon-btn centinela-header__cart-btn" aria-label="<?php esc_attr_e( 'Carrito', 'centinela-group-theme' ); ?>">
+						<svg class="centinela-header__icon-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+						<span class="centinela-header__cart-count" id="centinela-header-cart-count" data-count="0">0</span>
+					</a>
+					<div class="centinela-header__dropdown centinela-header__cart-dropdown" aria-hidden="true">
+						<div class="centinela-header__dropdown-inner">
+							<h3 class="centinela-header__dropdown-title"><?php esc_html_e( 'Tu carrito', 'centinela-group-theme' ); ?> <span id="centinela-cart-dropdown-count">(0 <?php esc_html_e( 'productos', 'centinela-group-theme' ); ?>)</span></h3>
+							<p class="centinela-header__cart-empty"><?php esc_html_e( 'Tu carrito está vacío.', 'centinela-group-theme' ); ?></p>
+							<a href="<?php echo esc_url( home_url( '/tienda/' ) ); ?>" class="centinela-header__dropdown-cta"><?php esc_html_e( 'Ir a la tienda', 'centinela-group-theme' ); ?></a>
+						</div>
+					</div>
+				</div>
+				<div class="centinela-header__action-wrap centinela-header__account-wrap">
+					<a href="<?php echo esc_url( wp_login_url() ); ?>" class="centinela-header__icon-btn centinela-header__account-btn" aria-label="<?php esc_attr_e( 'Cuenta', 'centinela-group-theme' ); ?>">
+						<svg class="centinela-header__icon-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+					</a>
+					<div class="centinela-header__dropdown centinela-header__account-dropdown" aria-hidden="true">
+						<div class="centinela-header__dropdown-inner">
+							<?php if ( is_user_logged_in() ) : ?>
+								<a href="<?php echo esc_url( get_edit_user_link() ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Mi cuenta', 'centinela-group-theme' ); ?></a>
+								<a href="<?php echo esc_url( wp_logout_url( get_permalink() ) ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Cerrar sesión', 'centinela-group-theme' ); ?></a>
+							<?php else : ?>
+								<p class="centinela-header__dropdown-label"><?php esc_html_e( 'Iniciar sesión', 'centinela-group-theme' ); ?></p>
+								<a href="<?php echo esc_url( wp_login_url() ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Entrar', 'centinela-group-theme' ); ?></a>
+								<a href="<?php echo esc_url( wp_registration_url() ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Crear cuenta', 'centinela-group-theme' ); ?></a>
+							<?php endif; ?>
+						</div>
+					</div>
+				</div>
 				<a href="#pedir-cotizacion" class="centinela-header__cta centinela-header__cta--desktop">
 					<span class="centinela-header__cta-text"><?php esc_html_e( 'Pedir cotización', 'centinela-group-theme' ); ?></span>
 					<svg class="centinela-header__cta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

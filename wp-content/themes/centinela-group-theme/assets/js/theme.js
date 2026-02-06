@@ -253,4 +253,31 @@
       lastDesktop = nowDesktop;
     });
   }
+
+  // Carrito / cotización: mostrar cantidad en el header (desde localStorage)
+  function updateCartCountDisplay() {
+    var count = 0;
+    try {
+      var stored = localStorage.getItem('centinela_cotizacion_ids');
+      if (stored) {
+        var ids = JSON.parse(stored);
+        count = Array.isArray(ids) ? ids.length : 0;
+      }
+    } catch (e) {}
+    var badge = document.getElementById('centinela-header-cart-count');
+    var dropdownText = document.getElementById('centinela-cart-dropdown-count');
+    if (badge) {
+      badge.textContent = String(count);
+      badge.setAttribute('data-count', count);
+    }
+    if (dropdownText) {
+      dropdownText.textContent = count === 1 ? '(1 producto)' : '(' + count + ' productos)';
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateCartCountDisplay);
+  } else {
+    updateCartCountDisplay();
+  }
+  window.centinelaUpdateCartCount = updateCartCountDisplay;
 })();

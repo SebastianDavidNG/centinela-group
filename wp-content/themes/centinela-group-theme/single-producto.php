@@ -39,8 +39,7 @@ if ( is_wp_error( $relacionados ) ) {
 $precios   = isset( $producto['precios'] ) && is_array( $producto['precios'] ) ? $producto['precios'] : array();
 $precio_esp = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_descuento'] ) ? $precios['precio_descuento'] : '' );
 $precio_lista = isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
-$imagenes  = isset( $producto['imagenes'] ) && is_array( $producto['imagenes'] ) ? $producto['imagenes'] : array();
-$img_portada = isset( $producto['img_portada'] ) ? trim( $producto['img_portada'] ) : '';
+$producto_imagenes = function_exists( 'centinela_get_producto_imagenes' ) ? centinela_get_producto_imagenes( $producto ) : array();
 $caracteristicas = isset( $producto['caracteristicas'] ) && is_array( $producto['caracteristicas'] ) ? $producto['caracteristicas'] : array();
 $categorias = isset( $producto['categorías'] ) ? $producto['categorías'] : ( isset( $producto['categorias'] ) ? $producto['categorias'] : array() );
 if ( ! is_array( $categorias ) ) {
@@ -64,35 +63,27 @@ get_header();
 
 	<div class="centinela-single-producto__inner max-w-7xl mx-auto px-4 py-6 md:py-10">
 		<div class="centinela-single-producto__grid grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-			<!-- Galería -->
+			<!-- Galería: todas las imágenes (portada + galería API), imagen principal en 1000x1000 cuando exista -->
 			<div class="centinela-single-producto__gallery">
-				<?php if ( $img_portada || ! empty( $imagenes ) ) : ?>
+				<?php if ( ! empty( $producto_imagenes ) ) : ?>
+					<?php
+					$first = $producto_imagenes[0];
+					$main_src = $first['url_large'] ?: $first['url'];
+					?>
 					<div class="centinela-single-producto__main-image mb-4 rounded-lg overflow-hidden bg-gray-100">
-						<?php
-						$src = $img_portada;
-						if ( ! $src && ! empty( $imagenes ) ) {
-							$first = isset( $imagenes[0]['url'] ) ? $imagenes[0]['url'] : ( is_string( $imagenes[0] ) ? $imagenes[0] : '' );
-							$src  = $first;
-						}
-						if ( $src ) :
-							?>
-							<img src="<?php echo esc_url( $src ); ?>" alt="<?php echo esc_attr( $producto['titulo'] ); ?>" class="w-full h-auto object-contain centinela-single-producto__img" loading="eager" />
-						<?php else : ?>
-							<div class="aspect-square flex items-center justify-center text-gray-400"><?php esc_html_e( 'Sin imagen', 'centinela-group-theme' ); ?></div>
-						<?php endif; ?>
+						<img src="<?php echo esc_url( $main_src ); ?>" alt="<?php echo esc_attr( $producto['titulo'] ); ?>" class="w-full h-auto object-contain centinela-single-producto__img" loading="eager" data-src-large="<?php echo esc_attr( $main_src ); ?>" />
 					</div>
-					<?php if ( count( $imagenes ) > 1 ) : ?>
-						<div class="centinela-single-producto__thumbs flex flex-wrap gap-2">
-							<?php foreach ( array_slice( $imagenes, 0, 6 ) as $img ) :
-								$url = isset( $img['url'] ) ? $img['url'] : ( is_string( $img ) ? $img : '' );
-								if ( ! $url ) continue;
-								?>
-								<button type="button" class="centinela-single-producto__thumb w-16 h-16 rounded border-2 border-gray-200 overflow-hidden focus:border-green-500 focus:outline-none" data-src="<?php echo esc_url( $url ); ?>">
-									<img src="<?php echo esc_url( $url ); ?>" alt="" class="w-full h-full object-cover" loading="lazy" />
-								</button>
-							<?php endforeach; ?>
-						</div>
-					<?php endif; ?>
+					<div class="centinela-single-producto__thumbs flex flex-wrap gap-2">
+						<?php foreach ( array_slice( $producto_imagenes, 0, 12 ) as $idx => $img_item ) :
+							$thumb_url = $img_item['url'];
+							$large_url = $img_item['url_large'] ?: $thumb_url;
+							$is_first = ( $idx === 0 );
+							?>
+							<button type="button" class="centinela-single-producto__thumb w-16 h-16 rounded border-2 overflow-hidden focus:border-green-500 focus:outline-none <?php echo $is_first ? ' border-green-500' : ' border-gray-200'; ?>" data-src="<?php echo esc_url( $large_url ); ?>">
+								<img src="<?php echo esc_url( $thumb_url ); ?>" alt="" class="w-full h-full object-cover" loading="lazy" />
+							</button>
+						<?php endforeach; ?>
+					</div>
 				<?php else : ?>
 					<div class="centinela-single-producto__main-image aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
 						<?php esc_html_e( 'Sin imagen', 'centinela-group-theme' ); ?>
@@ -225,7 +216,12 @@ get_header();
 	thumbs.forEach(function(btn) {
 		btn.addEventListener('click', function() {
 			var src = btn.getAttribute('data-src');
-			if (src && mainImg) mainImg.src = src;
+			if (src && mainImg) {
+				mainImg.src = src;
+				if (mainImg.dataset) mainImg.dataset.srcLarge = src;
+			}
+			thumbs.forEach(function(t){ t.classList.remove('border-green-500'); t.classList.add('border-gray-200'); });
+			btn.classList.add('border-green-500'); btn.classList.remove('border-gray-200');
 		});
 	});
 	var tabs = document.querySelectorAll('.centinela-single-producto__tab');

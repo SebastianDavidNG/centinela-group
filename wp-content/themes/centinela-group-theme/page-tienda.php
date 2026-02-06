@@ -19,6 +19,13 @@ wp_enqueue_script(
 	defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0',
 	true
 );
+wp_enqueue_script(
+	'centinela-tienda-quickview',
+	get_template_directory_uri() . '/assets/js/tienda-quickview.js',
+	array( 'centinela-tienda-ajax' ),
+	defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0',
+	true
+);
 
 get_header();
 
@@ -173,6 +180,40 @@ rewind_posts();
 				?>
 			</div>
 		</main>
+	</div>
+
+	<!-- Modal Vista rápida (estilo CozyCorner) -->
+	<div id="centinela-quickview-modal" class="centinela-quickview" role="dialog" aria-modal="true" aria-labelledby="centinela-quickview-title" aria-hidden="true">
+		<div class="centinela-quickview__backdrop" data-close-quickview></div>
+		<div class="centinela-quickview__box">
+			<button type="button" class="centinela-quickview__close" aria-label="<?php esc_attr_e( 'Cerrar', 'centinela-group-theme' ); ?>" data-close-quickview></button>
+			<div class="centinela-quickview__inner">
+				<div class="centinela-quickview__gallery">
+					<div class="centinela-quickview__thumbs" id="centinela-quickview-thumbs"></div>
+					<div class="centinela-quickview__main-wrap">
+						<div class="centinela-quickview__main-image" id="centinela-quickview-main-area">
+							<img src="" alt="" id="centinela-quickview-img" />
+						</div>
+						<div class="centinela-quickview__zoom-panel" id="centinela-quickview-zoom" aria-hidden="true"></div>
+					</div>
+				</div>
+				<div class="centinela-quickview__info">
+					<p id="centinela-quickview-categoria" class="centinela-quickview__categoria"></p>
+					<h2 id="centinela-quickview-title" class="centinela-quickview__title"></h2>
+					<p id="centinela-quickview-price" class="centinela-quickview__price"></p>
+					<div class="centinela-quickview__cart-row">
+						<label for="centinela-quickview-qty" class="centinela-quickview__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
+						<input type="number" id="centinela-quickview-qty" class="centinela-quickview__qty" min="1" value="1" />
+						<button type="button" id="centinela-quickview-addcart" class="centinela-quickview__btn centinela-quickview__btn--primary"><?php esc_html_e( 'Agregar al carrito', 'centinela-group-theme' ); ?></button>
+					</div>
+					<p id="centinela-quickview-modelo" class="centinela-quickview__meta"></p>
+					<p id="centinela-quickview-marca" class="centinela-quickview__meta"></p>
+					<div class="centinela-quickview__actions">
+						<a href="#" id="centinela-quickview-link" class="centinela-quickview__btn centinela-quickview__btn--secondary"><?php esc_html_e( 'Ver producto', 'centinela-group-theme' ); ?></a>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
 

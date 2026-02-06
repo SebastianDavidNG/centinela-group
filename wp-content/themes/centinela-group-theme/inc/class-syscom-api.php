@@ -564,7 +564,14 @@ class Centinela_Syscom_API {
 			$msg = is_array( $data ) && isset( $data['message'] ) ? $data['message'] : $body;
 			return new WP_Error( 'centinela_syscom', sprintf( __( 'Error al obtener producto Syscom: %s', 'centinela-group-theme' ), $msg ) );
 		}
-		return is_array( $data ) ? $data : new WP_Error( 'centinela_syscom', __( 'Respuesta inválida de producto.', 'centinela-group-theme' ) );
+		if ( ! is_array( $data ) ) {
+			return new WP_Error( 'centinela_syscom', __( 'Respuesta inválida de producto.', 'centinela-group-theme' ) );
+		}
+		// Algunas APIs envuelven el producto en "data"
+		if ( isset( $data['data'] ) && is_array( $data['data'] ) ) {
+			$data = $data['data'];
+		}
+		return $data;
 	}
 
 	/**

@@ -19,3 +19,9 @@
   --centinela-black:  #{$black-color};
   --centinela-font:   #{$font-family-base};
 }
+
+// Botones del tema: sin bordes redondeados (border-radius: 0). Usar .centinela-btn en botones nuevos.
+.centinela-btn,
+.centinela-quickview__btn {
+  border-radius: 0;
+}

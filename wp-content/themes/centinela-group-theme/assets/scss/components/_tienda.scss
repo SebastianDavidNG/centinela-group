@@ -329,26 +329,139 @@ $centinela-expand-duration: 0.35s;
   }
 }
 
-.centinela-tienda__card-link {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-}
-
-.centinela-tienda__card-image {
+// Contenedor de imagen con wishlist y overlay (estilo CozyCorner)
+.centinela-tienda__card-image-wrap {
   position: relative;
   aspect-ratio: 1;
   background: #f1f3f5;
+}
+
+.centinela-tienda__card-link.centinela-tienda__card-image {
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: absolute;
+  inset: 0;
+  text-decoration: none;
+  color: inherit;
 
   img {
     width: 100%;
     height: 100%;
     object-fit: contain;
     padding: 0.75rem;
+    transition: transform 0.35s ease;
+  }
+
+  &:hover img {
+    transform: scale(1.05);
+  }
+}
+
+.centinela-tienda__wishlist {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: $white-color;
+  color: $grey-color;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s, transform 0.2s;
+
+  &:hover {
+    color: #e63946;
+    background: $white-color;
+  }
+
+  &--active {
+    color: #e63946;
+    fill: #e63946;
+  }
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.centinela-tienda__card-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.centinela-tienda__card:hover .centinela-tienda__card-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.centinela-tienda__quickview-btn,
+.centinela-tienda__add-cart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 10rem;
+  height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  text-align: center;
+  border-radius: 0;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  border: 2px solid transparent;
+}
+
+.centinela-tienda__overlay-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.centinela-tienda__quickview-btn {
+  background: $white-color;
+  color: $blue-color;
+  border-color: $white-color;
+  cursor: pointer;
+
+  &:hover {
+    background: $green-color;
+    color: $white-color;
+    border-color: $green-color;
+  }
+}
+
+.centinela-tienda__add-cart {
+  background: $green-color;
+  color: $white-color;
+  border-color: $green-color;
+  text-decoration: none;
+
+  &:hover {
+    background: color.adjust($green-color, $lightness: -8%);
+    border-color: color.adjust($green-color, $lightness: -8%);
+    color: $white-color;
   }
 }
 
@@ -367,11 +480,20 @@ $centinela-expand-duration: 0.35s;
   font-size: 0.9375rem;
   font-weight: $font-weight-medium;
   line-height: 1.35;
-  color: $blue-color;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+
+  a {
+    color: $blue-color;
+    text-decoration: none;
+    transition: color 0.2s;
+
+    &:hover {
+      color: $green-color;
+    }
+  }
 }
 
 .centinela-tienda__card-price {
@@ -417,8 +539,335 @@ $centinela-expand-duration: 0.35s;
     color: $white-color;
 
     &:hover {
-    background: color.adjust($green-color, $lightness: -6%);
-    border-color: color.adjust($green-color, $lightness: -6%);
+      background: color.adjust($green-color, $lightness: -6%);
+      border-color: color.adjust($green-color, $lightness: -6%);
+      color: $white-color;
+    }
+  }
+}
+
+// =============================================================================
+// Modal Vista rápida (estilo CozyCorner – tamaño y aspecto como referencia)
+// =============================================================================
+.centinela-quickview {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0.3s, opacity 0.3s;
+
+  &--open {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+.centinela-quickview__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.centinela-quickview__box {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  background: $white-color;
+  border-radius: 5px;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.96);
+  transition: transform 0.3s ease;
+}
+
+.centinela-quickview--open .centinela-quickview__box {
+  transform: scale(1);
+}
+
+.centinela-quickview__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: $white-color;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 1.25rem;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+  }
+  &::before { transform: rotate(45deg); }
+  &::after { transform: rotate(-45deg); }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+}
+
+.centinela-quickview__inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  padding: 2rem 2.25rem;
+  overflow-y: auto;
+  max-height: 85vh;
+
+  @media (max-width: 767px) {
+    grid-template-columns: 1fr;
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+}
+
+.centinela-quickview__gallery {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  min-width: 0;
+
+  @media (max-width: 767px) {
+    flex-direction: column;
+  }
+}
+
+.centinela-quickview__thumbs {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  flex-shrink: 0;
+
+  @media (max-width: 767px) {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.centinela-quickview__thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #f1f3f5;
+  transition: border-color 0.2s;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  &--active,
+  &:hover {
+    border-color: $green-color;
+  }
+}
+
+.centinela-quickview__main-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 1;
+  min-height: 320px;
+
+  @media (min-width: 768px) {
+    min-height: 400px;
+  }
+}
+
+.centinela-quickview__main-image {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 320px;
+  background: #f5f6f8;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: crosshair;
+  transition: opacity 0.28s ease;
+
+  &--fade {
+    opacity: 0;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  @media (min-width: 768px) {
+    min-height: 400px;
+  }
+}
+
+// Panel de zoom (estilo CozyCorner / Porto): ancho completo para la zona ampliada al pasar el ratón
+.centinela-quickview__zoom-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #fff;
+  background-repeat: no-repeat;
+  background-size: 1000px 1000px;
+  border-left: 1px solid #e8eaed;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+
+  &--visible {
+    opacity: 1;
+  }
+}
+
+.centinela-quickview__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.centinela-quickview__categoria {
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  color: $grey-color;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.centinela-quickview__title {
+  margin: 0 0 0.6rem;
+  font-size: 1.35rem;
+  font-weight: $font-weight-bold;
+  color: $blue-color;
+  line-height: 1.35;
+}
+
+.centinela-quickview__price {
+  margin: 0 0 1.25rem;
+  font-size: 1.375rem;
+  font-weight: $font-weight-bold;
+  color: $green-color;
+}
+
+.centinela-quickview__cart-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.centinela-quickview__qty-label {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  color: $grey-color;
+}
+
+.centinela-quickview__qty {
+  width: 4.5rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 1rem;
+  border: 2px solid #e0e2e6;
+  border-radius: 8px;
+  text-align: center;
+  transition: border-color 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: $green-color;
+  }
+}
+
+.centinela-quickview__meta {
+  margin: 0 0 0.35rem;
+  font-size: 0.875rem;
+  color: $grey-color;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.centinela-quickview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.centinela-quickview__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 10rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  text-decoration: none;
+  border-radius: $button-border-radius;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+  &--primary {
+    background: $green-color;
+    color: $white-color;
+    border: 2px solid $green-color;
+
+    &:hover {
+      background: color.adjust($green-color, $lightness: -8%);
+      border-color: color.adjust($green-color, $lightness: -8%);
+      color: $white-color;
+    }
+  }
+
+  &--secondary {
+    background: transparent;
+    color: $blue-color;
+    border: 2px solid $blue-color;
+
+    &:hover {
+      background: $blue-color;
       color: $white-color;
     }
   }

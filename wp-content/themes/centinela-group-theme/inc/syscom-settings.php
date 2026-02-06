@@ -167,6 +167,8 @@ function centinela_syscom_options_page_render() {
 				$total_n2,
 				$total_n3
 			) . '</p></div>';
+			echo '<p style="margin: 0.5rem 0 1rem;"><a href="' . esc_url( home_url( '/' ) ) . '" target="_blank" rel="noopener" class="button button-primary">' . esc_html__( 'Ver submenú en el sitio', 'centinela-group-theme' ) . '</a> ';
+			echo '<a href="' . esc_url( home_url( '/tienda/' ) ) . '" target="_blank" rel="noopener" class="button">' . esc_html__( 'Ir a Tienda', 'centinela-group-theme' ) . '</a></p>';
 			echo '<table class="widefat striped" style="max-width: 900px;"><thead><tr><th>' . esc_html__( 'Categoría (nivel 1)', 'centinela-group-theme' ) . '</th><th>' . esc_html__( 'Grupos (nivel 2) e ítems (nivel 3)', 'centinela-group-theme' ) . '</th></tr></thead><tbody>';
 			foreach ( $arbol as $cat ) {
 				$hijos = isset( $cat['hijos'] ) ? $cat['hijos'] : array();

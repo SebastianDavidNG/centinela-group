@@ -112,6 +112,127 @@ $header-link-underline-active: 3px;
     flex-shrink: 0;
   }
 
+  // Contenedor de icono + dropdown (carrito, cuenta) – estilo CozyCorner
+  &__action-wrap {
+    position: relative;
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    color: $white-color;
+    text-decoration: none;
+    transition: color 0.2s, opacity 0.2s;
+
+    &:hover {
+      color: rgba($white-color, 0.9);
+    }
+  }
+
+  &__icon-svg {
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+
+  &__cart-count {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: $font-weight-bold;
+    line-height: 1.125rem;
+    text-align: center;
+    color: $blue-color;
+    background: $white-color;
+    border-radius: 50%;
+  }
+
+  &__dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    min-width: 16rem;
+    background: $white-color;
+    color: $blue-color;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 0.2s ease, visibility 0.2s, transform 0.2s;
+    z-index: 100;
+    border-radius: 0;
+  }
+
+  &__action-wrap:hover &__dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  &__dropdown-inner {
+    padding: 1.25rem;
+  }
+
+  &__dropdown-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: $font-weight-bold;
+    color: $blue-color;
+  }
+
+  &__dropdown-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    color: $grey-color;
+  }
+
+  &__cart-empty {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    color: $grey-color;
+  }
+
+  &__dropdown-cta {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: $font-weight-medium;
+    color: $white-color;
+    background: $green-color;
+    text-decoration: none;
+    border-radius: 0;
+    transition: background 0.2s;
+
+    &:hover {
+      background: color.adjust($green-color, $lightness: -8%);
+      color: $white-color;
+    }
+  }
+
+  &__dropdown-link {
+    display: block;
+    padding: 0.5rem 0;
+    font-size: 0.9375rem;
+    color: $blue-color;
+    text-decoration: none;
+    transition: color 0.2s;
+
+    &:hover {
+      color: $green-color;
+    }
+
+    & + & {
+      border-top: 1px solid #eee;
+    }
+  }
+
   &__search {
     display: inline-flex;
     align-items: center;
@@ -711,7 +832,12 @@ $header-link-underline-active: 3px;
 
     &:hover {
       color: rgba($white-color, 0.95);
-      background-color: rgba($white-color, 0.06);
+      background-color: #34495e;
+    }
+
+    // Figma: ítem seleccionado / activo = mismo bloque slate (#34495e)
+    .centinela-submenu__item--has-dropdown.is-active & {
+      background-color: #34495e;
     }
 
     &:focus {
