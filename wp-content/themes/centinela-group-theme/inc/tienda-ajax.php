@@ -62,7 +62,7 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 				$img    = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
 				$precios = isset( $prod['precios'] ) && is_array( $prod['precios'] ) ? $prod['precios'] : array();
 				$precio = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
-				$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid ) : home_url( '/producto/' . $pid . '/' );
+				$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid, $titulo ) : home_url( '/tienda/producto/' . $pid . '/' );
 				?>
 				<article class="centinela-tienda__card" data-product-id="<?php echo esc_attr( $pid ); ?>">
 					<div class="centinela-tienda__card-image-wrap">
@@ -323,7 +323,7 @@ function centinela_tienda_quickview_route() {
 			$precio_lista = isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
 			$precio_raw  = $precio_esp ?: $precio_lista;
 			$precio_raw  = is_string( $precio_raw ) ? preg_replace( '/\s*COP\s*$/i', '', trim( $precio_raw ) ) : $precio_raw;
-			$url         = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $id ) : home_url( '/producto/' . $id . '/' );
+			$url         = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $id, isset( $producto['titulo'] ) ? $producto['titulo'] : '' ) : home_url( '/tienda/producto/' . $id . '/' );
 			$categorias  = isset( $producto['categorías'] ) ? $producto['categorías'] : ( isset( $producto['categorias'] ) ? $producto['categorias'] : array() );
 			$categoria   = '';
 			if ( is_array( $categorias ) && ! empty( $categorias ) ) {
@@ -359,3 +359,584 @@ function centinela_tienda_quickview_route() {
 	) );
 }
 add_action( 'rest_api_init', 'centinela_tienda_quickview_route' );
+
+/**
+ * Extrae secciones (características por grupo) y videos de un producto para mostrarlos estilo Syscom (3 columnas + videos).
+ *
+ * @param array $producto Producto tal como lo devuelve Centinela_Syscom_API::get_producto().
+ * @return array { 'videos' => [ ['url' => '', 'titulo' => ''], ... ], 'secciones' => [ ['titulo' => '', 'items' => [] o 'html' => ''], ... ] }
+ */
+function centinela_producto_secciones_y_videos( $producto ) {
+	$videos    = array();
+	$secciones = array();
+
+	if ( ! is_array( $producto ) ) {
+		return array( 'videos' => $videos, 'secciones' => $secciones );
+	}
+
+	// --- Videos: producto['videos'], producto['video'], producto['recursos'] ---
+	if ( isset( $producto['videos'] ) && is_array( $producto['videos'] ) ) {
+		foreach ( $producto['videos'] as $v ) {
+			$url = is_array( $v ) ? ( isset( $v['url'] ) ? $v['url'] : ( isset( $v['src'] ) ? $v['src'] : '' ) ) : ( is_string( $v ) ? $v : '' );
+			$url = trim( (string) $url );
+			if ( $url !== '' ) {
+				$titulo = is_array( $v ) && isset( $v['titulo'] ) ? $v['titulo'] : ( isset( $v['title'] ) ? $v['title'] : '' );
+				$videos[] = array( 'url' => $url, 'titulo' => trim( (string) $titulo ) );
+			}
+		}
+	}
+	if ( empty( $videos ) && ! empty( $producto['video'] ) ) {
+		$url = is_array( $producto['video'] ) ? ( $producto['video']['url'] ?? $producto['video']['src'] ?? '' ) : (string) $producto['video'];
+		if ( trim( $url ) !== '' ) {
+			$videos[] = array( 'url' => trim( $url ), 'titulo' => '' );
+		}
+	}
+	if ( empty( $videos ) && isset( $producto['recursos'] ) && is_array( $producto['recursos'] ) ) {
+		foreach ( $producto['recursos'] as $r ) {
+			$tipo = is_array( $r ) ? ( $r['tipo'] ?? $r['type'] ?? '' ) : '';
+			if ( stripos( (string) $tipo, 'video' ) !== false ) {
+				$url = is_array( $r ) ? ( $r['url'] ?? $r['src'] ?? $r['enlace'] ?? '' ) : (string) $r;
+				$url = trim( (string) $url );
+				if ( $url !== '' ) {
+					$titulo = is_array( $r ) ? ( $r['titulo'] ?? $r['title'] ?? '' ) : '';
+					$videos[] = array( 'url' => $url, 'titulo' => trim( (string) $titulo ) );
+				}
+			}
+		}
+	}
+
+	// --- Secciones: API puede devolver secciones, especificaciones o caracteristicas agrupadas ---
+	if ( isset( $producto['secciones'] ) && is_array( $producto['secciones'] ) ) {
+		foreach ( $producto['secciones'] as $sec ) {
+			if ( ! is_array( $sec ) ) {
+				continue;
+			}
+			$titulo = isset( $sec['titulo'] ) ? $sec['titulo'] : ( isset( $sec['nombre'] ) ? $sec['nombre'] : ( isset( $sec['title'] ) ? $sec['title'] : '' ) );
+			$titulo = trim( (string) $titulo );
+			if ( isset( $sec['items'] ) && is_array( $sec['items'] ) ) {
+				$secciones[] = array( 'titulo' => $titulo, 'items' => $sec['items'] );
+			} elseif ( isset( $sec['html'] ) && (string) $sec['html'] !== '' ) {
+				$secciones[] = array( 'titulo' => $titulo, 'html' => $sec['html'] );
+			} elseif ( isset( $sec['contenido'] ) ) {
+				$secciones[] = array( 'titulo' => $titulo, 'html' => (string) $sec['contenido'] );
+			}
+		}
+	}
+	if ( empty( $secciones ) && isset( $producto['especificaciones'] ) && is_array( $producto['especificaciones'] ) ) {
+		foreach ( $producto['especificaciones'] as $sec ) {
+			if ( ! is_array( $sec ) ) {
+				continue;
+			}
+			$titulo = isset( $sec['titulo'] ) ? $sec['titulo'] : ( isset( $sec['nombre'] ) ? $sec['nombre'] : '' );
+			$titulo = trim( (string) $titulo );
+			if ( isset( $sec['items'] ) && is_array( $sec['items'] ) ) {
+				$secciones[] = array( 'titulo' => $titulo, 'items' => $sec['items'] );
+			}
+		}
+	}
+	// caracteristicas como objeto: { "Título sección": [ "item1", "item2" ], ... }
+	if ( empty( $secciones ) && isset( $producto['caracteristicas'] ) && is_array( $producto['caracteristicas'] ) ) {
+		$first_key = array_key_first( $producto['caracteristicas'] );
+		if ( $first_key !== null && ! is_int( $first_key ) ) {
+			foreach ( $producto['caracteristicas'] as $titulo => $items ) {
+				$titulo = trim( (string) $titulo );
+				$list   = is_array( $items ) ? $items : ( $items !== '' ? array( $items ) : array() );
+				$secciones[] = array( 'titulo' => $titulo, 'items' => $list );
+			}
+		}
+	}
+	// Parsear descripcion HTML o texto con **Título:** y listas
+	if ( empty( $secciones ) && ! empty( $producto['descripcion'] ) ) {
+		$desc    = $producto['descripcion'];
+		$is_html = preg_match( '/<(h[2-4]|ul|li|p)\b/i', $desc );
+		if ( $is_html ) {
+			// Dividir por inicio de <h2>, <h3> o <h4> y extraer título + contenido hasta el siguiente heading
+			$chunks = preg_split( '/(?=<\s*h[2-4]\s[^>]*>)/i', $desc );
+			foreach ( $chunks as $chunk ) {
+				$chunk = trim( $chunk );
+				if ( $chunk === '' ) {
+					continue;
+				}
+				if ( preg_match( '/<\s*h[2-4]\s[^>]*>([^<]*)<\s*\/\s*h[2-4]\s*>/is', $chunk, $m ) ) {
+					$titulo = trim( wp_strip_all_tags( $m[1] ) );
+					$rest   = trim( substr( $chunk, strlen( $m[0] ) ) );
+					$secciones[] = array( 'titulo' => $titulo, 'html' => $rest !== '' ? $rest : '' );
+				} elseif ( trim( wp_strip_all_tags( $chunk ) ) !== '' ) {
+					$secciones[] = array( 'titulo' => _x( 'Descripción', 'producto', 'centinela-group-theme' ), 'html' => $chunk );
+				}
+			}
+			// Si no hubo headings h2/h3/h4, intentar dividir por <strong>...</strong> o <b>...</b> (estilo Syscom)
+			if ( empty( $secciones ) && preg_match( '/<(?:strong|b)\b[^>]*>/i', $desc ) ) {
+				$chunks = preg_split( '/<(?:strong|b)\s[^>]*>([^<]*)<\s*\/(?:strong|b)\s*>\s*:?\s*/i', $desc, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
+				$i = 0;
+				while ( $i < count( $chunks ) ) {
+					$titulo = trim( wp_strip_all_tags( $chunks[ $i ] ) );
+					$i++;
+					$content = isset( $chunks[ $i ] ) ? trim( $chunks[ $i ] ) : '';
+					$i++;
+					if ( $titulo !== '' && $content !== '' ) {
+						$secciones[] = array( 'titulo' => $titulo, 'html' => $content );
+					}
+				}
+			}
+			if ( empty( $secciones ) && trim( $desc ) !== '' ) {
+				$secciones[] = array( 'titulo' => _x( 'Descripción', 'producto', 'centinela-group-theme' ), 'html' => $desc );
+			}
+		} else {
+			// Texto plano: dividir por **Título:** o **Título**
+			$blocks = preg_split( '/\*\*([^*]+)\*\*\s*:?\s*/', $desc, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
+			$i = 0;
+			while ( $i < count( $blocks ) ) {
+				$titulo = trim( $blocks[ $i ] );
+				$i++;
+				$content = isset( $blocks[ $i ] ) ? trim( $blocks[ $i ] ) : '';
+				$i++;
+				$items = array();
+				foreach ( preg_split( '/\r\n|\n|\r/', $content ) as $line ) {
+					$line = trim( $line );
+					if ( $line === '' ) {
+						continue;
+					}
+					if ( preg_match( '/^[\*\-]\s*(.+)$/', $line, $m ) ) {
+						$items[] = trim( $m[1] );
+					} else {
+						$items[] = $line;
+					}
+				}
+				if ( $titulo !== '' ) {
+					$secciones[] = array( 'titulo' => $titulo, 'items' => $items );
+				}
+			}
+			if ( empty( $secciones ) && trim( $desc ) !== '' ) {
+				$secciones[] = array( 'titulo' => _x( 'Descripción', 'producto', 'centinela-group-theme' ), 'html' => wp_kses_post( wpautop( $desc ) ) );
+			}
+		}
+	}
+	// Fallback: una sola sección con la lista plana de caracteristicas
+	if ( empty( $secciones ) && ! empty( $caracteristicas_flat = isset( $producto['caracteristicas'] ) && is_array( $producto['caracteristicas'] ) ? $producto['caracteristicas'] : array() ) ) {
+		$items = array();
+		foreach ( $caracteristicas_flat as $c ) {
+			if ( is_string( $c ) && $c !== '' ) {
+				$items[] = $c;
+			}
+		}
+		if ( ! empty( $items ) ) {
+			$secciones[] = array( 'titulo' => __( 'Características', 'centinela-group-theme' ), 'items' => $items );
+		}
+	}
+
+	return array( 'videos' => $videos, 'secciones' => $secciones );
+}
+
+/**
+ * Extrae URLs de YouTube y Vimeo de un texto/HTML (para mostrar embeds sobre cada columna de características).
+ *
+ * @param string $html Contenido HTML o texto.
+ * @return array Lista de URLs únicas (YouTube y Vimeo).
+ */
+function centinela_extract_video_urls_from_html( $html ) {
+	if ( ! is_string( $html ) || $html === '' ) {
+		return array();
+	}
+	$urls = array();
+	// Enlaces en href
+	if ( preg_match_all( '/href=["\']([^"\']*(?:youtube\.com|youtu\.be|vimeo\.com)[^"\']*)["\']/i', $html, $m ) ) {
+		foreach ( $m[1] as $url ) {
+			$url = trim( $url );
+			if ( $url !== '' && ! in_array( $url, $urls, true ) ) {
+				$urls[] = $url;
+			}
+		}
+	}
+	// URLs sueltas en el texto (ej. Syscom)
+	if ( preg_match_all( '/(?:https?:)?\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|vimeo\.com\/(?:video\/)?\d+)[a-zA-Z0-9?=&_\-\.\/]*/i', $html, $m ) ) {
+		foreach ( $m[0] as $raw ) {
+			$url = ( strpos( $raw, 'http' ) === 0 ) ? $raw : 'https:' . $raw;
+			$url = trim( $url );
+			if ( $url !== '' && ! in_array( $url, $urls, true ) ) {
+				$urls[] = $url;
+			}
+		}
+	}
+	return array_values( array_unique( $urls ) );
+}
+
+/**
+ * Elimina de la descripción el bloque completo .row que contiene .col-sm-4 (características),
+ * para que ese contenido solo se muestre en el tab Características.
+ *
+ * @param string $html Descripción HTML del producto.
+ * @return string HTML sin el bloque row de características.
+ */
+function centinela_remove_caracteristicas_block_from_description( $html ) {
+	if ( ! is_string( $html ) || $html === '' || strpos( $html, 'col-sm-4' ) === false ) {
+		return $html;
+	}
+	if ( ! preg_match( '/<div[^>]*\bclass\s*=\s*["\'][^"\']*\brow\b[^"\']*["\'][^>]*>/i', $html, $m ) ) {
+		return $html;
+	}
+	$start = strpos( $html, $m[0] );
+	$pos   = $start + strlen( $m[0] );
+	$len   = strlen( $html );
+	$depth = 1;
+	while ( $depth > 0 && $pos < $len ) {
+		$next_open  = stripos( $html, '<div', $pos );
+		$next_close = stripos( $html, '</div>', $pos );
+		if ( $next_close === false ) {
+			break;
+		}
+		if ( $next_open !== false && $next_open < $next_close ) {
+			$depth++;
+			$pos = $next_open + 4;
+		} else {
+			$depth--;
+			$pos = $next_close + 6;
+		}
+	}
+	$end = $pos <= $len ? $pos : $len;
+	$before = substr( $html, 0, $start );
+	$after  = substr( $html, $end );
+	return trim( $before . $after );
+}
+
+/**
+ * Normaliza una URL de YouTube/Vimeo a una clave única (id de video) para comparar duplicados.
+ *
+ * @param string $url URL completa.
+ * @return string|null Clave "yt:ID" o "vm:ID" o null.
+ */
+function centinela_video_url_to_key( $url ) {
+	if ( preg_match( '/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/', $url, $m ) ) {
+		return 'yt:' . $m[1];
+	}
+	if ( preg_match( '/vimeo\.com\/(?:video\/)?(\d+)/', $url, $m ) ) {
+		return 'vm:' . $m[1];
+	}
+	return null;
+}
+
+/**
+ * Reordena el HTML del tab Especificaciones: 1) Columnas de características, 2) Imágenes, 3) Vídeos.
+ * Si no hay estructura de columnas, devuelve el HTML procesado por centinela_inject_video_embeds_above_cols.
+ *
+ * @param string $html Descripción HTML del producto.
+ * @return string HTML reordenado.
+ */
+function centinela_reorder_especificaciones( $html ) {
+	if ( ! is_string( $html ) || $html === '' ) {
+		return $html;
+	}
+	$html = str_replace( array( 'col-sm-6 col-md-4', 'col-sm-6  col-md-4' ), 'col-sm-4 col-md-4', $html );
+	$enc  = mb_detect_encoding( $html, array( 'UTF-8', 'ISO-8859-1' ), true );
+	if ( $enc ) {
+		$html = mb_convert_encoding( $html, 'HTML-ENTITIES', $enc );
+	}
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<div id="centinela-desc-root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+	libxml_clear_errors();
+	$xpath = new DOMXPath( $doc );
+	$root  = $doc->getElementById( 'centinela-desc-root' );
+	if ( ! $root ) {
+		return $html;
+	}
+
+	// 1) Filas que contienen columnas (.row con .col-sm-4 o .col-md-4)
+	$rows = $xpath->query( "//*[contains(concat(' ', normalize-space(@class), ' '), ' row ')]" );
+	if ( ! $rows || $rows->length === 0 ) {
+		$rows = $xpath->query( "//*[contains(@class, 'row')]" );
+	}
+	$column_rows = array();
+	foreach ( $rows as $row ) {
+		$cols = $xpath->query( ".//*[contains(@class, 'col-sm-4') or contains(@class, 'col-md-4')]", $row );
+		if ( $cols && $cols->length > 0 ) {
+			$column_rows[] = $row;
+		}
+	}
+
+	// Evitar duplicar: si un .row está dentro de otro .row de la lista, solo conservar el ancestro (nivel superior).
+	$top_level_rows = array();
+	foreach ( $column_rows as $row ) {
+		$has_ancestor_in_list = false;
+		$parent = $row->parentNode;
+		while ( $parent && $parent->nodeType === XML_ELEMENT_NODE ) {
+			if ( in_array( $parent, $column_rows, true ) ) {
+				$has_ancestor_in_list = true;
+				break;
+			}
+			$parent = $parent->parentNode;
+		}
+		if ( ! $has_ancestor_in_list ) {
+			$top_level_rows[] = $row;
+		}
+	}
+	$column_rows = $top_level_rows;
+
+	$skip_video_ids = array( '9u9JDJ7tAuc' );
+	$column_html    = '';
+	$image_html     = '';
+	$video_html     = '';
+
+	if ( ! empty( $column_rows ) ) {
+		foreach ( $column_rows as $row ) {
+			$clone = $row->cloneNode( true );
+			// Quitar imágenes del clon (se mostrarán en la sección de imágenes)
+			$imgs = $xpath->query( './/img', $clone );
+			$to_remove = array();
+			foreach ( $imgs as $img ) {
+				$to_remove[] = $img;
+			}
+			foreach ( $to_remove as $el ) {
+				if ( $el->parentNode ) {
+					$el->parentNode->removeChild( $el );
+				}
+			}
+			// Quitar iframes y enlaces a video del clon (se mostrarán en la sección de vídeos)
+			$media = $xpath->query( ".//iframe[contains(@src,'youtube') or contains(@src,'vimeo')] | .//a[contains(@href,'youtube') or contains(@href,'youtu.be') or contains(@href,'vimeo')]", $clone );
+			$to_remove = array();
+			foreach ( $media as $el ) {
+				$to_remove[] = $el;
+			}
+			foreach ( $to_remove as $el ) {
+				if ( $el->parentNode ) {
+					$el->parentNode->removeChild( $el );
+				}
+			}
+			// Quitar contenedores vacíos embed-responsive / embed-responsive-16by9 (dejan espacio sin contenido)
+			$embed_wrappers = $xpath->query( ".//*[contains(@class, 'embed-responsive')]", $clone );
+			$to_remove = array();
+			foreach ( $embed_wrappers as $el ) {
+				$to_remove[] = $el;
+			}
+			foreach ( $to_remove as $el ) {
+				if ( $el->parentNode ) {
+					$el->parentNode->removeChild( $el );
+				}
+			}
+			$column_html .= $doc->saveHTML( $clone );
+		}
+	}
+
+	// 2) Bloques que contienen imágenes (padre de cada img, sin duplicar)
+	$all_imgs = $xpath->query( '//img' );
+	$seen_parents = array();
+	foreach ( $all_imgs as $img ) {
+		$parent = $img->parentNode;
+		if ( ! $parent || $parent->nodeType !== XML_ELEMENT_NODE ) {
+			continue;
+		}
+		// Si el padre es el root, guardar solo la img
+		if ( $parent instanceof DOMElement && $parent->getAttribute( 'id' ) === 'centinela-desc-root' ) {
+			$image_html .= $doc->saveHTML( $img );
+			continue;
+		}
+		$key = spl_object_id( $parent );
+		if ( isset( $seen_parents[ $key ] ) ) {
+			continue;
+		}
+		$seen_parents[ $key ] = true;
+		$image_html .= $doc->saveHTML( $parent );
+	}
+
+	// 3) URLs de vídeo únicas y generar embeds
+	$video_urls = array();
+	$video_keys = array();
+	$media_nodes = $xpath->query( "//iframe[contains(@src,'youtube') or contains(@src,'vimeo')] | //a[contains(@href,'youtube') or contains(@href,'youtu.be') or contains(@href,'vimeo')]" );
+	foreach ( $media_nodes as $el ) {
+		$href = $el->getAttribute( 'href' );
+		$src  = $el->getAttribute( 'src' );
+		$url  = $href ? $href : $src;
+		if ( ! $url ) {
+			continue;
+		}
+		$key = centinela_video_url_to_key( $url );
+		if ( ! $key || in_array( $key, $video_keys, true ) ) {
+			continue;
+		}
+		$yt_id = null;
+		$vm_id = null;
+		if ( preg_match( '/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/', $url, $m ) ) {
+			$yt_id = $m[1];
+		} elseif ( preg_match( '/vimeo\.com\/(?:video\/)?(\d+)/', $url, $m ) ) {
+			$vm_id = $m[1];
+		}
+		if ( $yt_id && in_array( $yt_id, $skip_video_ids, true ) ) {
+			continue;
+		}
+		$video_keys[] = $key;
+		$video_urls[] = array( 'url' => $url, 'yt_id' => $yt_id, 'vm_id' => $vm_id );
+	}
+	foreach ( $video_urls as $v ) {
+		$src = '';
+		if ( $v['yt_id'] ) {
+			$src = 'https://www.youtube.com/embed/' . $v['yt_id'] . '?rel=0';
+		} elseif ( $v['vm_id'] ) {
+			$src = 'https://player.vimeo.com/video/' . $v['vm_id'];
+		}
+		if ( $src ) {
+			$video_html .= '<div class="centinela-single-producto__video-embed"><iframe class="centinela-video-iframe" src="' . esc_url( $src ) . '" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy" width="100%" height="315"></iframe></div>';
+		}
+	}
+
+	// Montar salida: 1) columnas (sin vídeos ni imágenes), 2) imágenes, 3) vídeos
+	$out = '';
+	if ( $column_html !== '' ) {
+		$out .= '<div class="centinela-espec-seccion centinela-espec-columnas">' . $column_html . '</div>';
+	}
+	if ( $image_html !== '' ) {
+		$out .= '<div class="centinela-espec-seccion centinela-espec-imagenes">' . $image_html . '</div>';
+	}
+	if ( $video_html !== '' ) {
+		$out .= '<div class="centinela-espec-seccion centinela-espec-videos">' . $video_html . '</div>';
+	}
+
+	if ( $out === '' ) {
+		// Sin columnas detectadas: devolver HTML original con inyección de vídeos en columnas si aplica
+		if ( function_exists( 'centinela_inject_video_embeds_above_cols' ) ) {
+			return centinela_inject_video_embeds_above_cols( $html );
+		}
+		return $html;
+	}
+	return $out;
+}
+
+/**
+ * Inyecta el iframe del video correspondiente encima de cada .col-sm-4 (como en Syscom).
+ * Evita duplicados: quita el enlace/iframe del contenido de la columna y del resto del HTML.
+ * No embebe vídeos que Syscom no muestra (ej. 9u9JDJ7tAuc).
+ *
+ * @param string $html Descripción HTML del producto (con .row y .col-sm-4).
+ * @return string HTML con video arriba de cada columna y sin duplicados.
+ */
+function centinela_inject_video_embeds_above_cols( $html ) {
+	if ( ! is_string( $html ) || $html === '' ) {
+		return $html;
+	}
+	// Normalizar clases de columna: col-sm-6 col-md-4 → col-sm-4 col-md-4 (como Syscom).
+	$html = str_replace( array( 'col-sm-6 col-md-4', 'col-sm-6  col-md-4' ), 'col-sm-4 col-md-4', $html );
+	if ( strpos( $html, 'col-sm-4' ) === false && strpos( $html, 'col-md-4' ) === false ) {
+		return $html;
+	}
+	// IDs de video que no se muestran como embed en Syscom (solo enlace o no se muestran).
+	$skip_video_ids = array( '9u9JDJ7tAuc' );
+	$enc = mb_detect_encoding( $html, array( 'UTF-8', 'ISO-8859-1' ), true );
+	if ( $enc ) {
+		$html = mb_convert_encoding( $html, 'HTML-ENTITIES', $enc );
+	}
+	$doc = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$doc->loadHTML( '<div id="centinela-desc-root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+	libxml_clear_errors();
+	$xpath = new DOMXPath( $doc );
+	// Columnas: col-sm-4 o col-md-4 (tras normalizar, suelen ser col-sm-4 col-md-4).
+	$cols = $xpath->query( "//*[contains(concat(' ', normalize-space(@class), ' '), ' col-sm-4 ') or contains(concat(' ', normalize-space(@class), ' '), ' col-md-4 ')]" );
+	if ( ! $cols || $cols->length === 0 ) {
+		$cols = $xpath->query( "//*[contains(@class, 'col-sm-4') or contains(@class, 'col-md-4')]" );
+	}
+	if ( ! $cols || $cols->length === 0 ) {
+		return $html;
+	}
+	$embedded_keys = array();
+	foreach ( $cols as $col ) {
+		$inner_html = '';
+		foreach ( $col->childNodes as $child ) {
+			$inner_html .= $doc->saveHTML( $child );
+		}
+		$urls = centinela_extract_video_urls_from_html( $inner_html );
+		if ( empty( $urls ) ) {
+			continue;
+		}
+		$first_url  = trim( $urls[0] );
+		$yt_id      = null;
+		$vm_id      = null;
+		$is_youtube = ( strpos( $first_url, 'youtube.com' ) !== false || strpos( $first_url, 'youtu.be' ) !== false );
+		$is_vimeo   = ( strpos( $first_url, 'vimeo.com' ) !== false );
+		if ( $is_youtube && preg_match( '/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/', $first_url, $yt ) ) {
+			$yt_id = $yt[1];
+		} elseif ( $is_vimeo && preg_match( '/vimeo\.com\/(?:video\/)?(\d+)/', $first_url, $vm ) ) {
+			$vm_id = $vm[1];
+		}
+		if ( $yt_id === null && $vm_id === null ) {
+			continue;
+		}
+		if ( $yt_id && in_array( $yt_id, $skip_video_ids, true ) ) {
+			continue;
+		}
+		$wrap = $doc->createElement( 'div' );
+		$wrap->setAttribute( 'class', 'centinela-col-video' );
+		$inner = $doc->createElement( 'div' );
+		$inner->setAttribute( 'class', 'centinela-single-producto__video-embed' );
+		$iframe = $doc->createElement( 'iframe' );
+		if ( $is_youtube && isset( $yt_id ) ) {
+			$iframe->setAttribute( 'src', 'https://www.youtube.com/embed/' . $yt_id . '?rel=0' );
+		} elseif ( $is_vimeo && isset( $vm_id ) ) {
+			$iframe->setAttribute( 'src', 'https://player.vimeo.com/video/' . $vm_id );
+		} else {
+			continue;
+		}
+		$iframe->setAttribute( 'title', 'Video' );
+		$iframe->setAttribute( 'class', 'centinela-video-iframe' );
+		$iframe->setAttribute( 'allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' );
+		$iframe->setAttribute( 'allowfullscreen', '' );
+		$iframe->setAttribute( 'loading', 'lazy' );
+		$iframe->setAttribute( 'width', '100%' );
+		$iframe->setAttribute( 'height', '315' );
+		$inner->appendChild( $iframe );
+		$wrap->appendChild( $inner );
+		$col->insertBefore( $wrap, $col->firstChild );
+		$key = centinela_video_url_to_key( $first_url );
+		if ( $key ) {
+			$embedded_keys[] = $key;
+		}
+		// Quitar de esta columna el primer <a> o <iframe> que tenga este mismo video para no duplicar dentro de la columna.
+		foreach ( $col->childNodes as $child ) {
+			if ( ! $child instanceof DOMElement ) {
+				continue;
+			}
+			if ( $child->getAttribute( 'class' ) === 'centinela-col-video' ) {
+				continue;
+			}
+			$to_remove = null;
+			foreach ( $xpath->query( './/a[contains(@href,"youtube") or contains(@href,"youtu.be") or contains(@href,"vimeo")] | .//iframe[contains(@src,"youtube") or contains(@src,"vimeo")]', $child ) as $el ) {
+				$href = $el->getAttribute( 'href' );
+				$src  = $el->getAttribute( 'src' );
+				$k    = $href ? centinela_video_url_to_key( $href ) : ( $src ? centinela_video_url_to_key( $src ) : null );
+				if ( $k && $k === $key ) {
+					$to_remove = $el;
+					break;
+				}
+			}
+			if ( $to_remove && $to_remove->parentNode ) {
+				$to_remove->parentNode->removeChild( $to_remove );
+				break;
+			}
+		}
+	}
+	// Quitar del resto del documento cualquier otro iframe o enlace que repita un video ya embebido (ej. debajo de una imagen).
+	if ( ! empty( $embedded_keys ) ) {
+		$all_media = $xpath->query( "//iframe[contains(@src,'youtube') or contains(@src,'vimeo')] | //a[contains(@href,'youtube') or contains(@href,'youtu.be') or contains(@href,'vimeo')]" );
+		$remove = array();
+		foreach ( $all_media as $el ) {
+			$href = $el->getAttribute( 'href' );
+			$src  = $el->getAttribute( 'src' );
+			$k    = $href ? centinela_video_url_to_key( $href ) : ( $src ? centinela_video_url_to_key( $src ) : null );
+			if ( $k && in_array( $k, $embedded_keys, true ) ) {
+				$remove[] = $el;
+			}
+		}
+		foreach ( $remove as $el ) {
+			if ( $el->parentNode ) {
+				$el->parentNode->removeChild( $el );
+			}
+		}
+	}
+	$root = $doc->getElementById( 'centinela-desc-root' );
+	if ( ! $root ) {
+		return $html;
+	}
+	$out = '';
+	foreach ( $root->childNodes as $child ) {
+		$out .= $doc->saveHTML( $child );
+	}
+	return $out;
+}

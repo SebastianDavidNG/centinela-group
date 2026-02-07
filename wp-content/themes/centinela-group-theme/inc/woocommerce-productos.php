@@ -48,11 +48,18 @@ function centinela_productos_query_vars( $vars ) {
 add_filter( 'query_vars', 'centinela_productos_query_vars' );
 
 /**
- * Reglas de reescritura: /productos/, /productos/slug.../, /producto/123/, /tienda/, /tienda/slug.../
+ * Reglas de reescritura: /productos/, /productos/slug.../, /producto/123/, /tienda/producto/123-slug/, /tienda/, /tienda/slug.../
  */
 function centinela_productos_rewrite_rules() {
+	// Producto por ID solo (legacy): /producto/123/
 	add_rewrite_rule(
 		'producto/([0-9]+)/?$',
+		'index.php?centinela_producto_id=$matches[1]',
+		'top'
+	);
+	// URLs amigables producto: /tienda/producto/123-slug-del-producto/ (el ID es el primer segmento numérico)
+	add_rewrite_rule(
+		'tienda/producto/([0-9]+)(-[^/]*)?/?$',
 		'index.php?centinela_producto_id=$matches[1]',
 		'top'
 	);
@@ -82,11 +89,11 @@ add_action( 'init', 'centinela_productos_rewrite_rules' );
 
 /**
  * Asegurar que /tienda/categoria/sub/ llegue con pagename=tienda y centinela_tienda_cat_path (p. ej. desde menú secundario).
- * Si la URL contiene /tienda/xxx y la variable no viene por rewrite, se rellena desde REQUEST_URI.
+ * Si la URL es /tienda/producto/123-slug/, detectarla y fijar centinela_producto_id (funciona aunque las reglas no se hayan vaciado).
  */
 function centinela_tienda_parse_request( $wp ) {
-	$cat_path = isset( $wp->query_vars['centinela_tienda_cat_path'] ) ? $wp->query_vars['centinela_tienda_cat_path'] : '';
-	if ( $cat_path !== '' && $cat_path !== false ) {
+	// Si ya viene el ID del producto por rewrite, no tocar.
+	if ( ! empty( $wp->query_vars['centinela_producto_id'] ) ) {
 		return;
 	}
 	if ( empty( $_SERVER['REQUEST_URI'] ) ) {
@@ -100,7 +107,20 @@ function centinela_tienda_parse_request( $wp ) {
 	if ( $path_after === '' ) {
 		return;
 	}
-	$wp->query_vars['pagename']              = 'tienda';
+	// Detectar /tienda/producto/123 o /tienda/producto/123-slug (página de detalle del producto).
+	// Si la regla genérica tienda/(.+?) hizo match, centinela_tienda_cat_path será "producto/123-slug"; lo tratamos como producto.
+	if ( preg_match( '#^producto/([0-9]+)(?:-[^/]*)?$#', $path_after, $prod ) ) {
+		$wp->query_vars['centinela_producto_id'] = $prod[1];
+		unset( $wp->query_vars['pagename'] );
+		unset( $wp->query_vars['centinela_tienda_cat_path'] );
+		return;
+	}
+	// Si ya vino centinela_tienda_cat_path por rewrite (categoría de tienda), no sobrescribir.
+	$cat_path = isset( $wp->query_vars['centinela_tienda_cat_path'] ) ? $wp->query_vars['centinela_tienda_cat_path'] : '';
+	if ( $cat_path !== '' && $cat_path !== false ) {
+		return;
+	}
+	$wp->query_vars['pagename']                  = 'tienda';
 	$wp->query_vars['centinela_tienda_cat_path'] = $path_after;
 }
 add_action( 'parse_request', 'centinela_tienda_parse_request', 5 );
@@ -221,12 +241,16 @@ add_filter( 'template_include', 'centinela_single_producto_template', 5 );
 
 /**
  * URL amigable para un producto (API Syscom).
+ * Genera /tienda/producto/123-slug-del-titulo/ cuando se pasa título; si no, /tienda/producto/123/.
  *
  * @param int|string $producto_id ID del producto.
+ * @param string     $titulo      Opcional. Título del producto para el slug (ej. "Cámara Domo" → camara-domo).
  * @return string
  */
-function centinela_get_producto_url( $producto_id ) {
-	return home_url( '/producto/' . (int) $producto_id . '/' );
+function centinela_get_producto_url( $producto_id, $titulo = '' ) {
+	$id = (int) $producto_id;
+	$slug = ( $titulo !== '' ) ? '-' . sanitize_title( $titulo ) : '';
+	return home_url( '/tienda/producto/' . $id . $slug . '/' );
 }
 
 /**

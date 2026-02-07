@@ -115,7 +115,7 @@ if ( $syscom_id && class_exists( 'Centinela_Syscom_API' ) ) {
 						$img    = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
 						$precios = isset( $prod['precios'] ) && is_array( $prod['precios'] ) ? $prod['precios'] : array();
 						$precio = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
-						$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid ) : home_url( '/producto/' . $pid . '/' );
+						$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid, $titulo ) : home_url( '/tienda/producto/' . $pid . '/' );
 						?>
 						<article class="centinela-productos__card border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
 							<a href="<?php echo esc_url( $url ); ?>" class="block">
