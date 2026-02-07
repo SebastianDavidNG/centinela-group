@@ -669,5 +669,6 @@ class Centinela_Syscom_API {
 		delete_transient( self::TRANSIENT_CATEGORIAS_ARBOL );
 		global $wpdb;
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_syscom_hijos_%' OR option_name LIKE '_transient_timeout_centinela_syscom_hijos_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_ps_%' OR option_name LIKE '_transient_timeout_centinela_ps_%'" );
 	}
 }

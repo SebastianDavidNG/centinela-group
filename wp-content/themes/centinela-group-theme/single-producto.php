@@ -49,6 +49,15 @@ if ( ! is_array( $categorias ) ) {
 	$categorias = array();
 }
 
+// Canonical URL con ruta de categoría: /tienda/cat/subcat/product-slug/
+if ( function_exists( 'centinela_get_product_cat_path' ) && function_exists( 'centinela_get_producto_url' ) ) {
+	$canonical_cat_path = centinela_get_product_cat_path( $producto );
+	$canonical_url      = centinela_get_producto_url( (int) $producto_id, $producto['titulo'], $canonical_cat_path );
+	add_action( 'wp_head', function () use ( $canonical_url ) {
+		echo '<link rel="canonical" href="' . esc_url( $canonical_url ) . '" />' . "\n";
+	}, 5 );
+}
+
 get_header();
 
 // Hero automático: título del producto, breadcrumb y overlay (mismo estilo que páginas internas)
@@ -225,7 +234,8 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 						$rimg     = isset( $rel['img_portada'] ) ? $rel['img_portada'] : '';
 						$rprecios = isset( $rel['precios'] ) && is_array( $rel['precios'] ) ? $rel['precios'] : array();
 						$rprecio  = isset( $rprecios['precio_especial'] ) ? $rprecios['precio_especial'] : ( isset( $rprecios['precio_lista'] ) ? $rprecios['precio_lista'] : '' );
-						$rurl     = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $rid, $rtitle ) : home_url( '/tienda/producto/' . $rid . '/' );
+						$rel_cat_path = function_exists( 'centinela_get_product_cat_path' ) ? centinela_get_product_cat_path( $producto ) : '';
+$rurl     = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $rid, $rtitle, $rel_cat_path ) : home_url( '/tienda/producto/' . $rid . '/' );
 						?>
 						<article class="centinela-single-producto__related-item">
 							<a href="<?php echo esc_url( $rurl ); ?>">

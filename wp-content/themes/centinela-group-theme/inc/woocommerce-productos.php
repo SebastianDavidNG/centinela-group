@@ -115,10 +115,24 @@ function centinela_tienda_parse_request( $wp ) {
 		unset( $wp->query_vars['centinela_tienda_cat_path'] );
 		return;
 	}
-	// Si ya vino centinela_tienda_cat_path por rewrite (categoría de tienda), no sobrescribir.
-	$cat_path = isset( $wp->query_vars['centinela_tienda_cat_path'] ) ? $wp->query_vars['centinela_tienda_cat_path'] : '';
-	if ( $cat_path !== '' && $cat_path !== false ) {
+	// Intentar como categoría primero: /tienda/videovigilancia/proteccion-contra-descargas/redes/
+	if ( centinela_resolve_cat_path_to_syscom_id( $path_after ) !== null ) {
+		$wp->query_vars['pagename']                  = 'tienda';
+		$wp->query_vars['centinela_tienda_cat_path'] = $path_after;
 		return;
+	}
+	// Intentar como producto: /tienda/cat/subcat/product-slug/ (último segmento = slug del producto)
+	$segments = array_filter( array_map( 'trim', explode( '/', $path_after ) ) );
+	if ( count( $segments ) >= 2 && function_exists( 'centinela_resolve_product_by_cat_path_and_slug' ) ) {
+		$product_slug = (string) array_pop( $segments );
+		$cat_path_str = implode( '/', $segments );
+		$resolved_id  = centinela_resolve_product_by_cat_path_and_slug( $cat_path_str, $product_slug );
+		if ( $resolved_id !== null ) {
+			$wp->query_vars['centinela_producto_id'] = (string) $resolved_id;
+			unset( $wp->query_vars['pagename'] );
+			unset( $wp->query_vars['centinela_tienda_cat_path'] );
+			return;
+		}
 	}
 	$wp->query_vars['pagename']                  = 'tienda';
 	$wp->query_vars['centinela_tienda_cat_path'] = $path_after;
@@ -240,17 +254,96 @@ function centinela_single_producto_template( $template ) {
 add_filter( 'template_include', 'centinela_single_producto_template', 5 );
 
 /**
+ * Redirigir URLs legacy de producto (/tienda/producto/123-slug/) a la URL canónica con ruta de categoría.
+ * Se ejecuta en template_redirect cuando ya tenemos el producto cargado (en single-producto).
+ */
+function centinela_producto_canonical_redirect() {
+	$producto_id = get_query_var( 'centinela_producto_id' );
+	if ( $producto_id === '' || $producto_id === false || ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return;
+	}
+	if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+		return;
+	}
+	$req_path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+	if ( ! $req_path || ! preg_match( '#/tienda/producto/([0-9]+)#', $req_path ) ) {
+		return;
+	}
+	$producto = Centinela_Syscom_API::get_producto( (int) $producto_id, true );
+	if ( is_wp_error( $producto ) || empty( $producto['titulo'] ) || ! function_exists( 'centinela_get_product_cat_path' ) || ! function_exists( 'centinela_get_producto_url' ) ) {
+		return;
+	}
+	$cat_path = centinela_get_product_cat_path( $producto );
+	$canonical = centinela_get_producto_url( (int) $producto_id, $producto['titulo'], $cat_path );
+	$current   = home_url( $req_path );
+	if ( rtrim( $canonical, '/' ) !== rtrim( $current, '/' ) ) {
+		wp_safe_redirect( $canonical, 301 );
+		exit;
+	}
+}
+add_action( 'template_redirect', 'centinela_producto_canonical_redirect', 2 );
+
+/**
  * URL amigable para un producto (API Syscom).
- * Genera /tienda/producto/123-slug-del-titulo/ cuando se pasa título; si no, /tienda/producto/123/.
+ * Si se pasa $cat_path genera /tienda/{cat_path}/{slug}/ (ej. /tienda/videovigilancia/proteccion-contra-descargas/redes/producto-slug/).
+ * Si no, genera /tienda/producto/123-slug/ (legacy).
  *
  * @param int|string $producto_id ID del producto.
- * @param string     $titulo      Opcional. Título del producto para el slug (ej. "Cámara Domo" → camara-domo).
+ * @param string     $titulo      Opcional. Título del producto para el slug.
+ * @param string     $cat_path    Opcional. Ruta de categoría (slugs con /). Si está vacía se usa URL legacy.
  * @return string
  */
-function centinela_get_producto_url( $producto_id, $titulo = '' ) {
-	$id = (int) $producto_id;
-	$slug = ( $titulo !== '' ) ? '-' . sanitize_title( $titulo ) : '';
-	return home_url( '/tienda/producto/' . $id . $slug . '/' );
+function centinela_get_producto_url( $producto_id, $titulo = '', $cat_path = '' ) {
+	$id   = (int) $producto_id;
+	$slug = ( $titulo !== '' ) ? sanitize_title( $titulo ) : 'producto-' . $id;
+	$cat_path = is_string( $cat_path ) ? trim( $cat_path, '/' ) : '';
+	if ( $cat_path !== '' ) {
+		return home_url( '/tienda/' . $cat_path . '/' . $slug . '/' );
+	}
+	return home_url( '/tienda/producto/' . $id . ( $slug !== 'producto-' . $id ? '-' . $slug : '' ) . '/' );
+}
+
+/**
+ * Obtener la ruta de slugs de categoría (ej. videovigilancia/proteccion-contra-descargas/redes) desde el árbol,
+ * dado el ID de una categoría. Usa el árbol de categorías de la API.
+ *
+ * @param string     $cat_id ID de la categoría Syscom.
+ * @param array|null $arbol  Árbol de categorías (opcional; si no se pasa se obtiene de la API).
+ * @return string|null Ruta con slugs separados por / o null si no se encuentra.
+ */
+function centinela_get_cat_path_from_id( $cat_id, $arbol = null ) {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return null;
+	}
+	if ( $arbol === null ) {
+		$arbol = Centinela_Syscom_API::get_categorias_arbol();
+	}
+	if ( is_wp_error( $arbol ) || ! is_array( $arbol ) ) {
+		return null;
+	}
+	$cat_id = (string) $cat_id;
+	$path   = array();
+	$found  = false;
+	$search = function ( $nodes, $prefix ) use ( $cat_id, &$path, &$found, &$search ) {
+		foreach ( $nodes as $nodo ) {
+			$slug = sanitize_title( isset( $nodo['nombre'] ) ? $nodo['nombre'] : '' );
+			$cur  = $prefix ? $prefix . '/' . $slug : $slug;
+			if ( isset( $nodo['id'] ) && (string) $nodo['id'] === $cat_id ) {
+				$path  = $cur;
+				$found = true;
+				return;
+			}
+			$hijos = isset( $nodo['hijos'] ) ? $nodo['hijos'] : array();
+			if ( ! empty( $hijos ) ) {
+				$search( $hijos, $cur );
+				if ( $found ) {
+					return;
+				}
+			}
+		}
+	};
+	$search( $arbol, '' );
+	return $found ? $path : null;
 }
 
 /**
@@ -289,6 +382,79 @@ function centinela_resolve_cat_path_to_syscom_id( $path ) {
 		$padre = isset( $found['hijos'] ) ? $found['hijos'] : array();
 	}
 	return $nodo && isset( $nodo['id'] ) ? $nodo['id'] : null;
+}
+
+/**
+ * Obtener la ruta de categoría (slugs) para usar en la URL de un producto.
+ * Usa la primera categoría del producto y el árbol de categorías para construir la ruta completa.
+ *
+ * @param array $producto Producto con clave 'categorías' o 'categorias' (array de { id, nombre }).
+ * @return string Ruta con slugs (ej. videovigilancia/proteccion-contra-descargas/redes) o ''.
+ */
+function centinela_get_product_cat_path( $producto ) {
+	$cats = isset( $producto['categorías'] ) ? $producto['categorías'] : ( isset( $producto['categorias'] ) ? $producto['categorias'] : array() );
+	if ( ! is_array( $cats ) || empty( $cats ) ) {
+		return '';
+	}
+	$primera = $cats[0];
+	$cat_id  = isset( $primera['id'] ) ? (string) $primera['id'] : ( is_object( $primera ) && isset( $primera->id ) ? (string) $primera->id : '' );
+	if ( $cat_id === '' || ! function_exists( 'centinela_get_cat_path_from_id' ) ) {
+		return '';
+	}
+	$path = centinela_get_cat_path_from_id( $cat_id );
+	return is_string( $path ) ? $path : '';
+}
+
+/**
+ * Resolver producto por ruta de categoría + slug (para URLs /tienda/cat/subcat/product-slug/).
+ * Busca en la categoría los productos y devuelve el ID del que coincida el slug del título.
+ *
+ * @param string $cat_path   Ruta de categoría (slugs con /).
+ * @param string $product_slug Slug del producto (sanitize_title del título).
+ * @return int|null ID del producto o null.
+ */
+function centinela_resolve_product_by_cat_path_and_slug( $cat_path, $product_slug ) {
+	$cache_key = 'centinela_ps_' . md5( $cat_path . '|' . $product_slug );
+	$cached    = get_transient( $cache_key );
+	if ( $cached !== false && is_numeric( $cached ) ) {
+		return (int) $cached;
+	}
+	$cat_id = centinela_resolve_cat_path_to_syscom_id( $cat_path );
+	if ( $cat_id === null || ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return null;
+	}
+	$pagina   = 1;
+	$max_pag  = 10;
+	$producto_id = null;
+	while ( $pagina <= $max_pag ) {
+		$res = Centinela_Syscom_API::get_productos( array( 'categoria' => $cat_id, 'pagina' => $pagina ) );
+		if ( is_wp_error( $res ) ) {
+			break;
+		}
+		$productos = isset( $res['productos'] ) ? $res['productos'] : array();
+		if ( empty( $productos ) ) {
+			break;
+		}
+		foreach ( $productos as $p ) {
+			$titulo = isset( $p['titulo'] ) ? $p['titulo'] : ( isset( $p['nombre'] ) ? $p['nombre'] : '' );
+			if ( $titulo !== '' && sanitize_title( $titulo ) === $product_slug ) {
+				$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : null );
+				if ( $pid !== null ) {
+					$producto_id = (int) $pid;
+					break 2;
+				}
+			}
+		}
+		$paginas = isset( $res['paginas'] ) ? (int) $res['paginas'] : 1;
+		if ( $pagina >= $paginas ) {
+			break;
+		}
+		$pagina++;
+	}
+	if ( $producto_id !== null ) {
+		set_transient( $cache_key, $producto_id, 12 * HOUR_IN_SECONDS );
+	}
+	return $producto_id;
 }
 
 /**
