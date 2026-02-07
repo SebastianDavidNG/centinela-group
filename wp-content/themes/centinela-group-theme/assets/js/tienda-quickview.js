@@ -11,6 +11,7 @@
   var restBase = (typeof wp !== 'undefined' && wp.apiFetch && wp.apiFetch.defaultOptions && wp.apiFetch.defaultOptions.root) ? wp.apiFetch.defaultOptions.root : (window.location.origin + '/wp-json');
 
   var currentProductId = null;
+  var currentProductData = null; // { titulo, image, price } para el carrito
   var currentImagenes = [];
   var currentImagenesLarge = [];
   var zoomEl = document.getElementById('centinela-quickview-zoom');
@@ -81,6 +82,11 @@
     var thumbs = document.getElementById('centinela-quickview-thumbs');
 
     currentProductId = data.id || null;
+    currentProductData = {
+      titulo: data.titulo || '',
+      image: (data.imagenes && data.imagenes[0]) ? data.imagenes[0] : (data.img_portada || ''),
+      price: data.precio != null ? String(data.precio) : ''
+    };
     if (qtyInput) { qtyInput.value = 1; qtyInput.min = 1; }
 
     if (categoriaEl) {
@@ -189,14 +195,15 @@
       qty = parseInt(qtyInput.value, 10) || 1;
       if (qty < 1) qty = 1;
     }
-    try {
-      var stored = localStorage.getItem('centinela_cotizacion_ids');
-      var ids = stored ? JSON.parse(stored) : [];
-      if (!Array.isArray(ids)) ids = [];
-      for (var k = 0; k < qty; k++) ids.push(String(currentProductId));
-      localStorage.setItem('centinela_cotizacion_ids', JSON.stringify(ids));
-      if (typeof window.centinelaUpdateCartCount === 'function') window.centinelaUpdateCartCount();
-    } catch (e) {}
+    if (typeof window.centinelaAddToCart === 'function') {
+      window.centinelaAddToCart({
+        id: String(currentProductId),
+        qty: qty,
+        title: currentProductData ? currentProductData.titulo : '',
+        image: currentProductData ? currentProductData.image : '',
+        price: currentProductData ? currentProductData.price : ''
+      });
+    }
     closeModal();
   });
 

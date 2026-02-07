@@ -162,10 +162,18 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 					</ul>
 				<?php endif; ?>
 
+				<?php
+				$addcart_image = ! empty( $producto_imagenes[0] ) ? ( ! empty( $producto_imagenes[0]['url'] ) ? $producto_imagenes[0]['url'] : '' ) : '';
+				$addcart_price  = $precio_esp ? $precio_esp : $precio_lista;
+				?>
 				<div class="centinela-single-producto__cart-row">
 					<label for="centinela-single-producto-qty" class="centinela-single-producto__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
 					<input type="number" id="centinela-single-producto-qty" class="centinela-single-producto__qty" min="1" value="1" />
-					<button type="button" id="centinela-single-producto-addcart" class="centinela-btn centinela-single-producto__btn centinela-single-producto__btn--primary" data-product-id="<?php echo esc_attr( $producto_id ); ?>"><?php esc_html_e( 'Agregar al carrito', 'centinela-group-theme' ); ?></button>
+					<button type="button" id="centinela-single-producto-addcart" class="centinela-btn centinela-single-producto__btn centinela-single-producto__btn--primary"
+						data-product-id="<?php echo esc_attr( $producto_id ); ?>"
+						data-product-title="<?php echo esc_attr( $producto['titulo'] ); ?>"
+						data-product-image="<?php echo esc_url( $addcart_image ); ?>"
+						data-product-price="<?php echo esc_attr( $addcart_price ); ?>"><?php esc_html_e( 'Agregar al carrito', 'centinela-group-theme' ); ?></button>
 				</div>
 
 				<?php if ( ! empty( $categorias ) ) : ?>
@@ -363,11 +371,14 @@ $rurl     = function_exists( 'centinela_get_producto_url' ) ? centinela_get_prod
 			var id = addcart.getAttribute('data-product-id');
 			var qtyEl = document.getElementById('centinela-single-producto-qty');
 			var qty = (qtyEl && parseInt(qtyEl.value, 10)) || 1;
-			if (id && window.centinelaUpdateCartCount) {
-				var ids = JSON.parse(localStorage.getItem('centinela_cotizacion_ids') || '[]');
-				for (var i = 0; i < qty; i++) ids.push(String(id));
-				localStorage.setItem('centinela_cotizacion_ids', JSON.stringify(ids));
-				window.centinelaUpdateCartCount();
+			if (id && window.centinelaAddToCart) {
+				window.centinelaAddToCart({
+					id: id,
+					qty: qty,
+					title: addcart.getAttribute('data-product-title') || '',
+					image: addcart.getAttribute('data-product-image') || '',
+					price: addcart.getAttribute('data-product-price') || ''
+				});
 			}
 		});
 	}

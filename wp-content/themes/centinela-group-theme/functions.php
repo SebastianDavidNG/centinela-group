@@ -62,9 +62,32 @@ function centinela_theme_page_templates( $templates, $theme = null, $post = null
 	if ( file_exists( $our ) ) {
 		$templates['page-tienda.php'] = __( 'Tienda (Centinela)', 'centinela-group-theme' );
 	}
+	$carrito = get_template_directory() . '/page-carrito.php';
+	if ( file_exists( $carrito ) ) {
+		$templates['page-carrito.php'] = __( 'Carrito (Centinela)', 'centinela-group-theme' );
+	}
 	return $templates;
 }
 add_filter( 'theme_page_templates', 'centinela_theme_page_templates', 10, 3 );
+
+/**
+ * Si la página tiene slug "carrito", usar siempre la plantilla page-carrito.php.
+ */
+function centinela_force_carrito_template( $template ) {
+	if ( ! is_singular( 'page' ) ) {
+		return $template;
+	}
+	$page = get_queried_object();
+	if ( ! $page || ! isset( $page->post_name ) || $page->post_name !== 'carrito' ) {
+		return $template;
+	}
+	$carrito_file = get_template_directory() . '/page-carrito.php';
+	if ( file_exists( $carrito_file ) ) {
+		return $carrito_file;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'centinela_force_carrito_template', 98 );
 
 /**
  * Si la página tiene slug "tienda", usar siempre la plantilla page-tienda.php

@@ -254,18 +254,192 @@
     });
   }
 
-  // Carrito / cotización: mostrar cantidad en el header (desde localStorage)
-  function updateCartCountDisplay() {
-    var count = 0;
+  // Carrito: items con { id, qty, title, image, price }. Migrar desde centinela_cotizacion_ids si existe.
+  var CART_KEY = 'centinela_cart_items';
+  var CART_KEY_LEGACY = 'centinela_cotizacion_ids';
+
+  function getCartItems() {
     try {
-      var stored = localStorage.getItem('centinela_cotizacion_ids');
+      var stored = localStorage.getItem(CART_KEY);
       if (stored) {
-        var ids = JSON.parse(stored);
-        count = Array.isArray(ids) ? ids.length : 0;
+        var items = JSON.parse(stored);
+        return Array.isArray(items) ? items : [];
+      }
+      var legacy = localStorage.getItem(CART_KEY_LEGACY);
+      if (legacy) {
+        var ids = JSON.parse(legacy);
+        if (Array.isArray(ids) && ids.length) {
+          var byId = {};
+          ids.forEach(function (id) {
+            id = String(id);
+            byId[id] = (byId[id] || 0) + 1;
+          });
+          var migrated = [];
+          Object.keys(byId).forEach(function (id) {
+            migrated.push({ id: id, qty: byId[id], title: '', image: '', price: '' });
+          });
+          localStorage.setItem(CART_KEY, JSON.stringify(migrated));
+          try { localStorage.removeItem(CART_KEY_LEGACY); } catch (e) {}
+          return migrated;
+        }
       }
     } catch (e) {}
+    return [];
+  }
+
+  function saveCartItems(items) {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(items));
+    } catch (e) {}
+  }
+
+  function parsePrice(str) {
+    if (str === '' || str == null) return 0;
+    var s = String(str).trim().replace(/\s*COP\s*$/i, '').replace(/\./g, '').replace(',', '.');
+    var n = parseFloat(s.replace(/[^\d.-]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function formatPrice(num) {
+    if (num === 0) return '0 COP';
+    var parts = num.toFixed(0).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return parts.join(',') + ' COP';
+  }
+
+  function truncateTitle(title, maxLen) {
+    if (!title) return '';
+    maxLen = maxLen || 40;
+    if (title.length <= maxLen) return title;
+    return title.slice(0, maxLen).trim() + '…';
+  }
+
+  function addItemToCart(item) {
+    var items = getCartItems();
+    var id = String(item.id);
+    var qty = Math.max(1, parseInt(item.qty, 10) || 1);
+    var existing = items.filter(function (i) { return String(i.id) === id; })[0];
+    if (existing) {
+      existing.qty += qty;
+      if (item.title) existing.title = item.title;
+      if (item.image) existing.image = item.image;
+      if (item.price !== undefined && item.price !== '') existing.price = item.price;
+    } else {
+      items.push({
+        id: id,
+        qty: qty,
+        title: item.title || '',
+        image: item.image || '',
+        price: item.price || ''
+      });
+    }
+    saveCartItems(items);
+  }
+
+  function removeItemFromCart(index) {
+    var items = getCartItems();
+    items.splice(index, 1);
+    saveCartItems(items);
+  }
+
+  function updateItemQty(index, newQty) {
+    var items = getCartItems();
+    if (index < 0 || index >= items.length) return;
+    newQty = parseInt(newQty, 10) || 0;
+    if (newQty <= 0) {
+      items.splice(index, 1);
+    } else {
+      items[index].qty = newQty;
+    }
+    saveCartItems(items);
+  }
+
+  function renderCartDropdown() {
+    var dropdown = document.getElementById('centinela-cart-dropdown');
+    var itemsEl = document.getElementById('centinela-cart-dropdown-items');
+    var contentEl = document.getElementById('centinela-cart-dropdown-content');
+    var emptyEl = document.getElementById('centinela-cart-dropdown-empty');
+    var emptyCta = document.getElementById('centinela-cart-dropdown-empty-cta');
+    var subtotalEl = document.getElementById('centinela-cart-dropdown-subtotal');
+    var checkoutBtn = document.getElementById('centinela-cart-dropdown-checkout');
+    var viewLink = document.getElementById('centinela-cart-dropdown-view');
+    var continueLink = document.getElementById('centinela-cart-dropdown-continue');
+    if (!dropdown || !itemsEl) return;
+
+    var items = getCartItems();
+    var totalQty = 0;
+    var subtotalNum = 0;
+    items.forEach(function (i) { totalQty += (i.qty || 1); subtotalNum += parsePrice(i.price) * (i.qty || 1); });
+
+    if (items.length === 0) {
+      if (contentEl) contentEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = '';
+      if (emptyCta) emptyCta.style.display = '';
+      if (subtotalEl) subtotalEl.textContent = '0 COP';
+      return;
+    }
+
+    if (contentEl) contentEl.style.display = 'block';
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (emptyCta) emptyCta.style.display = 'none';
+
+    var cartUrl = dropdown.getAttribute('data-cart-url') || '';
+    var checkoutUrl = dropdown.getAttribute('data-checkout-url') || cartUrl;
+    var tiendaUrl = dropdown.getAttribute('data-tienda-url') || '';
+    if (checkoutBtn) checkoutBtn.href = checkoutUrl;
+    if (viewLink) viewLink.href = cartUrl;
+    if (continueLink) continueLink.href = tiendaUrl;
+
+    if (subtotalEl) subtotalEl.textContent = formatPrice(subtotalNum);
+
+    var html = '';
+    items.forEach(function (item, index) {
+      var qty = Math.max(1, item.qty || 1);
+      var priceNum = parsePrice(item.price);
+      var lineTotal = priceNum * qty;
+      var title = truncateTitle(item.title || ('Producto #' + item.id), 42);
+      var img = item.image ? ('<img src="' + item.image.replace(/"/g, '&quot;') + '" alt="" loading="lazy" />') : '<span class="centinela-header__cart-item-noimg"></span>';
+      html += '<div class="centinela-header__cart-item" data-index="' + index + '">';
+      html += '<button type="button" class="centinela-header__cart-item-remove" aria-label="Quitar producto" data-index="' + index + '">&times;</button>';
+      html += '<div class="centinela-header__cart-item-thumb">' + img + '</div>';
+      html += '<div class="centinela-header__cart-item-info">';
+      html += '<span class="centinela-header__cart-item-name">' + (title.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span>';
+      html += '<div class="centinela-header__cart-item-qty-wrap">';
+      html += '<label class="centinela-header__cart-item-qty-label" for="centinela-cart-qty-' + index + '">Cant.</label>';
+      html += '<input type="number" class="centinela-header__cart-item-qty" id="centinela-cart-qty-' + index + '" min="1" value="' + qty + '" data-index="' + index + '" />';
+      html += '</div>';
+      html += '<span class="centinela-header__cart-item-total">' + formatPrice(lineTotal) + '</span>';
+      html += '</div></div>';
+    });
+    itemsEl.innerHTML = html;
+
+    itemsEl.querySelectorAll('.centinela-header__cart-item-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = parseInt(btn.getAttribute('data-index'), 10);
+        removeItemFromCart(idx);
+        updateCartCountDisplay();
+      });
+    });
+    itemsEl.querySelectorAll('.centinela-header__cart-item-qty').forEach(function (input) {
+      input.addEventListener('change', function () {
+        var idx = parseInt(input.getAttribute('data-index'), 10);
+        var val = parseInt(input.value, 10) || 1;
+        if (val < 1) val = 1;
+        input.value = val;
+        updateItemQty(idx, val);
+        updateCartCountDisplay();
+      });
+    });
+  }
+
+  function updateCartCountDisplay() {
+    var items = getCartItems();
+    var count = 0;
+    items.forEach(function (i) { count += (i.qty || 1); });
+
     var badge = document.getElementById('centinela-header-cart-count');
     var dropdownText = document.getElementById('centinela-cart-dropdown-count');
+    var dropdownEmpty = document.getElementById('centinela-cart-dropdown-empty');
     if (badge) {
       badge.textContent = String(count);
       badge.setAttribute('data-count', count);
@@ -273,11 +447,31 @@
     if (dropdownText) {
       dropdownText.textContent = count === 1 ? '(1 producto)' : '(' + count + ' productos)';
     }
+    if (dropdownEmpty) {
+      dropdownEmpty.style.display = count > 0 ? 'none' : '';
+    }
+    var contentEl = document.getElementById('centinela-cart-dropdown-content');
+    var emptyCta = document.getElementById('centinela-cart-dropdown-empty-cta');
+    if (contentEl) contentEl.style.display = count > 0 ? 'block' : 'none';
+    if (emptyCta) emptyCta.style.display = count > 0 ? 'none' : '';
+
+    renderCartDropdown();
   }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', updateCartCountDisplay);
   } else {
     updateCartCountDisplay();
   }
   window.centinelaUpdateCartCount = updateCartCountDisplay;
+  window.centinelaAddToCart = function (item) {
+    addItemToCart(item);
+    updateCartCountDisplay();
+  };
+  window.centinelaGetCartItems = getCartItems;
+  window.centinelaSaveCartItems = saveCartItems;
+  window.centinelaRemoveItemFromCart = removeItemFromCart;
+  window.centinelaUpdateItemQty = updateItemQty;
+  window.centinelaParsePrice = parsePrice;
+  window.centinelaFormatPrice = formatPrice;
 })();

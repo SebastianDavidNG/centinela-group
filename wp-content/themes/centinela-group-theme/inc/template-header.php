@@ -45,17 +45,44 @@ function centinela_theme_default_header() {
 				) );
 				?>
 			</nav>
+			<?php
+			$centinela_cart_page    = get_page_by_path( 'carrito', OBJECT, 'page' );
+			$centinela_cart_url     = $centinela_cart_page ? get_permalink( $centinela_cart_page ) : home_url( '/carrito/' );
+			$centinela_checkout_page = get_page_by_path( 'finalizar-compra', OBJECT, 'page' );
+			$centinela_checkout_url  = $centinela_checkout_page ? get_permalink( $centinela_checkout_page ) : $centinela_cart_url;
+			if ( function_exists( 'wc_get_cart_url' ) ) {
+				$centinela_cart_url = wc_get_cart_url();
+			}
+			if ( function_exists( 'wc_get_checkout_url' ) ) {
+				$centinela_checkout_url = wc_get_checkout_url();
+			}
+			$centinela_tienda_url = home_url( '/tienda/' );
+			?>
 			<div class="centinela-header__actions">
 				<div class="centinela-header__action-wrap centinela-header__cart-wrap">
-					<a href="<?php echo esc_url( home_url( '/tienda/' ) ); ?>" class="centinela-header__icon-btn centinela-header__cart-btn" aria-label="<?php esc_attr_e( 'Carrito', 'centinela-group-theme' ); ?>">
+					<a href="<?php echo esc_url( $centinela_cart_url ); ?>" class="centinela-header__icon-btn centinela-header__cart-btn" aria-label="<?php esc_attr_e( 'Carrito', 'centinela-group-theme' ); ?>">
 						<svg class="centinela-header__icon-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
 						<span class="centinela-header__cart-count" id="centinela-header-cart-count" data-count="0">0</span>
 					</a>
-					<div class="centinela-header__dropdown centinela-header__cart-dropdown" aria-hidden="true">
+					<div class="centinela-header__dropdown centinela-header__cart-dropdown" id="centinela-cart-dropdown" aria-hidden="true"
+						data-cart-url="<?php echo esc_url( $centinela_cart_url ); ?>"
+						data-checkout-url="<?php echo esc_url( $centinela_checkout_url ); ?>"
+						data-tienda-url="<?php echo esc_url( $centinela_tienda_url ); ?>">
 						<div class="centinela-header__dropdown-inner">
 							<h3 class="centinela-header__dropdown-title"><?php esc_html_e( 'Tu carrito', 'centinela-group-theme' ); ?> <span id="centinela-cart-dropdown-count">(0 <?php esc_html_e( 'productos', 'centinela-group-theme' ); ?>)</span></h3>
-							<p class="centinela-header__cart-empty"><?php esc_html_e( 'Tu carrito está vacío.', 'centinela-group-theme' ); ?></p>
-							<a href="<?php echo esc_url( home_url( '/tienda/' ) ); ?>" class="centinela-header__dropdown-cta"><?php esc_html_e( 'Ir a la tienda', 'centinela-group-theme' ); ?></a>
+							<p class="centinela-header__cart-empty" id="centinela-cart-dropdown-empty"><?php esc_html_e( 'Tu carrito está vacío.', 'centinela-group-theme' ); ?></p>
+							<div class="centinela-header__cart-content" id="centinela-cart-dropdown-content" style="display: none;">
+								<div class="centinela-header__cart-items" id="centinela-cart-dropdown-items"></div>
+								<div class="centinela-header__cart-footer">
+									<p class="centinela-header__cart-subtotal"><span class="centinela-header__cart-subtotal-label"><?php esc_html_e( 'Subtotal:', 'centinela-group-theme' ); ?></span> <span id="centinela-cart-dropdown-subtotal" class="centinela-header__cart-subtotal-value">0 COP</span></p>
+									<a href="<?php echo esc_url( $centinela_checkout_url ); ?>" id="centinela-cart-dropdown-checkout" class="centinela-header__dropdown-cta centinela-header__dropdown-cta--checkout"><?php esc_html_e( 'Finalizar compra', 'centinela-group-theme' ); ?></a>
+									<div class="centinela-header__cart-links">
+										<a href="<?php echo esc_url( $centinela_cart_url ); ?>" id="centinela-cart-dropdown-view" class="centinela-header__cart-link"><?php esc_html_e( 'Ver carrito', 'centinela-group-theme' ); ?></a>
+										<a href="<?php echo esc_url( $centinela_tienda_url ); ?>" id="centinela-cart-dropdown-continue" class="centinela-header__cart-link"><?php esc_html_e( 'Continuar comprando', 'centinela-group-theme' ); ?></a>
+									</div>
+								</div>
+							</div>
+							<a href="<?php echo esc_url( $centinela_cart_url ); ?>" class="centinela-header__dropdown-cta centinela-header__cart-empty-cta" id="centinela-cart-dropdown-empty-cta"><?php esc_html_e( 'Ir al carrito', 'centinela-group-theme' ); ?></a>
 						</div>
 					</div>
 				</div>
