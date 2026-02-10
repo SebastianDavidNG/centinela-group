@@ -30,6 +30,9 @@ if ( $checkout_page ) {
 if ( function_exists( 'wc_get_checkout_url' ) ) {
 	$checkout_url = wc_get_checkout_url();
 }
+// Forzar HTTP en localhost para evitar redirección a https (Docker/local sin SSL).
+$tienda_url   = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $tienda_url ) : $tienda_url;
+$checkout_url = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $checkout_url ) : $checkout_url;
 
 get_header();
 

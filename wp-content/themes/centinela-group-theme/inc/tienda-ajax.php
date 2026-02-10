@@ -62,7 +62,8 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 				$img    = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
 				$precios = isset( $prod['precios'] ) && is_array( $prod['precios'] ) ? $prod['precios'] : array();
 				$precio = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
-				$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid, $titulo, $cat_path ) : home_url( '/tienda/producto/' . $pid . '/' );
+				// URL legacy /tienda/producto/ID-slug/ para que Ver producto y enlaces lleven al detalle sin recargar tienda.
+				$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid, $titulo, '' ) : home_url( '/tienda/producto/' . $pid . '/' );
 				?>
 				<article class="centinela-tienda__card" data-product-id="<?php echo esc_attr( $pid ); ?>">
 					<div class="centinela-tienda__card-image-wrap">
@@ -78,7 +79,7 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 						</button>
 						<div class="centinela-tienda__card-overlay">
 							<button type="button" class="centinela-tienda__quickview-btn" data-product-id="<?php echo esc_attr( $pid ); ?>"><span class="centinela-tienda__overlay-btn-text"><?php esc_html_e( 'Vista rápida', 'centinela-group-theme' ); ?></span><svg class="centinela-header__cta-icon centinela-tienda__overlay-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
-							<a href="<?php echo esc_url( $url ); ?>" class="centinela-tienda__add-cart"><span class="centinela-tienda__overlay-btn-text"><?php esc_html_e( 'Agregar al carrito', 'centinela-group-theme' ); ?></span><svg class="centinela-header__cta-icon centinela-tienda__overlay-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+							<a href="<?php echo esc_url( $url ); ?>" class="centinela-tienda__add-cart"><span class="centinela-tienda__overlay-btn-text"><?php esc_html_e( 'Ver producto', 'centinela-group-theme' ); ?></span><svg class="centinela-header__cta-icon centinela-tienda__overlay-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
 						</div>
 					</div>
 					<div class="centinela-tienda__card-body">
@@ -86,7 +87,7 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 							<a href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $titulo ); ?></a>
 						</h2>
 						<?php if ( $precio ) : ?>
-							<p class="centinela-tienda__card-price"><?php echo esc_html( $precio ); ?> COP</p>
+							<p class="centinela-tienda__card-price"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio ) : $precio . ' COP' ); ?></p>
 						<?php endif; ?>
 					</div>
 				</article>
@@ -323,8 +324,9 @@ function centinela_tienda_quickview_route() {
 			$precio_lista = isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
 			$precio_raw  = $precio_esp ?: $precio_lista;
 			$precio_raw  = is_string( $precio_raw ) ? preg_replace( '/\s*COP\s*$/i', '', trim( $precio_raw ) ) : $precio_raw;
-			$prod_cat_path = function_exists( 'centinela_get_product_cat_path' ) ? centinela_get_product_cat_path( $producto ) : '';
-			$url         = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $id, isset( $producto['titulo'] ) ? $producto['titulo'] : '', $prod_cat_path ) : home_url( '/tienda/producto/' . $id . '/' );
+			$precio_raw  = function_exists( 'centinela_normalizar_precio_cop' ) ? centinela_normalizar_precio_cop( $precio_raw ) : $precio_raw;
+			// URL legacy /tienda/producto/ID-slug/ para que "Ver producto" en quickview lleve al detalle.
+			$url = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $id, isset( $producto['titulo'] ) ? $producto['titulo'] : '', '' ) : home_url( '/tienda/producto/' . $id . '/' );
 			$categorias  = isset( $producto['categorías'] ) ? $producto['categorías'] : ( isset( $producto['categorias'] ) ? $producto['categorias'] : array() );
 			$categoria   = '';
 			if ( is_array( $categorias ) && ! empty( $categorias ) ) {

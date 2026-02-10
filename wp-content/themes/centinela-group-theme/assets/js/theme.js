@@ -5,6 +5,22 @@
 (function () {
   'use strict';
 
+  // En localhost, forzar HTTP: si cargamos por HTTPS redirigir a HTTP (evitar ERR_SSL_PROTOCOL_ERROR).
+  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    window.location.replace('http://' + window.location.host + window.location.pathname + window.location.search + window.location.hash);
+    return;
+  }
+
+  // Interceptar clics en enlaces a finalizar-compra/checkout: si el href es https en localhost, ir por http.
+  document.addEventListener('click', function (e) {
+    var link = e.target && e.target.closest ? e.target.closest('a[href*="finalizar-compra"], a[href*="/checkout"]') : null;
+    if (!link || !link.href) return;
+    var isLocal = link.hostname === 'localhost' || link.hostname === '127.0.0.1';
+    if (!isLocal || link.protocol !== 'https:') return;
+    e.preventDefault();
+    window.location.href = 'http://' + link.host + link.pathname + link.search + link.hash;
+  }, true);
+
   var menuToggle = document.getElementById('menu-toggle');
   var mobileMenu = document.getElementById('primary-menu-mobile');
 
@@ -293,18 +309,39 @@
     } catch (e) {}
   }
 
+  // Acepta "368194.46" (API) o "368.194,46" (formato Colombia)
   function parsePrice(str) {
     if (str === '' || str == null) return 0;
-    var s = String(str).trim().replace(/\s*COP\s*$/i, '').replace(/\./g, '').replace(',', '.');
-    var n = parseFloat(s.replace(/[^\d.-]/g, ''));
+    var s = String(str).trim().replace(/\s*COP\s*$/i, '').replace(/[^\d.,\-]/g, '');
+    if (s.indexOf(',') !== -1) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
+    var n = parseFloat(s);
     return isNaN(n) ? 0 : n;
   }
 
+  // Si la API envió valor con 2 decimales como pesos (697.33 → 69733, 368194.46 → 36819446), normalizar.
+  function normalizePriceForDisplay(num) {
+    if (num === 0 || num == null) return 0;
+    var n = Number(num);
+    if (isNaN(n)) return n;
+    var intPart = Math.floor(n);
+    var decPart = n - intPart;
+    if (decPart > 0 && Math.abs(Math.round(n * 100) - n * 100) < 0.001) {
+      return Math.round(n * 100);
+    }
+    return n;
+  }
+
+  // Formato Colombia: miles con punto, decimales con coma (ej: 36.819.446 COP)
   function formatPrice(num) {
-    if (num === 0) return '0 COP';
-    var parts = num.toFixed(0).split('.');
+    var n = normalizePriceForDisplay(num);
+    if (n === 0) return '0 COP';
+    var parts = Number(n).toFixed(2).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return parts.join(',') + ' COP';
+    var out = parts.join(',') + ' COP';
+    if (parts[1] === '00') out = parts[0] + ' COP';
+    return out;
   }
 
   function truncateTitle(title, maxLen) {
@@ -386,6 +423,15 @@
     var cartUrl = dropdown.getAttribute('data-cart-url') || '';
     var checkoutUrl = dropdown.getAttribute('data-checkout-url') || cartUrl;
     var tiendaUrl = dropdown.getAttribute('data-tienda-url') || '';
+    // Forzar http en localhost por si el servidor envió https (evitar ERR_SSL_PROTOCOL_ERROR).
+    function forceHttpLocalhost(url) {
+      if (typeof url !== 'string' || !url) return url;
+      if (url.indexOf('https://localhost') === 0 || url.indexOf('https://127.0.0.1') === 0) return 'http' + url.slice(5);
+      return url;
+    }
+    cartUrl = forceHttpLocalhost(cartUrl);
+    checkoutUrl = forceHttpLocalhost(checkoutUrl);
+    tiendaUrl = forceHttpLocalhost(tiendaUrl);
     if (checkoutBtn) checkoutBtn.href = checkoutUrl;
     if (viewLink) viewLink.href = cartUrl;
     if (continueLink) continueLink.href = tiendaUrl;

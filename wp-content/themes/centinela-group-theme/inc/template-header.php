@@ -57,6 +57,10 @@ function centinela_theme_default_header() {
 				$centinela_checkout_url = wc_get_checkout_url();
 			}
 			$centinela_tienda_url = home_url( '/tienda/' );
+			// Forzar HTTP en localhost para evitar redirección a https (Docker/local sin SSL).
+			$centinela_cart_url     = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_cart_url ) : $centinela_cart_url;
+			$centinela_checkout_url = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_checkout_url ) : $centinela_checkout_url;
+			$centinela_tienda_url   = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_tienda_url ) : $centinela_tienda_url;
 			?>
 			<div class="centinela-header__actions">
 				<div class="centinela-header__action-wrap centinela-header__cart-wrap">

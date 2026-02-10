@@ -15,6 +15,102 @@ define( 'CENTINELA_THEME_DIR', get_template_directory() );
 define( 'CENTINELA_THEME_URI', get_template_directory_uri() );
 
 /**
+ * Forzar HTTP en localhost para evitar redirecciones a HTTPS (Docker/local sin SSL).
+ * Si la URL contiene localhost o 127.0.0.1, devuelve la misma URL con esquema http.
+ *
+ * @param string $url URL completa.
+ * @return string
+ */
+function centinela_force_http_on_localhost( $url ) {
+	if ( ! is_string( $url ) || $url === '' ) {
+		return $url;
+	}
+	$host = wp_parse_url( $url, PHP_URL_HOST );
+	if ( $host === 'localhost' || $host === '127.0.0.1' ) {
+		return set_url_scheme( $url, 'http' );
+	}
+	return $url;
+}
+
+/**
+ * Normaliza precio COP: si la API envía un valor con 2 decimales que en realidad son pesos enteros
+ * (ej: 697,33 → 69.733 COP; 368194.46 → 36.819.446 COP), devuelve el entero en pesos.
+ * Aplica a miles, cienmiles y millones: siempre que num * 100 sea entero, se interpreta como pesos.
+ *
+ * @param string|float|int $precio Precio tal como viene de la API.
+ * @return int|float Valor numérico en pesos (entero cuando se normaliza, float cuando no).
+ */
+function centinela_normalizar_precio_cop( $precio ) {
+	if ( $precio === '' || $precio === null ) {
+		return 0;
+	}
+	if ( is_numeric( $precio ) ) {
+		$num = (float) $precio;
+	} else {
+		$s = preg_replace( '/\s*COP\s*$/i', '', trim( (string) $precio ) );
+		$s = preg_replace( '/[^\d.,\-]/', '', $s );
+		if ( strpos( $s, ',' ) !== false ) {
+			$s = str_replace( '.', '', $s );
+			$s = str_replace( ',', '.', $s );
+		}
+		$num = (float) $s;
+	}
+	if ( is_nan( $num ) || $num !== $num || $num < 0 ) {
+		return 0;
+	}
+	$entero = (int) floor( $num );
+	$decimal = $num - $entero;
+	// Si tiene 2 decimales (num * 100 es entero): interpretar como pesos enteros (miles, cienmiles, millones).
+	if ( $decimal > 0 && abs( round( $num * 100 ) - $num * 100 ) < 0.001 ) {
+		return (int) round( $num * 100 );
+	}
+	return $num >= 1 ? ( $decimal == 0 ? $entero : $num ) : $num;
+}
+
+/**
+ * Formato de precio COP para Colombia: miles con punto, decimales con coma (ej: 36.819.446 COP).
+ * Usa la normalización para que cienmiles, millones etc. se muestren con todas las cifras.
+ *
+ * @param string|float|int $precio Precio tal como viene de la API o número.
+ * @return string Precio formateado con " COP" al final, o string vacío si no hay precio.
+ */
+function centinela_format_precio_cop( $precio ) {
+	$num = centinela_normalizar_precio_cop( $precio );
+	if ( $num === 0 && $precio !== 0 && $precio !== '0' ) {
+		return '';
+	}
+	$formateado = number_format( $num, 2, ',', '.' );
+	if ( substr( $formateado, -3 ) === ',00' ) {
+		$formateado = substr( $formateado, 0, -3 );
+	}
+	return $formateado . ' COP';
+}
+
+/**
+ * En localhost evitar que WooCommerce redirija checkout a HTTPS (no hay SSL en Docker/local).
+ * WooCommerce usa la opción "Forzar SSL en el checkout" y hace template_redirect a https.
+ */
+function centinela_disable_wc_force_ssl_on_localhost() {
+	$host = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( trim( $_SERVER['HTTP_HOST'] ) ) : '';
+	if ( $host === 'localhost' || $host === 'localhost:8081' || strpos( $host, '127.0.0.1' ) === 0 ) {
+		remove_action( 'template_redirect', array( 'WC_HTTPS', 'force_https_template_redirect' ) );
+	}
+}
+add_action( 'template_redirect', 'centinela_disable_wc_force_ssl_on_localhost', 0 );
+
+/**
+ * No redirigir al carrito WC cuando estamos en "finalizar-compra".
+ * El tema usa carrito en localStorage; WooCommerce redirige si WC()->cart está vacío.
+ */
+function centinela_allow_checkout_with_empty_wc_cart( $redirect ) {
+	if ( is_page( 'finalizar-compra' ) ) {
+		return false;
+	}
+	return $redirect;
+}
+add_filter( 'woocommerce_checkout_redirect_empty_cart', 'centinela_allow_checkout_with_empty_wc_cart' );
+
+/**
  * Configuración del tema
  */
 function centinela_theme_setup() {
@@ -66,6 +162,10 @@ function centinela_theme_page_templates( $templates, $theme = null, $post = null
 	if ( file_exists( $carrito ) ) {
 		$templates['page-carrito.php'] = __( 'Carrito (Centinela)', 'centinela-group-theme' );
 	}
+	$checkout = get_template_directory() . '/page-finalizar-compra.php';
+	if ( file_exists( $checkout ) ) {
+		$templates['page-finalizar-compra.php'] = __( 'Finalizar compra (Checkout)', 'centinela-group-theme' );
+	}
 	return $templates;
 }
 add_filter( 'theme_page_templates', 'centinela_theme_page_templates', 10, 3 );
@@ -88,6 +188,66 @@ function centinela_force_carrito_template( $template ) {
 	return $template;
 }
 add_filter( 'template_include', 'centinela_force_carrito_template', 98 );
+
+/**
+ * Si la página tiene slug "finalizar-compra" o "checkout", usar la plantilla page-finalizar-compra.php.
+ */
+function centinela_force_checkout_template( $template ) {
+	if ( ! is_singular( 'page' ) ) {
+		return $template;
+	}
+	$page = get_queried_object();
+	if ( ! $page || ! isset( $page->post_name ) ) {
+		return $template;
+	}
+	$slug = $page->post_name;
+	if ( $slug !== 'finalizar-compra' && $slug !== 'checkout' ) {
+		return $template;
+	}
+	$checkout_file = get_template_directory() . '/page-finalizar-compra.php';
+	if ( file_exists( $checkout_file ) ) {
+		return $checkout_file;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'centinela_force_checkout_template', 98 );
+
+/**
+ * Si la URL es /finalizar-compra/ o /checkout/ y WordPress devolvió 404 (p. ej. slug distinto o reglas no actualizadas),
+ * forzar la carga de la página de checkout si existe (por slug o por plantilla).
+ */
+function centinela_fix_404_checkout_url() {
+	if ( ! is_404() ) {
+		return;
+	}
+	if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+		return;
+	}
+	$req_path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+	$req_path = $req_path ? trim( $req_path, '/' ) : '';
+	if ( $req_path !== 'finalizar-compra' && $req_path !== 'checkout' ) {
+		return;
+	}
+	$checkout_page = get_page_by_path( 'finalizar-compra', OBJECT, 'page' );
+	if ( ! $checkout_page ) {
+		$checkout_page = get_page_by_path( 'checkout', OBJECT, 'page' );
+	}
+	if ( ! $checkout_page || $checkout_page->post_status !== 'publish' ) {
+		return;
+	}
+	global $wp_query;
+	$wp_query->posts          = array( $checkout_page );
+	$wp_query->post_count     = 1;
+	$wp_query->queried_object = $checkout_page;
+	$wp_query->queried_object_id = (int) $checkout_page->ID;
+	$wp_query->is_404         = false;
+	$wp_query->is_singular    = true;
+	$wp_query->is_single      = false;
+	$wp_query->is_page        = true;
+	$wp_query->set( 'pagename', '' );
+	$wp_query->set( 'page_id', $checkout_page->ID );
+}
+add_action( 'template_redirect', 'centinela_fix_404_checkout_url', 0 );
 
 /**
  * Si la página tiene slug "tienda", usar siempre la plantilla page-tienda.php

@@ -70,11 +70,7 @@ exports.useAdminMenuOffset = void 0;
 var _element = __webpack_require__(/*! @wordpress/element */ "../node_modules/@wordpress/element/build-module/index.js");
 var ADMIN_MENU_WRAP_ID = 'adminmenuwrap';
 var WPCONTENT_ID = 'wpcontent';
-var EDITOR_ONE_TOP_BAR_ID = 'editor-one-top-bar';
-var WPADMINBAR_ID = 'wpadminbar';
 var INITIALIZED_DATA_ATTR = 'data-editor-one-offset-initialized';
-var WPFOOTER_ID = 'wpfooter';
-var WPBODY_CONTENT_ID = 'wpbody-content';
 var getIsRTL = function getIsRTL() {
   return 'rtl' === document.dir || document.body.classList.contains('rtl');
 };
@@ -86,29 +82,15 @@ var useAdminMenuOffset = exports.useAdminMenuOffset = function useAdminMenuOffse
     if (!adminMenuWrap || !wpcontent || wpcontent.hasAttribute(INITIALIZED_DATA_ATTR)) {
       return;
     }
-    var wpfooter = document.getElementById(WPFOOTER_ID);
-    var wpbodyContent = document.getElementById(WPBODY_CONTENT_ID);
-    wpbodyContent === null || wpbodyContent === void 0 || wpbodyContent.insertBefore(wpfooter, wpbodyContent.querySelector(':scope > .clear'));
-    var wpAdminBar = document.getElementById(WPADMINBAR_ID);
     var updateOffset = function updateOffset() {
-      var _document$getElementB, _wpAdminBar$clientHei, _topBarHeader$clientH;
-      var topBarHeader = (_document$getElementB = document.getElementById(EDITOR_ONE_TOP_BAR_ID)) === null || _document$getElementB === void 0 ? void 0 : _document$getElementB.querySelector(':scope > header');
       var isRTL = getIsRTL();
       var rect = adminMenuWrap.getBoundingClientRect();
       var offset = isRTL ? window.innerWidth - rect.left : rect.right;
-      var adminBarHeightPx = "".concat((_wpAdminBar$clientHei = wpAdminBar === null || wpAdminBar === void 0 ? void 0 : wpAdminBar.clientHeight) !== null && _wpAdminBar$clientHei !== void 0 ? _wpAdminBar$clientHei : 0, "px");
-      var topBarHeaderHeightPx = "".concat((_topBarHeader$clientH = topBarHeader === null || topBarHeader === void 0 ? void 0 : topBarHeader.clientHeight) !== null && _topBarHeader$clientH !== void 0 ? _topBarHeader$clientH : 0, "px");
       wpcontent.style.setProperty('--editor-one-sidebar-left-offset', "".concat(offset, "px"));
-      wpcontent.style.setProperty('--e-admin-bar-height', adminBarHeightPx);
-      wpcontent.style.setProperty('--e-top-bar-header-height', topBarHeaderHeightPx);
     };
     updateOffset();
     var resizeObserver = new ResizeObserver(updateOffset);
     resizeObserver.observe(wpcontent);
-    var topBar = document.getElementById(EDITOR_ONE_TOP_BAR_ID);
-    if (topBar) {
-      resizeObserver.observe(topBar);
-    }
     window.addEventListener('resize', updateOffset);
     wpcontent.setAttribute(INITIALIZED_DATA_ATTR, 'true');
     cleanupRef.current = function () {

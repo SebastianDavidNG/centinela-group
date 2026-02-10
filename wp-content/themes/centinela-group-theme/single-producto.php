@@ -133,12 +133,12 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 				<?php if ( $precio_esp || $precio_lista ) : ?>
 					<div class="centinela-single-producto__price">
 						<?php if ( $precio_esp ) : ?>
-							<span class="centinela-single-producto__price-special"><?php echo esc_html( $precio_esp ); ?> <?php esc_html_e( 'COP', 'centinela-group-theme' ); ?></span>
-							<?php if ( $precio_lista && (float) $precio_lista !== (float) $precio_esp ) : ?>
-								<del class="centinela-single-producto__price-list"><?php echo esc_html( $precio_lista ); ?></del>
+							<span class="centinela-single-producto__price-special"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_esp ) : $precio_esp . ' COP' ); ?></span>
+							<?php if ( $precio_lista && (float) str_replace( array( '.', ',' ), array( '', '.' ), $precio_lista ) !== (float) str_replace( array( '.', ',' ), array( '', '.' ), $precio_esp ) ) : ?>
+								<del class="centinela-single-producto__price-list"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_lista ) : $precio_lista ); ?></del>
 							<?php endif; ?>
 						<?php else : ?>
-							<span><?php echo esc_html( $precio_lista ); ?> <?php esc_html_e( 'COP', 'centinela-group-theme' ); ?></span>
+							<span><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_lista ) : $precio_lista . ' COP' ); ?></span>
 						<?php endif; ?>
 					</div>
 				<?php endif; ?>
@@ -164,7 +164,8 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 
 				<?php
 				$addcart_image = ! empty( $producto_imagenes[0] ) ? ( ! empty( $producto_imagenes[0]['url'] ) ? $producto_imagenes[0]['url'] : '' ) : '';
-				$addcart_price  = $precio_esp ? $precio_esp : $precio_lista;
+				$addcart_price_raw = $precio_esp ? $precio_esp : $precio_lista;
+				$addcart_price     = function_exists( 'centinela_normalizar_precio_cop' ) ? centinela_normalizar_precio_cop( $addcart_price_raw ) : $addcart_price_raw;
 				?>
 				<div class="centinela-single-producto__cart-row">
 					<label for="centinela-single-producto-qty" class="centinela-single-producto__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
@@ -242,8 +243,8 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 						$rimg     = isset( $rel['img_portada'] ) ? $rel['img_portada'] : '';
 						$rprecios = isset( $rel['precios'] ) && is_array( $rel['precios'] ) ? $rel['precios'] : array();
 						$rprecio  = isset( $rprecios['precio_especial'] ) ? $rprecios['precio_especial'] : ( isset( $rprecios['precio_lista'] ) ? $rprecios['precio_lista'] : '' );
-						$rel_cat_path = function_exists( 'centinela_get_product_cat_path' ) ? centinela_get_product_cat_path( $producto ) : '';
-$rurl     = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $rid, $rtitle, $rel_cat_path ) : home_url( '/tienda/producto/' . $rid . '/' );
+						// URL legacy /tienda/producto/ID-slug/ para que siempre resuelva al producto (no usar cat_path del producto actual).
+						$rurl = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $rid, $rtitle, '' ) : home_url( '/tienda/producto/' . $rid . '/' );
 						?>
 						<article class="centinela-single-producto__related-item">
 							<a href="<?php echo esc_url( $rurl ); ?>">
@@ -254,7 +255,7 @@ $rurl     = function_exists( 'centinela_get_producto_url' ) ? centinela_get_prod
 								<?php endif; ?>
 								<div class="centinela-single-producto__related-body">
 									<h3 class="centinela-single-producto__related-item-title"><?php echo esc_html( $rtitle ); ?></h3>
-									<?php if ( $rprecio ) : ?><p class="centinela-single-producto__related-price"><?php echo esc_html( $rprecio ); ?> COP</p><?php endif; ?>
+									<?php if ( $rprecio ) : ?><p class="centinela-single-producto__related-price"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $rprecio ) : $rprecio . ' COP' ); ?></p><?php endif; ?>
 								</div>
 							</a>
 						</article>

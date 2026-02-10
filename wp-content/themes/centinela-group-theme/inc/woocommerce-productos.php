@@ -51,6 +51,9 @@ add_filter( 'query_vars', 'centinela_productos_query_vars' );
  * Reglas de reescritura: /productos/, /productos/slug.../, /producto/123/, /tienda/producto/123-slug/, /tienda/, /tienda/slug.../
  */
 function centinela_productos_rewrite_rules() {
+	// Checkout: /finalizar-compra/ y /checkout/ (prioridad para que resuelvan como página)
+	add_rewrite_rule( 'finalizar-compra/?$', 'index.php?pagename=finalizar-compra', 'top' );
+	add_rewrite_rule( 'checkout/?$', 'index.php?pagename=checkout', 'top' );
 	// Producto por ID solo (legacy): /producto/123/
 	add_rewrite_rule(
 		'producto/([0-9]+)/?$',

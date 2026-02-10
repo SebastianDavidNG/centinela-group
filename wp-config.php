@@ -20,6 +20,14 @@
  * @package WordPress
  */
 
+// Forzar HTTP en localhost: evita que WordPress redirija a HTTPS (Docker/local sin SSL).
+if ( ! empty( $_SERVER['HTTP_HOST'] ) ) {
+	$host = strtolower( $_SERVER['HTTP_HOST'] );
+	if ( $host === 'localhost' || $host === 'localhost:8081' || strpos( $host, '127.0.0.1' ) === 0 ) {
+		$_SERVER['HTTPS'] = 'off';
+	}
+}
+
 // IMPORTANT: this file needs to stay in-sync with https://github.com/WordPress/WordPress/blob/master/wp-config-sample.php
 // (it gets parsed by the upstream wizard in https://github.com/WordPress/WordPress/blob/f27cb65e1ef25d11b535695a660e7282b98eb742/wp-admin/setup-config.php#L356-L392)
 
@@ -119,7 +127,9 @@ define( 'WP_DEBUG', !!getenv_docker('WORDPRESS_DEBUG', '') );
 
 // If we're behind a proxy server and using HTTPS, we need to alert WordPress of that fact
 // see also https://wordpress.org/support/article/administration-over-ssl/#using-a-reverse-proxy
-if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strpos($_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') !== false) {
+// En localhost no aplicar: ya forzamos HTTP arriba y esto evitaría que WordPress deje de redirigir a HTTPS.
+$is_local = ! empty( $_SERVER['HTTP_HOST'] ) && preg_match( '/^(localhost|127\.0\.0\.1)(:\d+)?$/i', trim( $_SERVER['HTTP_HOST'] ) );
+if ( ! $is_local && isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && strpos( $_SERVER['HTTP_X_FORWARDED_PROTO'], 'https' ) !== false ) {
 	$_SERVER['HTTPS'] = 'on';
 }
 // (we include this by default because reverse proxying is extremely common in container environments)
@@ -127,6 +137,9 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strpos($_SERVER['HTTP_X_FORWARD
 if ($configExtra = getenv_docker('WORDPRESS_CONFIG_EXTRA', '')) {
 	eval($configExtra);
 }
+
+define( 'WP_HOME', 'http://localhost:8081' );
+define( 'WP_SITEURL', 'http://localhost:8081' );
 
 /* That's all, stop editing! Happy publishing. */
 

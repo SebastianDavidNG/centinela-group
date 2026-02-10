@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunksite_mailer=globalThis.webpackChunksite_mailer||[]).push([[856],{7856:e=>{e.exports=JSON.parse('{"example":{"component":"Composant exemple"}}')}}]);

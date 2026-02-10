@@ -31,14 +31,31 @@
     document.body.style.overflow = '';
   }
 
+  // Normalizar: si API envió valor con 2 decimales como pesos (697.33 → 69733, 368194.46 → 36819446).
+  function normalizePrecioCOP(val) {
+    if (val === '' || val === null || val === undefined) return 0;
+    var s = String(val).trim().replace(/\s*COP\s*$/i, '').replace(/[^\d.,\-]/g, '');
+    if (s.indexOf(',') !== -1) s = s.replace(/\./g, '').replace(',', '.');
+    var num = parseFloat(s);
+    if (isNaN(num)) return num;
+    var intPart = Math.floor(num);
+    var decPart = num - intPart;
+    if (decPart > 0 && Math.abs(Math.round(num * 100) - num * 100) < 0.001) {
+      return Math.round(num * 100);
+    }
+    return num;
+  }
+
+  // Formato Colombia: miles con punto, decimales con coma (ej: 36.819.446 COP)
   function formatPrecioCOP(val) {
-    if (val === '' || val === null || val === undefined) return '';
-    var s = String(val).trim().replace(/\s*COP\s*$/i, '');
-    var num = parseFloat(s.replace(/[^\d.,-]/g, '').replace(',', '.'));
-    if (isNaN(num)) return val + ' COP';
-    var parts = num.toFixed(2).split('.');
+    var num = normalizePrecioCOP(val);
+    if (isNaN(num)) return String(val) + ' COP';
+    if (num === 0 && (val === '' || val === null || val === undefined)) return '';
+    var parts = Number(num).toFixed(2).split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return parts.join(',') + ' COP';
+    var out = parts.join(',') + ' COP';
+    if (parts[1] === '00') out = parts[0] + ' COP';
+    return out;
   }
 
   function setMainImage(index) {
