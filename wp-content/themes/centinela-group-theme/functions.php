@@ -376,6 +376,14 @@ function centinela_theme_scripts() {
 		CENTINELA_THEME_VERSION,
 		true
 	);
+	// Lightbox de imagen (quickview + detalle producto)
+	wp_enqueue_script(
+		'centinela-image-lightbox',
+		CENTINELA_THEME_URI . '/assets/js/image-lightbox.js',
+		array(),
+		CENTINELA_THEME_VERSION,
+		true
+	);
 }
 add_action( 'wp_enqueue_scripts', 'centinela_theme_scripts', 10 );
 

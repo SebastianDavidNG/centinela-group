@@ -204,6 +204,19 @@
     });
   }
 
+  if (mainArea && typeof window.centinelaOpenImageLightbox === 'function') {
+    mainArea.addEventListener('click', function (e) {
+      if (!currentImagenes.length) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var imgs = currentImagenesLarge.length ? currentImagenesLarge : currentImagenes;
+      var imgEl = document.getElementById('centinela-quickview-img');
+      var idx = (imgEl && imgEl.getAttribute('data-index')) ? parseInt(imgEl.getAttribute('data-index'), 10) : 0;
+      window.centinelaOpenImageLightbox(imgs, isNaN(idx) ? 0 : idx);
+    });
+    mainArea.style.cursor = 'pointer';
+  }
+
   document.getElementById('centinela-quickview-addcart') && document.getElementById('centinela-quickview-addcart').addEventListener('click', function () {
     if (!currentProductId) return;
     var qtyInput = document.getElementById('centinela-quickview-qty');

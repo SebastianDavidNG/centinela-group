@@ -22,7 +22,7 @@ wp_enqueue_script(
 wp_enqueue_script(
 	'centinela-tienda-quickview',
 	get_template_directory_uri() . '/assets/js/tienda-quickview.js',
-	array( 'centinela-tienda-ajax' ),
+	array( 'centinela-tienda-ajax', 'centinela-image-lightbox' ),
 	defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0',
 	true
 );

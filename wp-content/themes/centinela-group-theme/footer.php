@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 </div><!-- #page -->
 
 <?php get_template_part( 'template-parts/video-modal' ); ?>
+<?php get_template_part( 'template-parts/image-lightbox' ); ?>
 
 <?php wp_footer(); ?>
 </body>

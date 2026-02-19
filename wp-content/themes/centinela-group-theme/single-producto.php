@@ -352,6 +352,17 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 			zoomEl.classList.remove('centinela-single-producto__zoom-panel--visible');
 		});
 	}
+	if (mainArea && (imgsLarge.length || imgs.length)) {
+		mainArea.addEventListener('click', function(e) {
+			if (typeof window.centinelaOpenImageLightbox !== 'function') return;
+			e.preventDefault();
+			e.stopPropagation();
+			var list = imgsLarge.length ? imgsLarge : imgs;
+			var idx = (mainImg && mainImg.getAttribute('data-index')) ? parseInt(mainImg.getAttribute('data-index'), 10) : 0;
+			window.centinelaOpenImageLightbox(list, isNaN(idx) ? 0 : idx);
+		});
+		mainArea.style.cursor = 'pointer';
+	}
 
 	var tabs = document.querySelectorAll('.centinela-single-producto__tab');
 	var panels = document.querySelectorAll('.centinela-single-producto__tab-panel');
