@@ -69,7 +69,7 @@ class Quota_Exhausted_Banner {
 			<a style="display: inline-block;background:#93003f;padding: 5px 16px;border-radius: 3px;color: #fff; text-decoration:none;"
 			href="<?php echo esc_url( Utils::get_upgrade_link( 'https://go.elementor.com/sm-trialend-notice/' ) ); ?>">
 				<?php esc_html_e(
-					'Upgrade Now',
+					'Upgrade now',
 					'site-mailer'
 				); ?>
 			</a>

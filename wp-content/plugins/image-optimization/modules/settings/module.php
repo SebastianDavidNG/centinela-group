@@ -29,13 +29,13 @@ class Module extends Module_Base {
 		return 'settings';
 	}
 
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [
 			'Settings_Pointer',
 		];
 	}
 
-	public static function get_options() : array {
+	public static function get_options(): array {
 		return [
 			'compression_level' => [ 'default' => 'lossy' ],
 			'optimize_on_upload' => [
@@ -185,10 +185,10 @@ class Module extends Module_Base {
 	}
 
 	/**
-     * Register or update site data for One connect
-     * @throws Exception
-     */
-    public function on_migration_run() {
+	 * Register or update site data for One connect
+	 * @throws Exception
+	 */
+	public function on_migration_run() {
 		$old_options = [
 			'image_optimizer_client_id',
 			'image_optimizer_client_secret',
@@ -199,15 +199,15 @@ class Module extends Module_Base {
 			'image_optimizer_user_access_token',
 			'image_optimizer_owner_user_id',
 			'image_optimizer_subscription_id',
-			Settings::SUBSCRIPTION_ID
+			Settings::SUBSCRIPTION_ID,
 		];
 
-       	$this->cleanup_data();
+		$this->cleanup_data();
 
 		foreach ( $old_options as $option ) {
 			delete_option( $option );
 		}
-    }
+	}
 
 	public function __construct() {
 		$this->register_components();
@@ -219,8 +219,8 @@ class Module extends Module_Base {
 		add_action( 'rest_pre_update_setting', [ $this, 'recalculate_stats_on_custom_sizes_update' ], 10, 2 );
 
 		add_action( 'elementor_one/' . Config::APP_PREFIX . '_connected', [ $this, 'cleanup_data' ] );
-        add_action( 'elementor_one/' . Config::APP_PREFIX . '_disconnected', [ $this, 'cleanup_data' ] );
-        add_action( 'elementor_one/' . Config::APP_PREFIX . '_migration_run', [ $this, 'on_migration_run' ] );
+		add_action( 'elementor_one/' . Config::APP_PREFIX . '_disconnected', [ $this, 'cleanup_data' ] );
+		add_action( 'elementor_one/' . Config::APP_PREFIX . '_migration_run', [ $this, 'on_migration_run' ] );
 
 		// Add action on switch domain for update access token
 		add_action( 'elementor_one/' . Config::APP_PREFIX . '_switched_domain', function( $facade ) {

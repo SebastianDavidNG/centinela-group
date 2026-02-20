@@ -251,7 +251,6 @@ class Client {
 			return new WP_Error( 401, 'site url mismatch' );
 		}
 
-
 		if ( ! in_array( $response_code, [ 200, 201 ], true ) ) {
 			// In case $as_array = true.
 			$message = $body->message ?? wp_remote_retrieve_response_message( $response );
@@ -305,7 +304,7 @@ class Client {
 				! in_array( $image_mime, Image::get_supported_mime_types(), true ) &&
 				( 'application/octet-stream' === $image_mime && 'avif' !== File_Utils::get_extension( $file ) )
 			) {
-				throw new Client_Exception( "Unsupported mime type `$image_mime`" );
+				throw new Client_Exception( esc_html( "Unsupported mime type `$image_mime`" ) );
 			}
 
 			if ( empty( $file_name ) ) {

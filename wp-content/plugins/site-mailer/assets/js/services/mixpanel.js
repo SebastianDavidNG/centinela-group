@@ -15,7 +15,6 @@ const init = async () => {
 		debug: siteMailerSettingsData.pluginEnv === 'dev',
 		track_pageview: false,
 		persistence: 'localStorage',
-		record_sessions_percent: 50,
 	} );
 
 	mixpanel.register( {

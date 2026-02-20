@@ -210,7 +210,6 @@ abstract class Route {
 		];
 		$this->maybe_add_response_to_swagger( $method );
 		return $this->maybe_add_args_to_config( $method, $config );
-
 	}
 
 	/**
@@ -283,7 +282,7 @@ abstract class Route {
 	 */
 	public function respond_wrong_method( $message = null, int $code = 404 ): WP_Error {
 		if ( null === $message ) {
-			$message = __( 'No route was found matching the URL and request method', 'cloud-backup' );
+			$message = __( 'No route was found matching the URL and request method', 'image-optimization' );
 		}
 
 		return new WP_Error( 'rest_no_route', $message, [ 'status' => $code ] );

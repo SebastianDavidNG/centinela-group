@@ -21,7 +21,7 @@ class Sale_Banner {
 		$sale_start_time = strtotime( '2025-11-25 13:00:00 UTC' );
 		$sale_end_time = strtotime( '2025-12-04 04:59:00 UTC' );
 
-		$now_time = current_time( 'timestamp', true );
+		$now_time = time();
 
 		return $now_time >= $sale_start_time && $now_time <= $sale_end_time;
 	}

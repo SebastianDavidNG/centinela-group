@@ -11,7 +11,6 @@ use SiteMailer\Modules\Connect\Classes\Config;
 use SiteMailer\Modules\Connect\Module as Connect;
 use SiteMailer\Modules\Logs\Components\Log_Pull;
 use SiteMailer\Modules\Settings\Banners\Birthday_Banner;
-use SiteMailer\Modules\Settings\Banners\PLG_Banner;
 use SiteMailer\Modules\Settings\Banners\Sale_Banner;
 use SiteMailer\Modules\Settings\Classes\Settings;
 use SiteMailer\Modules\Settings\Module as SettingsModule;
@@ -58,8 +57,6 @@ class Module extends Module_Base {
         ?>
         <?php Sale_Banner::get_banner( 'https://go.elementor.com/SM-BF-sale' ); ?>
         <?php Birthday_Banner::get_banner( 'https://go.elementor.com/sm-b-day-banner' ); ?>
-        <?php PLG_Banner::get_plg_banner( 'forms' ); ?>
-        <?php PLG_Banner::get_plg_banner( 'woocommerce' ); ?>
 
         <!-- The hack required to wrap WP notifications -->
         <div class="wrap">
@@ -275,27 +272,27 @@ class Module extends Module_Base {
                 ],
                 'close_post_connect_modal' => [
                         'type' => 'boolean',
-                        'description' => _x( 'Site Mailer Close Post Connect Modal', 'Descrption for API usage. no need to translate', 'site-mailer' ),
+                        'description' => _x( 'Site Mailer Close Post Connect Modal', 'Description for API usage. no need to translate', 'site-mailer' ),
                 ],
                 'from_name' => [
                         'type' => 'string',
-                        'description' => _x( 'Site Mailer From Email', 'Descrption for API usage. no need to translate', 'site-mailer' ),
+                        'description' => _x( 'Site Mailer From Email', 'Description for API usage. no need to translate', 'site-mailer' ),
                 ],
                 'reply_to_email' => [
                         'type' => 'string',
-                        'description' => _x( 'Site Mailer Reply Email', 'Descrption for API usage. no need to translate', 'site-mailer' ),
+                        'description' => _x( 'Site Mailer Reply Email', 'Description for API usage. no need to translate', 'site-mailer' ),
                 ],
                 'sender_domain' => [
                         'type' => 'string',
-                        'description' => _x( 'Site Mailer Sender Domain', 'Descrption for API usage. no need to translate', 'site-mailer' ),
+                        'description' => _x( 'Site Mailer Sender Domain', 'Description for API usage. no need to translate', 'site-mailer' ),
                 ],
                 'sender_email_prefix' => [
                         'type' => 'string',
-                        'description' => _x( 'Site Mailer Sender Mail Prefix', 'Descrption for API usage. no need to translate', 'site-mailer' ),
+                        'description' => _x( 'Site Mailer Sender Mail Prefix', 'Description for API usage. no need to translate', 'site-mailer' ),
                 ],
                 'custom_domain_dns_records' => [
                         'type' => 'string',
-                        'description' => _x( 'Site Mailer custom domain DNS records', 'Descrption for API usage. no need to translate', 'site-mailer' ),
+                        'description' => _x( 'Site Mailer custom domain DNS records', 'Description for API usage. no need to translate', 'site-mailer' ),
                 ],
                 'verification_started' => [
                         'type' => 'boolean',
@@ -500,8 +497,6 @@ class Module extends Module_Base {
                 'isValidPlanData' => Settings::get( Settings::IS_VALID_PLAN_DATA ),
                 'isRTL' => is_rtl(),
                 'lastLogRefresh' => Log_Pull::check_refresh_time(),
-                'sampleBannerDomains' => PLG_Banner::get_banner_data( 'domains' ),
-                'sampleBannerUnsubscribe' => PLG_Banner::get_banner_data( 'unsubscribe' ),
                 'isElementorOne' => self::is_elementor_one(),
         ];
     }

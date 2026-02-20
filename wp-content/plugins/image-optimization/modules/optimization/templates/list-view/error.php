@@ -32,13 +32,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	}
 	?>
 
-	<span class='image-optimization-control__error-message'><?php echo $message; ?></span>
+	<span class='image-optimization-control__error-message'>
+		<?php echo wp_kses_post( $message ); ?>
+	</span>
 
 	<?php
 	if ( Image_Optimization_Error_Type::AUTH_ERROR === $error_type ) {
 		?>
 		<a class="button button-secondary button-large image-optimization-control__button"
-			 href="<?php echo admin_url( 'admin.php?page=' . Settings_Module::SETTING_BASE_SLUG . '&action=connect' ); ?>"
+			 href="<?php echo esc_url( admin_url( 'admin.php?page=' . Settings_Module::SETTING_BASE_SLUG . '&action=connect' ) ); ?>"
 			 target="_blank" rel="noopener noreferrer">
 			<?php esc_html_e( 'Connect', 'image-optimization' ); ?>
 		</a>

@@ -4,7 +4,7 @@ Tags: image optimization, image compression, convert webp, convert avif, perform
 Requires at least: 6.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.7.2
+Stable tag: 1.7.3
 License: GPL-3
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 
@@ -118,14 +118,19 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 5. Image Optimizer - Image Optimization in the Media Uploader
 
 == Changelog ==
+= 1.7.3 2026-02-17 =
+* Tweak: Enabled display of WordPress admin notices for better visibility
+* Fix: Resolved issues related to feature usage tracking
+* Fix: Resolved a visual glitch on the Image Optimizer Stats in the Media Library screen
+
 = 1.7.2 2026-01-29 =
 * Tweak: Updated WordPress and PHP version compatibility for the testing environment
 * Tweak: Improved bulk optimization logic for tracking remaining images
-* Tweak - security enhancements for access control
+* Tweak: Security enhancements for access control
 * Fix: Resolved missing style loading warnings in reviews
 
 = 1.7.1 2026-01-20 =
-Fix: Fatal error in edge cases when using old connect.
+Fix: Fatal error in edge cases when using old connect
 
 = 1.7.0 2026-01-20 =
 Tweak: Moved the plugin location under a unified Elementor menu
@@ -160,8 +165,8 @@ Tweak: Added What's new modal for new features
 * Fix: Moved Connect Modal to Image Optimizer settings pages
 
 = 1.6.4 - 2025-02-03 =
-* Tweak: Connect flow improvments
-* Fix: Cancel Bulk optimisation button not working
+* Tweak: Connect flow improvements
+* Fix: Cancel Bulk optimization button not working
 * Fix: Connect refresh token stuck in edge cases
 
 = 1.6.3 - 2024-12-19 =

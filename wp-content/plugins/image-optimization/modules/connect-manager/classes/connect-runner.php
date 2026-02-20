@@ -18,11 +18,11 @@ class Connect_Runner {
 		return $this->connect->is_connected();
 	}
 
-	public function is_activated() : bool {
+	public function is_activated(): bool {
 		return $this->connect->is_activated();
 	}
 
-	public function is_valid_home_url() : bool {
+	public function is_valid_home_url(): bool {
 		return $this->connect->is_valid_home_url();
 	}
 
@@ -38,7 +38,7 @@ class Connect_Runner {
 		$this->connect->update_usage_data( $new_usage_data );
 	}
 
-	public function get_activation_state() : string {
+	public function get_activation_state(): string {
 		return $this->connect->get_activation_state();
 	}
 

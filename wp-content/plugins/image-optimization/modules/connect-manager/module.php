@@ -39,7 +39,7 @@ class Module extends Module_Base {
 	 * component_list
 	 * @return string[]
 	 */
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [
 			'Legacy_Connect',
 			'Connect',

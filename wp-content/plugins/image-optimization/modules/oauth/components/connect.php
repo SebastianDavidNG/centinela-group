@@ -141,7 +141,7 @@ class Connect {
 				'Error while sending connection initialization request: ' . $t->getMessage()
 			);
 
-			throw new Auth_Error( $t->getMessage() );
+			throw new Auth_Error( esc_html( $t->getMessage() ) );
 		}
 
 		$data = json_decode( wp_remote_retrieve_body( $response ) );
@@ -197,7 +197,7 @@ class Connect {
 		} catch ( Throwable $t ) {
 			Logger::log( Logger::LEVEL_ERROR, 'Error while sending disconnection request: ' . $t->getMessage() );
 
-			throw new Auth_Error( $t->getMessage() );
+			throw new Auth_Error( esc_html( $t->getMessage() ) );
 		} finally {
 			Data::reset();
 		}
@@ -222,7 +222,7 @@ class Connect {
 		} catch ( Throwable $t ) {
 			Logger::log( Logger::LEVEL_ERROR, 'Error while sending activation request: ' . $t->getMessage() );
 
-			throw new Auth_Error( $t->getMessage() );
+			throw new Auth_Error( esc_html( $t->getMessage() ) );
 		}
 
 		if ( ! isset( $response->id ) ) {
@@ -262,7 +262,7 @@ class Connect {
 		} catch ( Throwable $t ) {
 			Logger::log( Logger::LEVEL_ERROR, 'Error while sending deactivation request: ' . $t->getMessage() );
 
-			throw new Auth_Error( $t->getMessage() );
+			throw new Auth_Error( esc_html( $t->getMessage() ) );
 		} finally {
 			Data::delete_activation_state();
 		}
@@ -292,7 +292,7 @@ class Connect {
 		} catch ( Throwable $t ) {
 			Logger::log( Logger::LEVEL_ERROR, 'Error while fetching subscriptions: ' . $t->getMessage() );
 
-			throw new Auth_Error( $t->getMessage() );
+			throw new Auth_Error( esc_html( $t->getMessage() ) );
 		}
 
 		if ( ! isset( $response->subscriptions ) ) {

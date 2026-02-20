@@ -1,0 +1,195 @@
+// =============================================================================
+// Servicios Slider – Section slider (ref. Figma Servicios - section - slider)
+// BEM: .centinela-servicios. Desktop: 3 ítems, mobile: 1 ítem, loop.
+// =============================================================================
+
+@use '../variables' as *;
+
+.centinela-servicios {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  padding: 2rem 0;
+  font-family: $font-family-base;
+  box-sizing: border-box;
+  overflow-x: hidden;
+
+  @media (min-width: 768px) {
+    padding: 3rem 0;
+  }
+}
+
+.centinela-servicios__inner {
+  position: relative;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+
+  @media (min-width: 768px) {
+    padding: 0 2rem;
+  }
+}
+
+.centinela-servicios__swiper {
+  width: 100%;
+  overflow: hidden;
+
+  .swiper-wrapper {
+    align-items: stretch;
+    box-sizing: border-box;
+  }
+}
+
+.centinela-servicios__track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// Altura igualada por JS (servicios-slider.js). Flex para repartir card + imagen.
+.centinela-servicios__slide {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  box-shadow: 0 5px 83px 0 rgba(170, 170, 170, 0.10);
+}
+
+.centinela-servicios__card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 1.25rem;
+  background-color: #fff;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    padding: 1.5rem;
+  }
+}
+
+// Icono o imagen superior – dimensiones Figma
+.centinela-servicios__icon {
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+  line-height: 0;
+
+  img {
+    display: block;
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+  }
+}
+
+.centinela-servicios__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: $font-weight-bold;
+  line-height: 1.3;
+  color: $blue-color;
+
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+}
+
+.centinela-servicios__description {
+  flex: 1;
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  font-weight: $font-weight-regular;
+  line-height: 1.5;
+  color: $grey-color;
+
+  @media (min-width: 768px) {
+    font-size: 0.9375rem;
+    margin-bottom: 1.25rem;
+  }
+}
+
+// Imagen inferior (fuera de la card, como en Figma)
+.centinela-servicios__image {
+  flex-shrink: 0;
+  line-height: 0;
+  border-radius: 0;
+  overflow: hidden;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 180px;
+    object-fit: cover;
+  }
+}
+
+// Pagination y flechas
+.centinela-servicios__pagination {
+  margin: 1rem auto 0;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+
+  .swiper-pagination-bullet {
+    width: 20px;
+    height: 10px;
+    margin: 0;
+    border-radius: 0;
+    background: rgba($blue-color, 0.3);
+    opacity: 1;
+    transition: background 0.2s ease, width 0.2s ease;
+  }
+
+  .swiper-pagination-bullet-active {
+    width: 30px;
+    height: 10px;
+    background: $green-color;
+  }
+}
+
+.centinela-servicios__prev,
+.centinela-servicios__next {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: $blue-color;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: $green-color;
+  }
+
+  &:focus {
+    outline: 2px solid $green-color;
+    outline-offset: 2px;
+  }
+}
+
+.centinela-servicios__prev {
+  left: 0;
+}
+
+.centinela-servicios__next {
+  right: 0;
+}
+
+// Editor Elementor: que el widget tenga altura mínima
+.elementor-widget-centinela_servicios_slider {
+  .centinela-servicios__swiper {
+    min-height: 200px;
+  }
+}

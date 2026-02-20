@@ -16,7 +16,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Class Module
  */
 class Module extends Module_Base {
-
 	const REVIEW_DATA_OPTION = SettingsModule::SETTING_PREFIX . 'review_data';
 
 	/**
@@ -30,7 +29,7 @@ class Module extends Module_Base {
 		return 'reviews';
 	}
 
-	public static function routes_list() : array {
+	public static function routes_list(): array {
 		return [
 			'Feedback',
 		];
@@ -204,7 +203,7 @@ class Module extends Module_Base {
 	 * @param array $links
 	 * @param string $file
 	 * @return array
-	 * 
+	 *
 	 */
 	public function add_plugin_row_meta( $links, $file ) {
 
@@ -212,16 +211,16 @@ class Module extends Module_Base {
 			return $links;
 		}
 
-		$links[] = '<a class="image-optimization-review" 
+		$links[] = '<a class="image-optimization-review"
 						href="https://wordpress.org/support/plugin/image-optimization/reviews/#new-post"
-						target="_blank" rel="noopener noreferrer" 
-						title="' . esc_attr__( 'Rate our plugin', 'image-optimization' ) 
+						target="_blank" rel="noopener noreferrer"
+						title="' . esc_attr__( 'Rate our plugin', 'image-optimization' )
 					. '">
 							<span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
 					</a>';
 
 		echo '<style>
-				.image-optimization-review{ display: inline-flex;flex-direction: row-reverse;} 
+				.image-optimization-review{ display: inline-flex;flex-direction: row-reverse;}
 				.image-optimization-review span{ color:#888}
 				.image-optimization-review span:hover{color:#ffa400}
 				.image-optimization-review span:hover~span{color:#ffa400}

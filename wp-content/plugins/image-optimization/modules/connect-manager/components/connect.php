@@ -20,15 +20,15 @@ class Connect implements Connect_Interface {
 	const STATUS_CHECK_ERROR_TRANSIENT = 'image_optimizer_status_check_error';
 	const ERROR_CACHE_DURATION = MINUTE_IN_SECONDS * 5;
 
-	public function is_connected() : bool {
+	public function is_connected(): bool {
 		return Connect_Module::is_connected();
 	}
 
-	public function is_activated() : bool {
+	public function is_activated(): bool {
 		return Connect_Module::is_connected();
 	}
 
-	public function is_valid_home_url() : bool {
+	public function is_valid_home_url(): bool {
 		return Connect_Module::get_connect()->utils()->is_valid_home_url();
 	}
 
@@ -76,21 +76,21 @@ class Connect implements Connect_Interface {
 			return null;
 		}
 
-	if ( ! empty( $response->site_url ) && Connect_Module::get_connect()->data()->get_home_url() !== $response->site_url ) {
-		Connect_Module::get_connect()->data()->set_home_url( $response->site_url );
-	}
+		if ( ! empty( $response->site_url ) && Connect_Module::get_connect()->data()->get_home_url() !== $response->site_url ) {
+			Connect_Module::get_connect()->data()->set_home_url( $response->site_url );
+		}
 
-	Settings::set( Settings::SUBSCRIPTION_ID, $response->subscription_id );
+		Settings::set( Settings::SUBSCRIPTION_ID, $response->subscription_id );
 
-	// Append subscription info to response
-	$subscription_info = Client::get_subscription_info();
-	if ( $subscription_info ) {
-		$response->subscription_info = $subscription_info;
-	}
+		// Append subscription info to response
+		$subscription_info = Client::get_subscription_info();
+		if ( $subscription_info ) {
+			$response->subscription_info = $subscription_info;
+		}
 
-	set_transient( self::STATUS_CHECK_TRANSIENT, $response, MINUTE_IN_SECONDS * 5 );
+		set_transient( self::STATUS_CHECK_TRANSIENT, $response, MINUTE_IN_SECONDS * 5 );
 
-	return $response;
+		return $response;
 	}
 
 	public function get_connect_data( bool $force = false ): array {
@@ -136,7 +136,7 @@ class Connect implements Connect_Interface {
 		set_transient( self::STATUS_CHECK_TRANSIENT, $connect_status, MINUTE_IN_SECONDS * 5 );
 	}
 
-	public function get_activation_state() : string {
+	public function get_activation_state(): string {
 		/**
 		 * Returning true because the license key is
 		 * not used for deactivation in connect.
@@ -146,7 +146,6 @@ class Connect implements Connect_Interface {
 
 	public function get_access_token() {
 		return Connect_Module::get_connect()->data()->get_access_token();
-
 	}
 
 	public function get_client_id(): string {

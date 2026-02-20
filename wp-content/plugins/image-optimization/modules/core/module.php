@@ -40,7 +40,7 @@ class Module extends Module_Base {
 		return 'core';
 	}
 
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [
 			'Pointers',
 			'Migrations',
@@ -209,7 +209,7 @@ class Module extends Module_Base {
 				esc_html__( 'Upgrade', 'image-optimization' )
 			);
 		}
-		if ( ! $module->connect_instance->is_connected() ){
+		if ( ! $module->connect_instance->is_connected() ) {
 			$custom_links['connect'] = sprintf(
 				'<a href="%s" style="color: #524cff; font-weight: 700;">%s</a>',
 				admin_url( 'admin.php?page=' . \ImageOptimization\Modules\Settings\Module::SETTING_BASE_SLUG ),
@@ -398,7 +398,10 @@ class Module extends Module_Base {
 	 */
 	public function add_bulk_optimization_links(): void {
 		$page_url = add_query_arg(
-			[ 'page' => 'image-optimization-settings', 'tab' => 'image-optimization-bulk-optimization' ],
+			[
+				'page' => 'image-optimization-settings',
+				'tab' => 'image-optimization-bulk-optimization',
+			],
 			admin_url( 'admin.php' )
 		);
 

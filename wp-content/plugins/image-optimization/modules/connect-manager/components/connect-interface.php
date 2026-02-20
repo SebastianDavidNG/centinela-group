@@ -10,8 +10,9 @@ interface Connect_Interface {
 	// Connect.
 	public function is_connected(): bool;
 
-	public function is_activated() : bool;
-	public function is_valid_home_url() : bool;
+	public function is_activated(): bool;
+
+	public function is_valid_home_url(): bool;
 
 	public function get_connect_status();
 
@@ -19,7 +20,7 @@ interface Connect_Interface {
 
 	public function update_usage_data( $new_usage_data ): void;
 
-	public function get_activation_state() : string;
+	public function get_activation_state(): string;
 
 	public function get_access_token();
 

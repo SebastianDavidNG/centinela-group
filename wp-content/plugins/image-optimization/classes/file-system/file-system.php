@@ -32,7 +32,7 @@ class File_System {
 		$result = $wp_filesystem->put_contents( $file, $contents, $mode );
 
 		if ( ! $result ) {
-			throw new File_System_Operation_Error( 'Error while writing ' . $file );
+			throw new File_System_Operation_Error( esc_html( "Error while writing $file" ) );
 		}
 
 		return true;
@@ -55,7 +55,7 @@ class File_System {
 		$result = $wp_filesystem->delete( $file, $recursive, $type );
 
 		if ( ! $result ) {
-			throw new File_System_Operation_Error( 'Error while deleting ' . $file );
+			throw new File_System_Operation_Error( esc_html( "Error while deleting $file" ) );
 		}
 
 		return true;
@@ -76,7 +76,7 @@ class File_System {
 		$result = $wp_filesystem->move( $source, $destination, $overwrite );
 
 		if ( ! $result ) {
-			throw new File_System_Operation_Error( "Error while moving {$source} to {$destination}" );
+			throw new File_System_Operation_Error( esc_html( "Error while moving $source to $destination" ) );
 		}
 
 		return true;
@@ -100,7 +100,7 @@ class File_System {
 		$result = $wp_filesystem->copy( $source, $destination, $overwrite, $mode );
 
 		if ( ! $result ) {
-			throw new File_System_Operation_Error( "Error while copying {$source} to {$destination}" );
+			throw new File_System_Operation_Error( esc_html( "Error while copying $source to $destination" ) );
 		}
 
 		return true;
@@ -138,7 +138,7 @@ class File_System {
 		$size = $wp_filesystem->size( $path );
 
 		if ( ! $size ) {
-			throw new File_System_Operation_Error( "Unable to calculate file size for $path" );
+			throw new File_System_Operation_Error( esc_html( "Unable to calculate file size for $path" ) );
 		}
 
 		return $size;

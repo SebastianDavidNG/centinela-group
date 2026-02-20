@@ -957,6 +957,11 @@ $header-link-underline-active: 3px;
     justify-content: center;
     gap: 0 0.5rem;
     min-width: 0;
+
+    @media (min-width: 768px) and (max-width: 1024px) {
+      gap: 0 0.2rem;
+      padding: 0.4rem 0;
+    }
   }
 
   &__item {
@@ -977,6 +982,16 @@ $header-link-underline-active: 3px;
         margin-left: 0.25rem;
       }
     }
+
+    @media (min-width: 768px) and (max-width: 1024px) {
+      &:not(:last-child)::after {
+        margin-left: 0.35rem;
+      }
+
+      &.centinela-submenu__item--has-dropdown::after {
+        margin-left: 0.15rem;
+      }
+    }
   }
 
   // Ítems principales: 13px (Figma Sub Menu); indicador activo = ancho del ítem (Videovigilancia, Energía, etc.)
@@ -992,6 +1007,12 @@ $header-link-underline-active: 3px;
     position: relative;
     transition: color 0.2s ease, background-color 0.2s ease;
     border-radius: 2px;
+
+    @media (min-width: 768px) and (max-width: 1024px) {
+      font-size: 10px;
+      padding: 0.4rem 0.4rem;
+      letter-spacing: 0.005em;
+    }
 
     &:hover {
       color: rgba($white-color, 0.95);

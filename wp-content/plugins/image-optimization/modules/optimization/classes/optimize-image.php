@@ -145,7 +145,7 @@ class Optimize_Image {
 			throw $e;
 		} catch ( Throwable $t ) {
 			// In case of anything else
-			throw new Image_Optimization_Error( $t->getMessage() );
+			throw new Image_Optimization_Error( esc_html( $t->getMessage() ) );
 		}
 	}
 

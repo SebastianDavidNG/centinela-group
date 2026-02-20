@@ -22,7 +22,7 @@ class Module extends Module_Base {
 		return 'oauth';
 	}
 
-	public static function routes_list() : array {
+	public static function routes_list(): array {
 		return [
 			'Connect_Init',
 			'Disconnect',
@@ -33,7 +33,7 @@ class Module extends Module_Base {
 		];
 	}
 
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [
 			'Connect',
 			'Checkpoint',
@@ -41,7 +41,7 @@ class Module extends Module_Base {
 		];
 	}
 
-	public static function is_active() : bool {
+	public static function is_active(): bool {
 		return ! empty( get_option( 'image_optimizer_client_data' ) );
 	}
 

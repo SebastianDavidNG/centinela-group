@@ -296,11 +296,11 @@ abstract class Module_Base {
 		return 'assets/build/';
 	}
 
-	public static function routes_list() : array {
+	public static function routes_list(): array {
 		return [];
 	}
 
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [];
 	}
 
@@ -332,4 +332,3 @@ abstract class Module_Base {
 		}
 	}
 }
-

@@ -283,7 +283,9 @@ class Optimization_Stats {
 			'updated_at' => null,
 		];
 
-		return json_decode( get_option( 'image_optimizer_optimization_stats', json_encode( $default ) ), ARRAY_A );
+		$output = json_decode( get_option( 'image_optimizer_optimization_stats' ), ARRAY_A );
+
+		return is_array( $output ) ? $output : $default;
 	}
 
 	/**
@@ -293,7 +295,7 @@ class Optimization_Stats {
 	 *
 	 * @return bool
 	 */
-	public static function set_stored_stats( array $stats ) {
+	public static function set_stored_stats( array $stats ): bool {
 		$stats['updated_at'] = time();
 
 		return update_option( 'image_optimizer_optimization_stats', json_encode( $stats ) );

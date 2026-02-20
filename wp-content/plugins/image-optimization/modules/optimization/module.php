@@ -18,7 +18,7 @@ class Module extends Module_Base {
 		return 'optimization';
 	}
 
-	public static function routes_list() : array {
+	public static function routes_list(): array {
 		return [
 			'Optimize_Single_Image',
 			'Optimize_Bulk',
@@ -28,7 +28,7 @@ class Module extends Module_Base {
 		];
 	}
 
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [
 			'Avif_Compatibility',
 			'Media_Control',
@@ -87,7 +87,7 @@ class Module extends Module_Base {
 	public static function load_template( $path, $name, $args = [] ): bool {
 		$templates_path = sprintf(
 			'%s/templates/%s/%s.php',
-			dirname( __FILE__ ),
+			__DIR__,
 			$path,
 			$name
 		);

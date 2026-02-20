@@ -40,9 +40,9 @@ class Fix_Mime_Type extends Migration {
 				$size_data = $wp_meta->get_size_data( Image::SIZE_FULL );
 
 				if (
-					! str_contains( $size_data['file'], '.webp' ) && 'image/webp' === $size_data['mime-type'] ||
-					! str_contains( $size_data['file'], '.avif' ) && 'image/avif' === $size_data['mime-type'] ||
-					! str_contains( $size_data['file'], '.avif' ) && 'application/octet-stream' === $size_data['mime-type']
+					( ! str_contains( $size_data['file'], '.webp' ) && 'image/webp' === $size_data['mime-type'] ) ||
+					( ! str_contains( $size_data['file'], '.avif' ) && 'image/avif' === $size_data['mime-type'] ) ||
+					( ! str_contains( $size_data['file'], '.avif' ) && 'application/octet-stream' === $size_data['mime-type'] )
 				) {
 					$original_mime_type = $io_meta->get_original_mime_type( Image::SIZE_FULL );
 

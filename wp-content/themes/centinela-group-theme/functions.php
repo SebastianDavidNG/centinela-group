@@ -312,6 +312,13 @@ function centinela_register_hero_slider_assets() {
 		CENTINELA_THEME_VERSION,
 		true
 	);
+	wp_register_script(
+		'centinela-servicios-slider',
+		CENTINELA_THEME_URI . '/assets/js/servicios-slider.js',
+		array( 'swiper' ),
+		CENTINELA_THEME_VERSION,
+		true
+	);
 }
 add_action( 'wp_enqueue_scripts', 'centinela_register_hero_slider_assets', 5 );
 

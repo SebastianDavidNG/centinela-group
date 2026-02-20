@@ -25,7 +25,7 @@ use ImageOptimization\Classes\File_Utils;
 		<?php esc_html_e( 'Image sizes optimized', 'image-optimization' ); ?>:
 
 		<span class="image-optimization-control__property-value">
-			<?php echo sprintf(
+			<?php printf(
 				'%d/%d',
 				esc_html( $args['sizes_optimized_count'] ),
 				esc_html( $args['sizes_total'] )

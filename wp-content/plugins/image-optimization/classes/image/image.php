@@ -188,11 +188,11 @@ class Image {
 		$this->attachment_object = get_post( $image_id );
 
 		if ( ! $this->attachment_object ) {
-			throw new Invalid_Image_Exception( "There is no entity with id '$image_id'" );
+			throw new Invalid_Image_Exception( esc_html( "There is no entity with id '$image_id'" ) );
 		}
 
 		if ( ! wp_attachment_is_image( $this->attachment_object ) ) {
-			throw new Invalid_Image_Exception( "Post '$image_id' is not an image" );
+			throw new Invalid_Image_Exception( esc_html( "Post '$image_id' is not an image" ) );
 		}
 	}
 }

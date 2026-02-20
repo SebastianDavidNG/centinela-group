@@ -18,15 +18,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Legacy_Connect implements Connect_Interface {
 
-	public function is_connected() : bool {
+	public function is_connected(): bool {
 		return Connect::is_connected();
 	}
 
-	public function is_activated() : bool {
+	public function is_activated(): bool {
 		return Connect::is_activated();
 	}
 
-	public function is_valid_home_url() : bool {
+	public function is_valid_home_url(): bool {
 		return true;
 	}
 
@@ -42,7 +42,7 @@ class Legacy_Connect implements Connect_Interface {
 		Connect::update_usage_data( $new_usage_data );
 	}
 
-	public function get_activation_state() : string {
+	public function get_activation_state(): string {
 		return Data::get_activation_state();
 	}
 

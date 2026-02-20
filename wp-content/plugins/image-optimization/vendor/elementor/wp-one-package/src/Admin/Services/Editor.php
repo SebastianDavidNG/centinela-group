@@ -5,6 +5,7 @@ namespace ElementorOne\Admin\Services;
 use ElementorOne\Admin\Helpers\Utils;
 use ElementorOne\Common\SupportedPlugins;
 use ElementorOne\Connect\Classes\GrantTypes;
+use ElementorOne\Connect\Facade;
 use ElementorOne\Logger;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,6 +23,8 @@ class Editor {
 
 	const CONNECT_APP_LIBRARY = 'library';
 	const CONNECT_APP_ACTIVATE = 'activate';
+
+	const GET_CLIENT_ID_ENDPOINT = 'get_client_id';
 
 	const SITE_KEY_OPTION_NAME = 'elementor_connect_site_key';
 	const LICENSE_KEY_OPTION_NAME = 'elementor_pro_license_key';
@@ -57,6 +60,10 @@ class Editor {
 	 */
 	private function __construct() {
 		$this->logger = new Logger( self::class );
+
+		// Set tracker opt-in
+		add_action( 'elementor_one/elementor_one_connected', [ $this, 'set_tracker_opt_in' ] );
+		add_action( 'elementor_one/elementor_one_disconnected', [ $this, 'set_tracker_opt_in' ] );
 
 		// Filter additional connect info
 		add_filter( 'elementor/connect/additional-connect-info', [ $this, 'filter_additional_connect_info' ], 10, 2 );
@@ -115,7 +122,10 @@ class Editor {
 			throw new \RuntimeException( 'Client ID is not set' );
 		}
 
-		$current_user_id = get_current_user_id();
+		$owner_id = Utils::get_one_connect()->data()->get_owner_user_id();
+		if ( ! $owner_id ) {
+			throw new \RuntimeException( 'Owner user ID is not set' );
+		}
 
 		try {
 			$response = Utils::get_api_client()->request(
@@ -124,7 +134,7 @@ class Editor {
 					'method' => 'POST',
 					'body' => wp_json_encode( [
 						'app' => $connect_type,
-						'local_id' => $current_user_id,
+						'local_id' => $owner_id,
 						'site_key' => $this->get_site_key(),
 						'deactivate_license_key' => $deactivate_license
 							? self::get_active_license_key()
@@ -137,7 +147,7 @@ class Editor {
 			);
 
 			// Update common data user option
-			update_user_option( $current_user_id, self::COMMON_DATA_USER_OPTION_NAME, (array) $response['connectData'] );
+			update_user_option( $owner_id, self::COMMON_DATA_USER_OPTION_NAME, (array) $response['connectData'] );
 
 			// Update license key if it exists
 			if ( isset( $response['licenseKey'] ) ) {
@@ -239,19 +249,56 @@ class Editor {
 		$is_activate_request = class_exists( '\ElementorPro\Core\Connect\Apps\Activate' )
 			&& $app instanceof \ElementorPro\Core\Connect\Apps\Activate;
 
-		if ( $is_activate_request && empty( $additional_info ) ) {
-			[ 'authorize_url' => $authorize_url, 'is_new_client' => $is_new_client ] = Utils::get_authorize_url();
-			if ( $authorize_url && $is_new_client ) {
-				$additional_info['one_authorize_url'] = $authorize_url;
+		if ( $is_ai_request ) {
+			$access_token = $this->get_one_connect_access_token();
+			if ( $access_token ) {
+				$additional_info['X-Elementor-One-Auth'] = $access_token;
 			}
-		} elseif ( $is_ai_request ) {
-			$facade = Utils::get_connect( SupportedPlugins::ELEMENTOR );
-			if ( $facade && $facade->utils()->is_connected() ) {
-				$additional_info['X-Elementor-One-Auth'] = $facade->data()->get_access_token( GrantTypes::REFRESH_TOKEN );
-			}
+		} elseif ( $is_activate_request ) {
+			$inject_authorize_url = function ( $parsed_args, $url ) use ( &$inject_authorize_url ) {
+				if ( str_ends_with( $url, self::GET_CLIENT_ID_ENDPOINT ) ) {
+					$authorize_url = Utils::get_authorize_url();
+					if ( $authorize_url && is_array( $parsed_args['body'] ) ) {
+						$parsed_args['body']['one_authorize_url'] = $authorize_url;
+					}
+
+					// Remove filter after it has been applied
+					remove_filter( 'http_request_args', $inject_authorize_url, 10 );
+				}
+
+				return $parsed_args;
+			};
+
+			add_filter( 'http_request_args', $inject_authorize_url, 10, 2 );
 		}
 
 		return $additional_info;
+	}
+
+	/**
+	 * Get ONE connect access token
+	 * @return string|null
+	 */
+	private function get_one_connect_access_token(): ?string {
+		$facade = Utils::get_connect( SupportedPlugins::ELEMENTOR );
+
+		if ( ! $facade || ! $facade->utils()->is_connected() ) {
+			return null;
+		}
+
+		$access_token = $facade->data()->get_access_token( GrantTypes::REFRESH_TOKEN );
+
+		if ( ! Utils::is_jwt_expired( $access_token ) ) {
+			return $access_token;
+		}
+
+		try {
+			[ 'access_token' => $renewed_token ] = $facade->service()->renew_access_token( GrantTypes::REFRESH_TOKEN );
+			return $renewed_token;
+		} catch ( \Throwable $th ) {
+			$this->logger->error( $th->getMessage() );
+			return null;
+		}
 	}
 
 	/**
@@ -259,12 +306,33 @@ class Editor {
 	 * @return string|null
 	 */
 	public function get_site_owner_client_id(): ?string {
+		$connect_data = $this->get_site_owner_connect_data();
+		return $connect_data['client_id'] ?? null;
+	}
+
+	/**
+	 * Get site owner connect data
+	 * @return array|null
+	 */
+	public function get_site_owner_connect_data(): ?array {
 		$owner_id = Utils::get_one_connect()->data()->get_owner_user_id();
 		if ( ! $owner_id ) {
 			return null;
 		}
 
-		$user_data = get_user_option( self::COMMON_DATA_USER_OPTION_NAME, $owner_id );
-		return $user_data['client_id'] ?? null;
+		$connect_data = get_user_option( self::COMMON_DATA_USER_OPTION_NAME, $owner_id );
+		return is_array( $connect_data ) ? $connect_data : null;
+	}
+
+	/**
+	 * Sync Elementor tracker opt-in with ONE connect preference
+	 * @param Facade $facade
+	 * @return void
+	 */
+	public function set_tracker_opt_in( Facade $facade ): void {
+		if ( is_callable( '\Elementor\Tracker::set_opt_in' ) ) {
+			$allow_tracking = 'yes' === $facade->data()->get_share_usage_data();
+			\Elementor\Tracker::set_opt_in( $allow_tracking );
+		}
 	}
 }

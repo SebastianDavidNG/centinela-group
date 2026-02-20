@@ -55,7 +55,7 @@ final class Bulk_Optimization_Token_Manager {
 			}
 		}
 
-		throw new Quota_Exceeded_Error( __( 'Images quota exceeded', 'image-optimization' ) );
+		throw new Quota_Exceeded_Error( esc_html__( 'Images quota exceeded', 'image-optimization' ) );
 	}
 
 	/**
@@ -87,7 +87,7 @@ final class Bulk_Optimization_Token_Manager {
 		} catch ( Throwable $t ) {
 			Logger::error( 'Error while sending bulk token request: ' . $t->getMessage() );
 
-			throw new Bulk_Token_Obtaining_Error( $t->getMessage() );
+			throw new Bulk_Token_Obtaining_Error( esc_html( $t->getMessage() ) );
 		}
 	}
 }

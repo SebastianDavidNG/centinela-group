@@ -34,7 +34,7 @@ class Client_Response {
 			throw $this->known_errors[ $message ];
 		}
 
-		throw new Exception( $message );
+		throw new Exception( esc_html( $message ) );
 	}
 
 	public function __construct( $response ) {

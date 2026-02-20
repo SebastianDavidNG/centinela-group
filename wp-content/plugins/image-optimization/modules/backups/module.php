@@ -13,7 +13,7 @@ class Module extends Module_Base {
 		return 'backups';
 	}
 
-	public static function routes_list() : array {
+	public static function routes_list(): array {
 		return [
 			'Remove_Backups',
 			'Restore_Single',
@@ -21,7 +21,7 @@ class Module extends Module_Base {
 		];
 	}
 
-	public static function component_list() : array {
+	public static function component_list(): array {
 		return [
 			'Handle_Backups_Removing',
 			'Restore_Images',

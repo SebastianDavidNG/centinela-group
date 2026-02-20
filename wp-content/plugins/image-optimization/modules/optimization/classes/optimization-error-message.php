@@ -21,7 +21,7 @@ class Optimization_Error_Message {
 
 	public static function get_optimization_error_message( string $error_type ) {
 		if ( ! in_array( $error_type, Image_Optimization_Error_Type::get_values(), true ) ) {
-			throw new TypeError( "Error type $error_type is not a part of Image_Optimization_Error_Type values" );
+			throw new TypeError( esc_html( "Error type $error_type is not a part of Image_Optimization_Error_Type values" ) );
 		}
 
 		$messages = [

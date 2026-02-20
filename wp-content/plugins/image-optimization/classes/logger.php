@@ -19,6 +19,13 @@ class Logger {
 		'error' => 4,
 	];
 
+	/**
+	 * @param string $log_level
+	 * @param $message
+	 *
+	 * @deprecated Use Logger::{error|warn|info|debug} instead.
+	 * @return void
+	 */
 	public static function log( string $log_level, $message ): void {
 		if (
 			defined( 'IMAGE_OPTIMIZATION_MINIMUM_LOG_LEVEL' ) &&

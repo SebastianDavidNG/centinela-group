@@ -3,7 +3,7 @@
  * Plugin Name: Site Mailer - SMTP Replacement, Email API Deliverability & Email Log
  * Description: Effortlessly manage transactional emails with Site Mailer. High deliverability, logs and statistics, and no SMTP plugins needed.
  * Plugin URI: https://elementor.com/
- * Version: 1.4.2
+ * Version: 1.4.3
  * Author: Elementor.com
  * Author URI: https://go.elementor.com/author-url-sm/
  * Text Domain: site-mailer
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
-define( 'SITE_MAILER_VERSION', '1.4.2' );
+define( 'SITE_MAILER_VERSION', '1.4.3' );
 define( 'SITE_MAILER_FILE', __FILE__ );
 define( 'SITE_MAILER_PATH', plugin_dir_path( SITE_MAILER_FILE ) );
 define( 'SITE_MAILER_URL', plugins_url( '/', SITE_MAILER_FILE ) );

@@ -47,9 +47,9 @@ class Sale_Banner {
 			<div class="elementor-black-friday-banner-container">
 				<img src="<?php echo esc_url( $img ); ?>" alt="Black Friday banner image">
 				<a href="<?php echo esc_url( $link ); ?>" target="_blank">
-					Get discount
+					<?php esc_html_e( 'Get discount', 'site-mailer' ); ?>
 				</a>
-				<button>
+				<button aria-label="<?php esc_attr_e( 'Dismiss', 'site-mailer' ); ?>">
 					<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<path fill-rule="evenodd" clip-rule="evenodd"
 							  d="M13.2803 1.28033C13.5732 0.987437 13.5732 0.512563 13.2803 0.21967C12.9874 -0.0732233 12.5126 -0.0732233 12.2197 0.21967L6.75 5.68934L1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L5.68934 6.75L0.21967 12.2197C-0.0732233 12.5126 -0.0732233 12.9874 0.21967 13.2803C0.512563 13.5732 0.987437 13.5732 1.28033 13.2803L6.75 7.81066L12.2197 13.2803C12.5126 13.5732 12.9874 13.5732 13.2803 13.2803C13.5732 12.9874 13.5732 12.5126 13.2803 12.2197L7.81066 6.75L13.2803 1.28033Z"

@@ -36,18 +36,11 @@
         },
         {
             "name": "elementor/wp-one-package",
-            "version": "1.0.47",
-            "version_normalized": "1.0.47.0",
-            "source": {
-                "type": "git",
-                "url": "git@github.com:elementor/wp-one-package.git",
-                "reference": "79b558c889e20b2dfd7aaff33ddf902746a9aac8"
-            },
+            "version": "1.0.54",
+            "version_normalized": "1.0.54.0",
             "dist": {
                 "type": "zip",
-                "url": "https://composer.elementor.com/download/elementor/wp-one-package/1.0.47",
-                "reference": "79b558c889e20b2dfd7aaff33ddf902746a9aac8",
-                "shasum": ""
+                "url": "https://composer.elementor.com/download/elementor/wp-one-package/1.0.54"
             },
             "require": {
                 "elementor/wp-notifications-package": "^1.2"
@@ -60,7 +53,7 @@
                 "wp-coding-standards/wpcs": "^3.1.0",
                 "yoast/phpunit-polyfills": "^2.0"
             },
-            "time": "2026-01-28T11:16:24+00:00",
+            "time": "2026-02-16T10:47:38+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -75,9 +68,6 @@
                 "lint:fix": [
                     "vendor/bin/phpcbf ."
                 ]
-            },
-            "support": {
-                "source": "https://github.com/elementor/wp-one-package/tree/1.0.47"
             },
             "install-path": "../elementor/wp-one-package"
         },

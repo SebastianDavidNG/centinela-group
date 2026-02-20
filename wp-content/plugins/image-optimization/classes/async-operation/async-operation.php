@@ -32,13 +32,13 @@ class Async_Operation {
 		if ( ! in_array( $hook, Async_Operation_Hook::get_values(), true ) ) {
 			Logger::log( Logger::LEVEL_ERROR, "Hook $hook is not a part of Async_Operation_Hook values" );
 
-			throw new TypeError( "Hook $hook is not a part of Async_Operation_Hook values" );
+			throw new TypeError( esc_html( "Hook $hook is not a part of Async_Operation_Hook values" ) );
 		}
 
 		if ( ! in_array( $queue, Async_Operation_Queue::get_values(), true ) ) {
 			Logger::log( Logger::LEVEL_ERROR, "Queue $queue is not a part of Async_Operation_Queue values" );
 
-			throw new TypeError( "Queue $queue is not a part of Async_Operation_Queue values" );
+			throw new TypeError( esc_html( "Queue $queue is not a part of Async_Operation_Queue values" ) );
 		}
 
 		return as_enqueue_async_action(
@@ -56,13 +56,13 @@ class Async_Operation {
 		if ( ! in_array( $hook, Async_Operation_Hook::get_values(), true ) ) {
 			Logger::log( Logger::LEVEL_ERROR, "Hook $hook is not a part of Async_Operation_Hook values" );
 
-			throw new TypeError( "Hook $hook is not a part of Async_Operation_Hook values" );
+			throw new TypeError( esc_html( "Hook $hook is not a part of Async_Operation_Hook values" ) );
 		}
 
 		if ( ! in_array( $queue, Async_Operation_Queue::get_values(), true ) ) {
 			Logger::log( Logger::LEVEL_ERROR, "Queue $queue is not a part of Async_Operation_Queue values" );
 
-			throw new TypeError( "Queue $queue is not a part of Async_Operation_Queue values" );
+			throw new TypeError( esc_html( "Queue $queue is not a part of Async_Operation_Queue values" ) );
 		}
 
 		return as_schedule_recurring_action(

@@ -29,7 +29,9 @@ add_action( 'elementor/elements/categories_registered', 'centinela_elementor_reg
 function centinela_elementor_register_widgets( $widgets_manager ) {
 	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-hero-slider-widget.php';
 	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-hero-page-inner-widget.php';
+	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-servicios-slider-widget.php';
 	$widgets_manager->register( new \Centinela_Hero_Slider_Widget() );
 	$widgets_manager->register( new \Centinela_Hero_Page_Inner_Widget() );
+	$widgets_manager->register( new \Centinela_Servicios_Slider_Widget() );
 }
 add_action( 'elementor/widgets/register', 'centinela_elementor_register_widgets' );

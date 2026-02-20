@@ -50,7 +50,7 @@ class Image_Backup {
 			);
 
 			throw new Image_Backup_Creation_Error(
-				"Error while creating a backup for image {$image_id} and size {$image_size}"
+				esc_html( "Error while creating a backup for image $image_id and size $image_size" )
 			);
 		}
 

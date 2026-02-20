@@ -85,7 +85,7 @@ final class Bulk_Optimization_Queue {
 		if ( ! in_array( $status, Bulk_Optimization_Queue_Status::get_values(), true ) ) {
 			Logger::error( "Status $status is not a part of Bulk_Optimization_Queue_Status values" );
 
-			throw new TypeError( "Status $status is not a part of Bulk_Optimization_Queue_Status values" );
+			throw new TypeError( esc_html( "Status $status is not a part of Bulk_Optimization_Queue_Status values" ) );
 		}
 
 		return array_filter(
@@ -177,7 +177,7 @@ final class Bulk_Optimization_Queue {
 		if ( ! in_array( $status, Bulk_Optimization_Queue_Status::get_values(), true ) ) {
 			Logger::error( "Status $status is not a part of Bulk_Optimization_Queue_Status values" );
 
-			throw new TypeError( "Status $status is not a part of Bulk_Optimization_Queue_Status values" );
+			throw new TypeError( esc_html( "Status $status is not a part of Bulk_Optimization_Queue_Status values" ) );
 		}
 
 		$this->queue_data['status'] = $status;
@@ -354,7 +354,7 @@ final class Bulk_Optimization_Queue {
 		if ( ! in_array( $type, Bulk_Optimization_Queue_Type::get_values(), true ) ) {
 			Logger::error( "Type $type is not a part of Bulk_Optimization_Queue_Type values" );
 
-			throw new TypeError( "Type $type is not a part of Bulk_Optimization_Queue_Type values" );
+			throw new TypeError( esc_html( "Type $type is not a part of Bulk_Optimization_Queue_Type values" ) );
 		}
 
 		$this->type = $type;

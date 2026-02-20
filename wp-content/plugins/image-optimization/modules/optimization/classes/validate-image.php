@@ -36,7 +36,7 @@ class Validate_Image {
 
 		if ( ! $attachment_object ) {
 			throw new Image_Validation_Error(
-				__( 'Can\'t optimize this file. If the issue persists, Contact Support', 'image-optimization' )
+				esc_html__( 'Can\'t optimize this file. If the issue persists, Contact Support', 'image-optimization' )
 			);
 		}
 
@@ -47,7 +47,7 @@ class Validate_Image {
 				! get_post_meta( $image_id, Image_Meta::IMAGE_OPTIMIZER_METADATA_KEY, true )
 			)
 		) {
-			throw new Image_Validation_Error( self::prepare_supported_formats_list_error() );
+			throw new Image_Validation_Error( esc_html( self::prepare_supported_formats_list_error() ) );
 		}
 
 		if ( ! file_exists( get_attached_file( $image_id ) ) ) {
@@ -101,18 +101,22 @@ class Validate_Image {
 		if ( $image_size > self::MAX_FILE_SIZE ) {
 			if ( ! self::are_big_files_supported() ) {
 				throw new Image_Validation_Error(
-					sprintf(
-						__( 'File is too large. Max size is %s', 'image-optimization' ),
-						File_Utils::format_file_size( self::MAX_FILE_SIZE, 0 ),
+					esc_html(
+						sprintf(
+							__( 'File is too large. Max size is %s', 'image-optimization' ),
+							File_Utils::format_file_size( self::MAX_FILE_SIZE, 0 ),
+						)
 					)
 				);
 			}
 
 			if ( $image_size > self::MAX_BIG_FILE_SIZE ) {
 				throw new Image_Validation_Error(
-					sprintf(
-						__( 'File is too large. Max size is %s', 'image-optimization' ),
-						File_Utils::format_file_size( self::MAX_BIG_FILE_SIZE, 0 ),
+					esc_html(
+						sprintf(
+							__( 'File is too large. Max size is %s', 'image-optimization' ),
+							File_Utils::format_file_size( self::MAX_BIG_FILE_SIZE, 0 ),
+						)
 					)
 				);
 			}

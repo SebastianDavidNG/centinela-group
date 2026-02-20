@@ -4,7 +4,7 @@ Tags: email, email log, SMTP, email API, sender
 Requires at least: 6.6
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.4.2
+Stable tag: 1.4.3
 License: GPL-3
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 
@@ -120,8 +120,12 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 5. Custom Domain Authentication Wizard - Guides you through adding a custom domain with DNS settings.
 
 == Changelog ==
+= 1.4.3 - 2026-02-17 =
+* Tweak: Enabled display of WordPress admin notices for better visibility
+* Fix: Resolved an issue where logs failed to update in specific Site Mailer cases
+
 = 1.4.2 - 2026-01-28 =
-* Tweak - Security enhancements for access control
+* Tweak: Security enhancements for access control
 
 = 1.4.1 - 2026-01-28 =
 * Fix: Resolved loading issues for settings on RTL websites

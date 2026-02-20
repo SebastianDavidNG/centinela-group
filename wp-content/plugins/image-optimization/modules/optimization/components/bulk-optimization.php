@@ -144,7 +144,7 @@ class Bulk_Optimization {
 				$queue->delete();
 			}
 		} catch ( Throwable $t ) {
-			Logger::error( "Failed to create next async operation or delete queue: " . $t->getMessage() );
+			Logger::error( 'Failed to create next async operation or delete queue: ' . $t->getMessage() );
 		}
 	}
 
@@ -259,7 +259,7 @@ class Bulk_Optimization {
 				$queue->delete();
 			}
 		} catch ( Throwable $t ) {
-			Logger::error( "Failed to create next async operation or delete queue: " . $t->getMessage() );
+			Logger::error( 'Failed to create next async operation or delete queue: ' . $t->getMessage() );
 		}
 	}
 

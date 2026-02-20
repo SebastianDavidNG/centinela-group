@@ -42,7 +42,7 @@ class Image_Restore {
 		$image = new Image( $image_id );
 
 		if ( ! $image->can_be_restored() ) {
-			throw new Image_Restoring_Exception( "Image $image_id cannot be restored" );
+			throw new Image_Restoring_Exception( esc_html( "Image $image_id cannot be restored" ) );
 		}
 
 		$meta = new Image_Meta( $image_id );

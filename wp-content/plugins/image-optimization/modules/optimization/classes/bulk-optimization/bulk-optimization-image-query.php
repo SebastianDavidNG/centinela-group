@@ -46,7 +46,7 @@ final class Bulk_Optimization_Image_Query {
 			$images_left = Plugin::instance()->modules_manager->get_modules( 'connect-manager' )->connect_instance->images_left();
 
 			if ( ! $images_left ) {
-				throw new Quota_Exceeded_Error( __( 'Images quota exceeded', 'image-optimization' ) );
+				throw new Quota_Exceeded_Error( esc_html__( 'Images quota exceeded', 'image-optimization' ) );
 			}
 
 			if ( $limit_to_quota ) {
