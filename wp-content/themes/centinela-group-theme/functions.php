@@ -335,6 +335,21 @@ function centinela_load_elementor_widgets() {
 add_action( 'after_setup_theme', 'centinela_load_elementor_widgets', 20 );
 
 /**
+ * Asegurar que los estilos del tema (SCSS) se carguen en el editor y preview de Elementor.
+ * Así los widgets Centinela (Bloque imagen y texto, Hero, etc.) se ven correctamente al editar.
+ */
+function centinela_elementor_enqueue_theme_styles() {
+	wp_enqueue_style(
+		'centinela-theme-scss',
+		CENTINELA_THEME_URI . '/assets/css/theme.min.css',
+		array(),
+		CENTINELA_THEME_VERSION
+	);
+}
+add_action( 'elementor/frontend/after_enqueue_styles', 'centinela_elementor_enqueue_theme_styles', 5 );
+add_action( 'elementor/editor/after_enqueue_styles', 'centinela_elementor_enqueue_theme_styles', 5 );
+
+/**
  * Encolar estilos y scripts con foco en performance
  * Se cargan también en el preview de Elementor para que el editor muestre los mismos estilos que el frontend.
  */

@@ -1,0 +1,220 @@
+// =============================================================================
+// Bloque imagen y texto (Content Block) – reutilizable en páginas internas
+// BEM: .centinela-content-block
+// Opciones: reverse (imagen derecha), reverse-mobile (invertir orden en móvil)
+// Botón del enlace: mismo estilo que Figma (primario verde)
+// =============================================================================
+
+@use 'sass:color';
+@use '../variables' as *;
+
+$content-block-max-inner: 80rem;
+$content-block-breakpoint: 767px;
+
+.centinela-content-block {
+  width: 100%;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    padding: 3rem 1.5rem;
+  }
+}
+
+.centinela-content-block__inner {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.5rem 2rem;
+  max-width: $content-block-max-inner;
+  margin: 0 auto;
+
+  @media (max-width: $content-block-breakpoint) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+.centinela-content-block--reverse .centinela-content-block__inner {
+  flex-direction: row-reverse;
+
+  @media (max-width: $content-block-breakpoint) {
+    flex-direction: column;
+  }
+}
+
+// En móvil: invertir orden (texto arriba, imagen abajo) cuando solo reverse-mobile está activo
+.centinela-content-block--reverse-mobile .centinela-content-block__inner {
+  @media (max-width: $content-block-breakpoint) {
+    flex-direction: column-reverse;
+  }
+}
+
+// En móvil: si desktop es reverse + reverse-mobile, mostrar imagen arriba y texto abajo
+.centinela-content-block--reverse.centinela-content-block--reverse-mobile .centinela-content-block__inner {
+  @media (max-width: $content-block-breakpoint) {
+    flex-direction: column;
+  }
+}
+
+.centinela-content-block__media {
+  flex: 1 1 280px;
+  min-width: 0;
+  max-width: 100%;
+
+  @media (min-width: 768px) {
+    flex: 0 1 45%;
+    max-width: 45%;
+  }
+}
+
+.centinela-content-block__media-link {
+  display: block;
+  line-height: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.centinela-content-block__img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: $button-border-radius;
+  object-fit: cover;
+}
+
+.centinela-content-block__body {
+  flex: 1 1 280px;
+  min-width: 0;
+
+  @media (min-width: 768px) {
+    flex: 1 1 50%;
+    max-width: 55%;
+  }
+}
+
+.centinela-content-block__title {
+  margin: 0 0 0.75rem;
+  font-family: $font-family-base;
+  font-weight: $font-weight-bold;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  color: $blue-color;
+
+  @media (min-width: 768px) {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+}
+
+.centinela-content-block__description {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: $grey-color;
+
+  p {
+    margin: 0 0 0.5em;
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.centinela-content-block__link-wrap {
+  margin: 0;
+  margin-top: 1rem;
+}
+
+// Botón con flecha (igual que centinela-header__cta y centinela-hero__cta--primary)
+.centinela-content-block__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-medium;
+  font-family: $font-family-base;
+  border: 2px solid transparent;
+  border-radius: $button-border-radius;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.centinela-content-block__link-text {
+  white-space: nowrap;
+}
+
+.centinela-content-block__link-icon {
+  flex-shrink: 0;
+}
+
+// Colores del botón – estado normal (variables del tema)
+.centinela-content-block__link--blue {
+  color: $white-color;
+  background: $blue-color;
+  border-color: $blue-color;
+}
+
+.centinela-content-block__link--blue_2 {
+  color: $white-color;
+  background: $blue-color-2;
+  border-color: $blue-color-2;
+}
+
+.centinela-content-block__link--green {
+  color: $white-color;
+  background: $green-color;
+  border-color: $green-color;
+}
+
+.centinela-content-block__link--grey {
+  color: $white-color;
+  background: $grey-color;
+  border-color: $grey-color;
+}
+
+.centinela-content-block__link--black {
+  color: $white-color;
+  background: $black-color;
+  border-color: $black-color;
+}
+
+// Hover: color elegible (proporcional a los colores del sitio)
+.centinela-content-block__link--hover-blue:hover {
+  background: $blue-color;
+  border-color: $blue-color;
+  color: $white-color;
+  text-decoration: none;
+}
+
+.centinela-content-block__link--hover-blue_2:hover {
+  background: $blue-color-2;
+  border-color: $blue-color-2;
+  color: $white-color;
+  text-decoration: none;
+}
+
+.centinela-content-block__link--hover-green:hover {
+  background: $green-color;
+  border-color: $green-color;
+  color: $white-color;
+  text-decoration: none;
+}
+
+.centinela-content-block__link--hover-grey:hover {
+  background: $grey-color;
+  border-color: $grey-color;
+  color: $white-color;
+  text-decoration: none;
+}
+
+.centinela-content-block__link--hover-black:hover {
+  background: $black-color;
+  border-color: $black-color;
+  color: $white-color;
+  text-decoration: none;
+}
