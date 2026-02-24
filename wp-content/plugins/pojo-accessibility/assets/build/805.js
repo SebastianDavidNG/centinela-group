@@ -1,1 +1,0 @@
-"use strict";(globalThis.webpackChunkpojo_accessibility=globalThis.webpackChunkpojo_accessibility||[]).push([[805],{1805(e){e.exports=JSON.parse('{"example":{"component":"Örnek Bileşen"}}')}}]);

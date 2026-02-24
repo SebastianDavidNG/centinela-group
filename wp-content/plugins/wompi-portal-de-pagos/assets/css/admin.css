@@ -1,0 +1,6 @@
+.wc_wompi-webhook-link {
+	background-color:#ddd;
+}
+.woocommerce-checkout #payment ul.payment_methods li img{
+	width: 15% !important;
+}

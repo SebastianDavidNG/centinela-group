@@ -13,12 +13,7 @@ $content-block-breakpoint: 767px;
 
 .centinela-content-block {
   width: 100%;
-  padding: 2rem 1rem;
   box-sizing: border-box;
-
-  @media (min-width: 768px) {
-    padding: 3rem 1.5rem;
-  }
 }
 
 .centinela-content-block__inner {
@@ -87,10 +82,19 @@ $content-block-breakpoint: 767px;
 .centinela-content-block__body {
   flex: 1 1 280px;
   min-width: 0;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
 
   @media (min-width: 768px) {
     flex: 1 1 50%;
     max-width: 55%;
+    padding: 0 3rem 0 1.5rem; /* texto a la derecha: más espacio a la derecha */
+  }
+}
+
+.centinela-content-block--reverse .centinela-content-block__body {
+  @media (min-width: 768px) {
+    padding: 0 1.5rem 0 3rem; /* texto a la izquierda: más espacio a la izquierda */
   }
 }
 
@@ -217,4 +221,100 @@ $content-block-breakpoint: 767px;
   border-color: $black-color;
   color: $white-color;
   text-decoration: none;
+}
+
+// =============================================================================
+// Modo slider (varios ítems): Swiper, transición, flechas
+// =============================================================================
+
+.centinela-content-block--slider {
+  overflow: hidden;
+}
+
+.centinela-content-block__slider-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.centinela-content-block__swiper {
+  width: 100%;
+  overflow: hidden;
+
+  .swiper-wrapper {
+    align-items: stretch;
+    transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+.centinela-content-block__slide {
+  height: auto;
+  box-sizing: border-box;
+
+  .centinela-content-block__inner {
+    width: 100%;
+  }
+}
+
+.centinela-content-block__prev,
+.centinela-content-block__next {
+  position: absolute;
+  top: 50%;
+  z-index: 10;
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: transparent;
+  cursor: pointer;
+  transition: none;
+
+  &:focus {
+    outline: none;
+  }
+
+  &::after {
+    color: $green-color;
+    font-weight: 500;
+    font-size: 18px;
+    transition: color 0.2s ease;
+  }
+
+  &:hover::after {
+    color: color.adjust($green-color, $lightness: -10%);
+  }
+}
+
+// Variable de Swiper para que la flecha use green; y forzar ::after
+.centinela-content-block--slider {
+  --swiper-navigation-color: #{$green-color};
+}
+
+.centinela-content-block .swiper-button-prev::after,
+.centinela-content-block .swiper-button-next::after {
+  color: $green-color;
+  font-weight: 500;
+}
+
+.centinela-content-block .swiper-button-prev:hover::after,
+.centinela-content-block .swiper-button-next:hover::after {
+  color: $blue-color;
+}
+
+.centinela-content-block__prev {
+  left: 1rem;
+
+  @media (min-width: 768px) {
+    left: 1.5rem;
+  }
+}
+
+.centinela-content-block__next {
+  right: 1rem;
+
+  @media (min-width: 768px) {
+    right: 1.5rem;
+  }
 }

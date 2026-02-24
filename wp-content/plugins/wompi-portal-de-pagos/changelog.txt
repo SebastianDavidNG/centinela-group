@@ -1,0 +1,39 @@
+*** Changelog ***
+
+2024-12-20 - versión 2.0.0
+* Added - Se traduce el readme.txt al español
+* Added - Se traduce el changelog.txt al español
+
+2024-11-19 - versión 1.0.9
+* Fixed - Se corrige el error reportado en el webhook.
+
+2024-09-18 - versión 1.0.8
+* Fixed - Se realizan mejoras para sanitizar. Esto reduce la posibilidad de vulnerabilidades XSS sugeridas por el equipo de WordPress.
+* Fixed - Se optimiza el botón de pago para que aparezca centrado en el resumen del pedido independientemente del tema de la página.
+
+2024-09-18 - versión 1.0.7
+* Fixed - Se corrigen todos los nuevos errores reportados por el equipo de wordpress.org.
+
+2024-09-12 - versión 1.0.6
+* Fixed - Se corrigen errores y advertencias reportados por la herramienta Plugin Check (PCP).
+* Fixed - Se corrigen todos los errores reportados por el equipo de wordpress.org.
+
+2024-08-08 - versión 1.0.5
+* Fixed - Se corrige el error de edición de pedidos y el error de prueba unitaria e2e.
+
+2024-08-02 - versión 1.0.4
+* Fixed - Se modifican los estilos del botón de pago con el logo de Wompi.
+* Fixed - Se corrige el error de edición de pedidos.
+
+2024-06-07 - versión 1.0.3
+* Fixed - Se corrigen todos los errores lanzados con la biblioteca phpcs.
+
+2024-05-16 - versión 1.0.2
+* Fixed - Se configura el archivo readme.txt.
+* Fixed - Se configura el archivo changelog.txt.
+
+2024-04-24 - versión 1.0.1
+* Fixed - Se añaden las directrices establecidas en el manual para desarrolladores de plugins de WooCommerce donde se abordan los puntos: Verificar si WooCommerce está activo, Nombrar el archivo principal, Dominios de texto, Localización, Directrices de PHP de WordPress y Prevenir fugas de datos.
+
+2024-04-22 - versión 1.0.0
+* Fixed - Lanzamiento inicial.
