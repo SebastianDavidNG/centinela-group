@@ -199,4 +199,82 @@
       }
     }
   };
+
+  // Sincronizar radio Wompi con el campo oculto
+  var paymentSection = document.getElementById('centinela-checkout-payment-section');
+  var paymentInputHidden = document.getElementById('centinela-checkout-metodo-pago');
+  if (paymentSection && paymentInputHidden) {
+    var radio = paymentSection.querySelector('input.centinela-checkout-form__payment-radio[value="wompi"]');
+    if (radio) {
+      radio.addEventListener('change', function () {
+        if (radio.checked) paymentInputHidden.value = 'wompi';
+      });
+      if (radio.checked) paymentInputHidden.value = 'wompi';
+    }
+  }
+
+  // Integración Wompi: crear pedido vía REST y redirigir a la pasarela de pago
+  if (typeof window.centinelaCheckout !== 'undefined' && window.centinelaCheckout.wompiAvailable && window.centinelaCheckout.createOrderUrl) {
+    window.centinelaSubmitOrder = function (data) {
+      var metodoPago = (data && data.centinela_metodo_pago) ? data.centinela_metodo_pago : (paymentInputHidden ? paymentInputHidden.value : '');
+      if (metodoPago !== 'wompi') {
+        if (typeof window.centinelaSubmitOrderFallback === 'function') {
+          window.centinelaSubmitOrderFallback(data);
+        } else {
+          console.log('Checkout data (método no Wompi):', data);
+        }
+        return;
+      }
+      var btn = document.getElementById('centinela-checkout-submit');
+      var originalText = btn ? btn.textContent : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = (window.centinelaCheckout.strings && window.centinelaCheckout.strings.creatingOrder) || 'Creando pedido…';
+      }
+      var payload = {
+        items: (data.items && Array.isArray(data.items)) ? data.items : getItems(),
+        centinela_nombre: data.centinela_nombre || '',
+        centinela_email: data.centinela_email || '',
+        centinela_telefono: data.centinela_telefono || '',
+        centinela_direccion: data.centinela_direccion || '',
+        centinela_complemento: data.centinela_complemento || '',
+        centinela_ciudad: data.centinela_ciudad || '',
+        centinela_departamento: data.centinela_departamento || '',
+        centinela_codigo_postal: data.centinela_codigo_postal || '',
+        centinela_pais: data.centinela_pais || 'Colombia',
+        centinela_notas: data.centinela_notas || ''
+      };
+      var createOrderUrl = window.centinelaCheckout.createOrderUrl;
+      var nonce = window.centinelaCheckout.nonce || '';
+      var errorMsg = (window.centinelaCheckout.strings && window.centinelaCheckout.strings.errorCreating) || 'No se pudo crear el pedido. Intente de nuevo.';
+
+      fetch(createOrderUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-WP-Nonce': nonce
+        },
+        body: JSON.stringify(payload)
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (json) {
+          if (json.success && json.redirect) {
+            window.location.href = json.redirect;
+            return;
+          }
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+          }
+          alert(json.message || errorMsg);
+        })
+        .catch(function () {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+          }
+          alert(errorMsg);
+        });
+    };
+  }
 })();

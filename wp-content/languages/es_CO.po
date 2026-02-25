@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the WordPress - 6.9.x - Development package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-12-13 04:21:30+0000\n"
+"PO-Revision-Date: 2026-02-18 00:34:47+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -285,6 +285,31 @@ msgstr "enero"
 #, gp-priority: high
 msgid "Uncategorized"
 msgstr "Sin categoría"
+
+#. translators: %1$s is the feed URL, %2$s is the error message.
+#: wp-includes/feed.php:880
+msgid "Error fetching feed %1$s: %2$s"
+msgstr "Error al obtener el feed %1$s: %2$s"
+
+#. translators: 1: Style handle, 2: List of missing dependency handles.
+#: wp-includes/class-wp-styles.php:509
+msgid "The style with the handle \"%1$s\" was enqueued with dependencies that are not registered: %2$s."
+msgstr "El estilo con el identificador «%1$s» se ha puesto en cola con dependencias que no están registradas: %2$s."
+
+#. translators: 1: Script handle, 2: List of missing dependency handles.
+#: wp-includes/class-wp-scripts.php:1180
+msgid "The script with the handle \"%1$s\" was enqueued with dependencies that are not registered: %2$s."
+msgstr "El script con el identificador «%1$s» se ha puesto en cola con dependencias que no están registradas: %2$s."
+
+#. translators: 1: Script module ID, 2: List of missing dependency IDs.
+#: wp-includes/class-wp-script-modules.php:743
+msgid "The script module with the ID \"%1$s\" was enqueued with dependencies that are not registered: %2$s."
+msgstr "El módulo de script con el ID «%1$s» se ha puesto en cola con dependencias que no están registradas: %2$s."
+
+#. translators: 1: Handle, 2: List of missing dependency handles.
+#: wp-includes/class-wp-dependencies.php:575
+msgid "The handle \"%1$s\" was enqueued with dependencies that are not registered: %2$s."
+msgstr "El identificador «%1$s» se ha puesto en cola con dependencias que no están registradas: %2$s."
 
 #: wp-includes/blocks/terms-query/block.json
 msgctxt "block description"

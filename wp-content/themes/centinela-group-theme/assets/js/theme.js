@@ -320,28 +320,16 @@
     return isNaN(n) ? 0 : n;
   }
 
-  // Si la API envió valor con 2 decimales como pesos (697.33 → 69733, 368194.46 → 36819446), normalizar.
-  function normalizePriceForDisplay(num) {
-    if (num === 0 || num == null) return 0;
-    var n = Number(num);
-    if (isNaN(n)) return n;
-    var intPart = Math.floor(n);
-    var decPart = n - intPart;
-    if (decPart > 0 && Math.abs(Math.round(n * 100) - n * 100) < 0.001) {
-      return Math.round(n * 100);
-    }
-    return n;
-  }
-
-  // Formato Colombia: miles con punto, decimales con coma (ej: 36.819.446 COP)
+  // Formato Syscom: CO $ X,XXX.XX (miles con coma, decimales con punto).
   function formatPrice(num) {
-    var n = normalizePriceForDisplay(num);
-    if (n === 0) return '0 COP';
+    var n = Number(num);
+    if (isNaN(n) || n < 0) return 'CO $ 0';
+    if (n === 0) return 'CO $ 0';
     var parts = Number(n).toFixed(2).split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    var out = parts.join(',') + ' COP';
-    if (parts[1] === '00') out = parts[0] + ' COP';
-    return out;
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    var out = parts.join('.');
+    if (parts[1] === '00') out = parts[0];
+    return 'CO $ ' + out;
   }
 
   function truncateTitle(title, maxLen) {
@@ -412,7 +400,7 @@
       if (contentEl) contentEl.style.display = 'none';
       if (emptyEl) emptyEl.style.display = '';
       if (emptyCta) emptyCta.style.display = '';
-      if (subtotalEl) subtotalEl.textContent = '0 COP';
+      if (subtotalEl) subtotalEl.textContent = 'CO $ 0';
       return;
     }
 

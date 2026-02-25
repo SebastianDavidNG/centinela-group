@@ -114,7 +114,10 @@ if ( $syscom_id && class_exists( 'Centinela_Syscom_API' ) ) {
 						$titulo = isset( $prod['titulo'] ) ? $prod['titulo'] : '';
 						$img    = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
 						$precios = isset( $prod['precios'] ) && is_array( $prod['precios'] ) ? $prod['precios'] : array();
-						$precio = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
+						$precio = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $precios ) : '';
+						if ( $precio === '' ) {
+							$precio = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
+						}
 						$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid, $titulo ) : home_url( '/tienda/producto/' . $pid . '/' );
 						?>
 						<article class="centinela-productos__card border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
@@ -126,7 +129,7 @@ if ( $syscom_id && class_exists( 'Centinela_Syscom_API' ) ) {
 								<?php endif; ?>
 								<div class="p-4">
 									<h2 class="font-medium text-gray-900 line-clamp-2"><?php echo esc_html( $titulo ); ?></h2>
-									<?php if ( $precio ) : ?><p class="text-green-600 font-semibold mt-2"><?php echo esc_html( $precio ); ?> COP</p><?php endif; ?>
+									<?php if ( $precio ) : ?><p class="text-green-600 font-semibold mt-2"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio ) : $precio . ' COP' ); ?></p><?php endif; ?>
 								</div>
 							</a>
 						</article>

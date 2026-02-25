@@ -14,7 +14,7 @@
   }
 
   function formatPrice(num) {
-    return typeof window.centinelaFormatPrice === 'function' ? window.centinelaFormatPrice(num) : num + ' COP';
+    return typeof window.centinelaFormatPrice === 'function' ? window.centinelaFormatPrice(num) : 'CO $ ' + num;
   }
 
   function removeItem(index) {
@@ -51,7 +51,7 @@
     if (items.length === 0) {
       emptyEl.style.display = 'block';
       contentEl.style.display = 'none';
-      if (subtotalEl) subtotalEl.textContent = '0 COP';
+      if (subtotalEl) subtotalEl.textContent = 'CO $ 0';
       return;
     }
 

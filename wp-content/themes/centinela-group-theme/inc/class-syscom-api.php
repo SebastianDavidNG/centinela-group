@@ -575,9 +575,9 @@ class Centinela_Syscom_API {
 	}
 
 	/**
-	 * Buscar productos (por categoría, página, orden).
+	 * Buscar productos (por categoría, página, orden, marca, precio min/max).
 	 *
-	 * @param array $args 'categoria' (id o ids comma-sep), 'pagina' (1-based), 'orden', 'busqueda', 'cop'.
+	 * @param array $args 'categoria', 'pagina', 'orden', 'busqueda', 'cop', 'precio_min', 'precio_max'.
 	 * @return array|WP_Error { cantidad, pagina, paginas, productos: [] } o error.
 	 */
 	public static function get_productos( $args = array() ) {
@@ -586,11 +586,13 @@ class Centinela_Syscom_API {
 			return $token;
 		}
 		$defaults = array(
-			'categoria' => '',
-			'pagina'   => 1,
-			'orden'    => 'relevancia',
-			'busqueda' => '',
-			'cop'      => true,
+			'categoria'  => '',
+			'pagina'     => 1,
+			'orden'      => 'relevancia',
+			'busqueda'   => '',
+			'cop'        => true,
+			'precio_min' => '',
+			'precio_max' => '',
 		);
 		$args  = wp_parse_args( $args, $defaults );
 		$query = array();
@@ -599,6 +601,12 @@ class Centinela_Syscom_API {
 		}
 		if ( $args['busqueda'] !== '' ) {
 			$query['busqueda'] = $args['busqueda'];
+		}
+		if ( $args['precio_min'] !== '' && is_numeric( $args['precio_min'] ) ) {
+			$query['precio_min'] = (string) (int) $args['precio_min'];
+		}
+		if ( $args['precio_max'] !== '' && is_numeric( $args['precio_max'] ) ) {
+			$query['precio_max'] = (string) (int) $args['precio_max'];
 		}
 		$query['pagina'] = max( 1, (int) $args['pagina'] );
 		$query['orden']  = sanitize_text_field( $args['orden'] );
@@ -630,14 +638,18 @@ class Centinela_Syscom_API {
 	 * Obtener productos relacionados a un producto.
 	 *
 	 * @param string|int $producto_id ID del producto.
+	 * @param bool       $cop         true para precios en COP (por defecto).
 	 * @return array|WP_Error Lista de productos o error.
 	 */
-	public static function get_productos_relacionados( $producto_id ) {
+	public static function get_productos_relacionados( $producto_id, $cop = true ) {
 		$token = self::get_token();
 		if ( is_wp_error( $token ) ) {
 			return $token;
 		}
 		$url = self::API_BASE . 'productos/' . rawurlencode( (string) $producto_id ) . '/relacionados';
+		if ( $cop ) {
+			$url .= '?cop=1';
+		}
 		$response = wp_remote_get( $url, array(
 			'timeout' => 15,
 			'headers' => array(

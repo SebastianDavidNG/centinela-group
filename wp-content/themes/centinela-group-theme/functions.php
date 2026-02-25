@@ -33,57 +33,101 @@ function centinela_force_http_on_localhost( $url ) {
 }
 
 /**
- * Normaliza precio COP: si la API envía un valor con 2 decimales que en realidad son pesos enteros
- * (ej: 697,33 → 69.733 COP; 368194.46 → 36.819.446 COP), devuelve el entero en pesos.
- * Aplica a miles, cienmiles y millones: siempre que num * 100 sea entero, se interpreta como pesos.
+ * Parsea un precio tal como viene de la API Syscom a valor numérico (sin cambiar magnitud).
+ * Acepta número o string con separadores (ej. "368,174.25" o "368.174,25").
  *
  * @param string|float|int $precio Precio tal como viene de la API.
- * @return int|float Valor numérico en pesos (entero cuando se normaliza, float cuando no).
+ * @return float Valor numérico en pesos.
  */
-function centinela_normalizar_precio_cop( $precio ) {
+function centinela_parse_precio_api( $precio ) {
 	if ( $precio === '' || $precio === null ) {
-		return 0;
+		return 0.0;
 	}
 	if ( is_numeric( $precio ) ) {
 		$num = (float) $precio;
+		return ( $num >= 0 && ! is_nan( $num ) ) ? $num : 0.0;
+	}
+	$s = preg_replace( '/\s*COP\s*$/i', '', trim( (string) $precio ) );
+	$s = preg_replace( '/[^\d.,\-]/', '', $s );
+	if ( $s === '' ) {
+		return 0.0;
+	}
+	$last_comma = strrpos( $s, ',' );
+	$last_dot   = strrpos( $s, '.' );
+	if ( $last_comma === false && $last_dot === false ) {
+		return (float) $s;
+	}
+	if ( $last_comma === false || $last_dot === false ) {
+		$s = str_replace( array( ',', '.' ), '', $s );
+		return (float) $s;
+	}
+	// Ambos presentes: el que está más a la derecha es el separador decimal.
+	if ( $last_comma > $last_dot ) {
+		$s = str_replace( '.', '', $s );
+		$s = str_replace( ',', '.', $s );
 	} else {
-		$s = preg_replace( '/\s*COP\s*$/i', '', trim( (string) $precio ) );
-		$s = preg_replace( '/[^\d.,\-]/', '', $s );
-		if ( strpos( $s, ',' ) !== false ) {
-			$s = str_replace( '.', '', $s );
-			$s = str_replace( ',', '.', $s );
-		}
-		$num = (float) $s;
+		$s = str_replace( ',', '', $s );
 	}
-	if ( is_nan( $num ) || $num !== $num || $num < 0 ) {
-		return 0;
-	}
-	$entero = (int) floor( $num );
-	$decimal = $num - $entero;
-	// Si tiene 2 decimales (num * 100 es entero): interpretar como pesos enteros (miles, cienmiles, millones).
-	if ( $decimal > 0 && abs( round( $num * 100 ) - $num * 100 ) < 0.001 ) {
-		return (int) round( $num * 100 );
-	}
-	return $num >= 1 ? ( $decimal == 0 ? $entero : $num ) : $num;
+	$num = (float) $s;
+	return ( $num >= 0 && ! is_nan( $num ) ) ? $num : 0.0;
 }
 
 /**
- * Formato de precio COP para Colombia: miles con punto, decimales con coma (ej: 36.819.446 COP).
- * Usa la normalización para que cienmiles, millones etc. se muestren con todas las cifras.
+ * Valor numérico de un precio (alias de centinela_parse_precio_api para compatibilidad).
+ *
+ * @param string|float|int $precio Precio tal como viene de la API.
+ * @return float Valor numérico en pesos.
+ */
+function centinela_normalizar_precio_cop( $precio ) {
+	return centinela_parse_precio_api( $precio );
+}
+
+/**
+ * Formato de precio COP según convención Syscom: miles con coma, decimales con punto (ej. 368,174.25).
+ * Se muestra como "CO $ 368,174.25" (código CO antes del símbolo $).
  *
  * @param string|float|int $precio Precio tal como viene de la API o número.
- * @return string Precio formateado con " COP" al final, o string vacío si no hay precio.
+ * @return string Precio formateado "CO $ X,XXX.XX" o string vacío si no hay precio.
  */
 function centinela_format_precio_cop( $precio ) {
-	$num = centinela_normalizar_precio_cop( $precio );
-	if ( $num === 0 && $precio !== 0 && $precio !== '0' ) {
+	$num = centinela_parse_precio_api( $precio );
+	if ( $num === 0.0 && $precio !== 0 && $precio !== '0' ) {
 		return '';
 	}
-	$formateado = number_format( $num, 2, ',', '.' );
-	if ( substr( $formateado, -3 ) === ',00' ) {
+	$formateado = number_format( $num, 2, '.', ',' );
+	if ( substr( $formateado, -3 ) === '.00' ) {
 		$formateado = substr( $formateado, 0, -3 );
 	}
-	return $formateado . ' COP';
+	return 'CO $ ' . $formateado;
+}
+
+/**
+ * Obtiene el precio de lista con IVA para mostrar (API Syscom).
+ * Prioridad: precio_lista_iva, precio_lista_con_iva, precio_con_iva, precio_iva, precio_lista_cop, etc.; fallback precio_lista.
+ *
+ * @param array $precios Array precios del producto (ej. $producto['precios']).
+ * @return string|float Valor del precio lista con IVA o lista sin IVA como fallback.
+ */
+function centinela_get_precio_lista_con_iva( $precios ) {
+	if ( ! is_array( $precios ) ) {
+		return '';
+	}
+	$candidatos = array(
+		'precio_lista_iva',
+		'precio_lista_con_iva',
+		'precio_con_iva',
+		'precio_iva',
+		'precio_lista_cop',
+		'precio_cop',
+		'lista_iva',
+		'precio_iva_cop',
+	);
+	foreach ( $candidatos as $key ) {
+		if ( isset( $precios[ $key ] ) && $precios[ $key ] !== '' && $precios[ $key ] !== null ) {
+			return $precios[ $key ];
+		}
+	}
+	return isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
 }
 
 /**
@@ -250,16 +294,18 @@ function centinela_fix_404_checkout_url() {
 add_action( 'template_redirect', 'centinela_fix_404_checkout_url', 0 );
 
 /**
- * Si la página tiene slug "tienda", usar siempre la plantilla page-tienda.php
- * (así la tienda funciona aunque en el editor no se guarde bien la plantilla).
+ * Si la URL /tienda/ corresponde a la página "tienda", usar siempre la plantilla page-tienda.php
+ * (productos desde API Syscom). Así funciona aunque WooCommerce tenga esa misma página como
+ * "Página de la tienda" (Shop): evitamos que WC cargue archive-product y se pierda la tienda Syscom.
+ * También forzamos por REQUEST_URI por si la consulta no resolvió la página (fallback).
  */
 function centinela_force_tienda_template( $template ) {
-	global $wp_query;
-	if ( ! is_singular( 'page' ) ) {
-		return $template;
-	}
 	$page = get_queried_object();
-	if ( ! $page || ! isset( $page->post_name ) || $page->post_name !== 'tienda' ) {
+	$is_tienda_page = $page && $page instanceof WP_Post && $page->post_type === 'page' && $page->post_name === 'tienda';
+	$is_tienda_centinela = $page && $page instanceof WP_Post && $page->post_type === 'page' && $page->post_name === 'tienda-centinela';
+	$is_tienda_url  = function_exists( 'centinela_is_tienda_root_request' ) && centinela_is_tienda_root_request();
+	$is_tienda_centinela_url = function_exists( 'centinela_is_tienda_centinela_request' ) && centinela_is_tienda_centinela_request();
+	if ( ! $is_tienda_page && ! $is_tienda_centinela && ! $is_tienda_url && ! $is_tienda_centinela_url ) {
 		return $template;
 	}
 	$tienda_file = get_template_directory() . '/page-tienda.php';
@@ -268,7 +314,7 @@ function centinela_force_tienda_template( $template ) {
 	}
 	return $template;
 }
-add_filter( 'template_include', 'centinela_force_tienda_template', 99 );
+add_filter( 'template_include', 'centinela_force_tienda_template', 999 );
 
 /**
  * Incluir partes del tema (header/footer por defecto)
@@ -279,7 +325,9 @@ require_once CENTINELA_THEME_DIR . '/inc/hero-slider.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-header.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-footer.php';
 require_once CENTINELA_THEME_DIR . '/inc/woocommerce-productos.php';
+require_once CENTINELA_THEME_DIR . '/inc/woocommerce-tienda-config.php';
 require_once CENTINELA_THEME_DIR . '/inc/tienda-ajax.php';
+require_once CENTINELA_THEME_DIR . '/inc/centinela-checkout-wompi.php';
 
 /**
  * Registrar Swiper y hero-slider para que Elementor los encole cuando use el widget Hero Slider

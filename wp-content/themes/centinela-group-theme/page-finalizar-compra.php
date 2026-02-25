@@ -18,6 +18,22 @@ wp_enqueue_script(
 	true
 );
 
+$wompi_available = function_exists( 'centinela_checkout_wompi_available' ) && centinela_checkout_wompi_available();
+if ( $wompi_available ) {
+	wp_localize_script( 'centinela-checkout-page', 'centinelaCheckout', array(
+		'wompiAvailable' => true,
+		'createOrderUrl' => rest_url( 'centinela/v1/checkout-create-order' ),
+		'nonce'          => wp_create_nonce( 'wp_rest' ),
+		'strings'        => array(
+			'payWithWompi' => __( 'Pagar con Wompi', 'centinela-group-theme' ),
+			'creatingOrder' => __( 'Creando pedido…', 'centinela-group-theme' ),
+			'errorCreating' => __( 'No se pudo crear el pedido. Intente de nuevo.', 'centinela-group-theme' ),
+		),
+	) );
+} else {
+	wp_localize_script( 'centinela-checkout-page', 'centinelaCheckout', array( 'wompiAvailable' => false ) );
+}
+
 $checkout_id       = get_queried_object_id();
 $checkout_title    = $checkout_id ? get_the_title( $checkout_id ) : get_the_title();
 $checkout_hero_img = $checkout_id ? get_the_post_thumbnail_url( $checkout_id, 'full' ) : get_the_post_thumbnail_url( get_the_ID(), 'full' );
@@ -133,9 +149,19 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 				<div class="centinela-checkout-form__payment" id="centinela-checkout-payment-section">
 					<h3 class="centinela-checkout-form__payment-title"><?php esc_html_e( 'Método de pago', 'centinela-group-theme' ); ?></h3>
 					<div id="centinela-checkout-payment-methods" class="centinela-checkout-form__payment-methods" aria-live="polite">
-						<p class="centinela-checkout-form__payment-placeholder"><?php esc_html_e( 'Aquí se mostrarán las opciones de pago cuando estén configuradas. Seleccione un método para confirmar su compra.', 'centinela-group-theme' ); ?></p>
+						<?php if ( $wompi_available ) : ?>
+							<p class="centinela-checkout-form__payment-option">
+								<label class="centinela-checkout-form__payment-label">
+									<input type="radio" name="centinela_metodo_pago_radio" value="wompi" class="centinela-checkout-form__payment-radio" aria-describedby="centinela-checkout-wompi-desc">
+									<span class="centinela-checkout-form__payment-label-text"><?php esc_html_e( 'Pagar con Wompi', 'centinela-group-theme' ); ?></span>
+								</label>
+								<span id="centinela-checkout-wompi-desc" class="centinela-checkout-form__payment-desc"><?php esc_html_e( 'Tarjeta, PSE, Nequi, Daviplata y más.', 'centinela-group-theme' ); ?></span>
+							</p>
+						<?php else : ?>
+							<p class="centinela-checkout-form__payment-placeholder"><?php esc_html_e( 'Aquí se mostrarán las opciones de pago cuando estén configuradas. Seleccione un método para confirmar su compra.', 'centinela-group-theme' ); ?></p>
+						<?php endif; ?>
 					</div>
-					<input type="hidden" name="centinela_metodo_pago" id="centinela-checkout-metodo-pago" value="">
+					<input type="hidden" name="centinela_metodo_pago" id="centinela-checkout-metodo-pago" value="<?php echo $wompi_available ? esc_attr( 'wompi' ) : ''; ?>">
 				</div>
 
 				<p class="centinela-checkout-form__submit-wrap">

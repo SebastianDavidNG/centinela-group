@@ -31,31 +31,16 @@
     document.body.style.overflow = '';
   }
 
-  // Normalizar: si API envió valor con 2 decimales como pesos (697.33 → 69733, 368194.46 → 36819446).
-  function normalizePrecioCOP(val) {
-    if (val === '' || val === null || val === undefined) return 0;
-    var s = String(val).trim().replace(/\s*COP\s*$/i, '').replace(/[^\d.,\-]/g, '');
-    if (s.indexOf(',') !== -1) s = s.replace(/\./g, '').replace(',', '.');
-    var num = parseFloat(s);
-    if (isNaN(num)) return num;
-    var intPart = Math.floor(num);
-    var decPart = num - intPart;
-    if (decPart > 0 && Math.abs(Math.round(num * 100) - num * 100) < 0.001) {
-      return Math.round(num * 100);
-    }
-    return num;
-  }
-
-  // Formato Colombia: miles con punto, decimales con coma (ej: 36.819.446 COP)
+  // Formato Syscom: CO $ X,XXX.XX (miles con coma, decimales con punto).
   function formatPrecioCOP(val) {
-    var num = normalizePrecioCOP(val);
-    if (isNaN(num)) return String(val) + ' COP';
-    if (num === 0 && (val === '' || val === null || val === undefined)) return '';
+    if (val === '' || val === null || val === undefined) return '';
+    var num = parseFloat(String(val).replace(/\s*COP\s*$/i, '').replace(/[^\d.,\-]/g, '').replace(/,/g, ''));
+    if (isNaN(num) || num < 0) return '';
     var parts = Number(num).toFixed(2).split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    var out = parts.join(',') + ' COP';
-    if (parts[1] === '00') out = parts[0] + ' COP';
-    return out;
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    var out = parts.join('.');
+    if (parts[1] === '00') out = parts[0];
+    return 'CO $ ' + out;
   }
 
   function setMainImage(index) {
@@ -111,7 +96,7 @@
       categoriaEl.style.display = (data.categoria && data.categoria.trim()) ? '' : 'none';
     }
     if (title) title.textContent = data.titulo || '';
-    if (price) price.textContent = formatPrecioCOP(data.precio);
+    if (price) price.textContent = (data.precio_formateado && data.precio_formateado.trim()) ? data.precio_formateado : formatPrecioCOP(data.precio);
     if (link) {
       link.href = data.url || '#';
       link.textContent = 'Ver producto';

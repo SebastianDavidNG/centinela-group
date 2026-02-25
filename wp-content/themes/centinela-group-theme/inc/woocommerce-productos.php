@@ -185,6 +185,69 @@ function centinela_tienda_ensure_queried_object() {
 add_action( 'template_redirect', 'centinela_tienda_ensure_queried_object', 2 );
 
 /**
+ * Comprobar si la petición es exactamente la URL raíz de la tienda: /tienda/ o /tienda
+ *
+ * @return bool
+ */
+function centinela_is_tienda_root_request() {
+	if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+		return false;
+	}
+	$req_path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+	if ( ! $req_path ) {
+		return false;
+	}
+	$path = trim( $req_path, '/' );
+	return $path === 'tienda';
+}
+
+/**
+ * Asegurar que al visitar /tienda/ se cargue la página "tienda" y la plantilla Syscom.
+ * Si la página con slug "tienda" no existe (p. ej. se renombró), se crea para que la tienda API funcione.
+ */
+function centinela_tienda_fix_root_url() {
+	if ( ! centinela_is_tienda_root_request() ) {
+		return;
+	}
+	$tienda_page = get_page_by_path( 'tienda', OBJECT, 'page' );
+	if ( ! $tienda_page ) {
+		// Crear la página "tienda" para que /tienda/ resuelva y cargue la plantilla Syscom.
+		$page_id = wp_insert_post( array(
+			'post_title'   => _x( 'Tienda', 'page title', 'centinela-group-theme' ),
+			'post_name'    => 'tienda',
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+			'post_content' => '',
+		), true );
+		if ( is_wp_error( $page_id ) || $page_id === 0 ) {
+			return;
+		}
+		$tienda_page = get_post( $page_id );
+		if ( ! $tienda_page ) {
+			return;
+		}
+	}
+	global $wp_query;
+	// Si ya tenemos la página tienda como objeto de la consulta, no tocar.
+	$current = $wp_query->get_queried_object();
+	if ( $current && isset( $current->ID ) && (int) $current->ID === (int) $tienda_page->ID ) {
+		return;
+	}
+	// Forzar la consulta a la página tienda (p. ej. cuando WC u otra cosa la sustituyó).
+	$wp_query->set( 'pagename', 'tienda' );
+	$wp_query->set( 'page_id', $tienda_page->ID );
+	$wp_query->posts          = array( $tienda_page );
+	$wp_query->post_count     = 1;
+	$wp_query->queried_object = $tienda_page;
+	$wp_query->queried_object_id = (int) $tienda_page->ID;
+	$wp_query->is_404         = false;
+	$wp_query->is_singular    = true;
+	$wp_query->is_page        = true;
+	$wp_query->is_single      = false;
+}
+add_action( 'template_redirect', 'centinela_tienda_fix_root_url', 0 );
+
+/**
  * Si la petición es /tienda/categoria/... y WordPress devolvió 404 (p. ej. menú secundario, reglas no coincidieron),
  * forzar consulta de la página tienda y cat_path para que cargue la plantilla correcta.
  */

@@ -39,6 +39,7 @@ if ( is_wp_error( $relacionados ) ) {
 $precios   = isset( $producto['precios'] ) && is_array( $producto['precios'] ) ? $producto['precios'] : array();
 $precio_esp = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_descuento'] ) ? $precios['precio_descuento'] : '' );
 $precio_lista = isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
+$precio_lista_iva = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $precios ) : $precio_lista;
 $producto_imagenes = function_exists( 'centinela_get_producto_imagenes' ) ? centinela_get_producto_imagenes( $producto ) : array();
 $caracteristicas   = isset( $producto['caracteristicas'] ) && is_array( $producto['caracteristicas'] ) ? $producto['caracteristicas'] : array();
 $categorias        = isset( $producto['categorías'] ) ? $producto['categorías'] : ( isset( $producto['categorias'] ) ? $producto['categorias'] : array() );
@@ -130,16 +131,13 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 			<div class="centinela-single-producto__summary">
 				<h2 class="centinela-single-producto__title"><?php echo esc_html( $producto['titulo'] ); ?></h2>
 
-				<?php if ( $precio_esp || $precio_lista ) : ?>
+				<?php
+				$precio_mostrar = $precio_lista_iva !== '' ? $precio_lista_iva : ( $precio_esp ? $precio_esp : $precio_lista );
+				$precio_mostrar_formato = ( $precio_mostrar !== '' && function_exists( 'centinela_format_precio_cop' ) ) ? centinela_format_precio_cop( $precio_mostrar ) : ( $precio_mostrar !== '' ? $precio_mostrar . ' COP' : '' );
+				?>
+				<?php if ( $precio_mostrar_formato !== '' ) : ?>
 					<div class="centinela-single-producto__price">
-						<?php if ( $precio_esp ) : ?>
-							<span class="centinela-single-producto__price-special"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_esp ) : $precio_esp . ' COP' ); ?></span>
-							<?php if ( $precio_lista && (float) str_replace( array( '.', ',' ), array( '', '.' ), $precio_lista ) !== (float) str_replace( array( '.', ',' ), array( '', '.' ), $precio_esp ) ) : ?>
-								<del class="centinela-single-producto__price-list"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_lista ) : $precio_lista ); ?></del>
-							<?php endif; ?>
-						<?php else : ?>
-							<span><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_lista ) : $precio_lista . ' COP' ); ?></span>
-						<?php endif; ?>
+						<span class="centinela-single-producto__price-special"><?php echo esc_html( $precio_mostrar_formato ); ?></span>
 					</div>
 				<?php endif; ?>
 
@@ -164,8 +162,8 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 
 				<?php
 				$addcart_image = ! empty( $producto_imagenes[0] ) ? ( ! empty( $producto_imagenes[0]['url'] ) ? $producto_imagenes[0]['url'] : '' ) : '';
-				$addcart_price_raw = $precio_esp ? $precio_esp : $precio_lista;
-				$addcart_price     = function_exists( 'centinela_normalizar_precio_cop' ) ? centinela_normalizar_precio_cop( $addcart_price_raw ) : $addcart_price_raw;
+				$addcart_price_raw = $precio_lista_iva !== '' ? $precio_lista_iva : ( $precio_esp ? $precio_esp : $precio_lista );
+				$addcart_price     = function_exists( 'centinela_parse_precio_api' ) ? centinela_parse_precio_api( $addcart_price_raw ) : $addcart_price_raw;
 				?>
 				<div class="centinela-single-producto__cart-row">
 					<label for="centinela-single-producto-qty" class="centinela-single-producto__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
@@ -241,8 +239,39 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 						$rid      = isset( $rel['producto_id'] ) ? $rel['producto_id'] : ( isset( $rel['id'] ) ? $rel['id'] : '' );
 						$rtitle   = isset( $rel['titulo'] ) ? $rel['titulo'] : '';
 						$rimg     = isset( $rel['img_portada'] ) ? $rel['img_portada'] : '';
+						// Unir precios del objeto anidado con claves en la raíz (API relacionados a veces devuelve precio_lista_iva, etc. en la raíz).
 						$rprecios = isset( $rel['precios'] ) && is_array( $rel['precios'] ) ? $rel['precios'] : array();
-						$rprecio  = isset( $rprecios['precio_especial'] ) ? $rprecios['precio_especial'] : ( isset( $rprecios['precio_lista'] ) ? $rprecios['precio_lista'] : '' );
+						$root_keys = array( 'precio_lista_iva', 'precio_lista_con_iva', 'precio_con_iva', 'precio_iva', 'precio_lista_cop', 'precio_lista', 'precio_especial' );
+						foreach ( $root_keys as $k ) {
+							if ( isset( $rel[ $k ] ) && $rel[ $k ] !== '' && $rel[ $k ] !== null ) {
+								$rprecios[ $k ] = $rel[ $k ];
+							}
+						}
+						$rprecio_raw = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $rprecios ) : '';
+						if ( $rprecio_raw === '' ) {
+							$rprecio_raw = isset( $rprecios['precio_especial'] ) ? $rprecios['precio_especial'] : ( isset( $rprecios['precio_lista'] ) ? $rprecios['precio_lista'] : '' );
+						}
+						// Si el valor parece USD o incorrecto (< 5000 COP), obtener precio COP del detalle del producto (con caché).
+						if ( $rid !== '' && function_exists( 'centinela_parse_precio_api' ) && $rprecio_raw !== '' ) {
+							$rprecio_num = centinela_parse_precio_api( $rprecio_raw );
+							if ( $rprecio_num > 0 && $rprecio_num < 5000 && class_exists( 'Centinela_Syscom_API' ) ) {
+								$cache_key = 'centinela_rel_precio_' . $rid;
+								$cached = get_transient( $cache_key );
+								if ( $cached !== false && $cached !== '' ) {
+									$rprecio_raw = $cached;
+								} else {
+									$detalle = Centinela_Syscom_API::get_producto( $rid, true );
+									if ( ! is_wp_error( $detalle ) && isset( $detalle['precios'] ) && is_array( $detalle['precios'] ) ) {
+										$precio_detalle = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $detalle['precios'] ) : '';
+										if ( $precio_detalle !== '' ) {
+											$rprecio_raw = $precio_detalle;
+											set_transient( $cache_key, $rprecio_raw, 1 * HOUR_IN_SECONDS );
+										}
+									}
+								}
+							}
+						}
+						$rprecio_formato = ( $rprecio_raw !== '' && function_exists( 'centinela_format_precio_cop' ) ) ? centinela_format_precio_cop( $rprecio_raw ) : ( $rprecio_raw !== '' ? $rprecio_raw . ' COP' : '' );
 						// URL legacy /tienda/producto/ID-slug/ para que siempre resuelva al producto (no usar cat_path del producto actual).
 						$rurl = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $rid, $rtitle, '' ) : home_url( '/tienda/producto/' . $rid . '/' );
 						?>
@@ -255,7 +284,7 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 								<?php endif; ?>
 								<div class="centinela-single-producto__related-body">
 									<h3 class="centinela-single-producto__related-item-title"><?php echo esc_html( $rtitle ); ?></h3>
-									<?php if ( $rprecio ) : ?><p class="centinela-single-producto__related-price"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $rprecio ) : $rprecio . ' COP' ); ?></p><?php endif; ?>
+									<?php if ( $rprecio_formato !== '' ) : ?><p class="centinela-single-producto__related-price"><?php echo esc_html( $rprecio_formato ); ?></p><?php endif; ?>
 								</div>
 							</a>
 						</article>

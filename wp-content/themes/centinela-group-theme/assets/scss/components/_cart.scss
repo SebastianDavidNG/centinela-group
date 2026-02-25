@@ -511,6 +511,33 @@
   color: var(--centinela-text-muted, #666);
 }
 
+.centinela-checkout-form__payment-option {
+  margin: 0 0 0.5rem;
+}
+
+.centinela-checkout-form__payment-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: $font-weight-medium;
+}
+
+.centinela-checkout-form__payment-radio {
+  flex-shrink: 0;
+}
+
+.centinela-checkout-form__payment-label-text {
+  font-size: 1rem;
+}
+
+.centinela-checkout-form__payment-desc {
+  display: block;
+  margin: 0.25rem 0 0 1.5rem;
+  font-size: 0.875rem;
+  color: var(--centinela-text-muted, #666);
+}
+
 .centinela-checkout-form__submit-wrap {
   margin: 1.5rem 0 0;
 }

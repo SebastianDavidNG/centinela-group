@@ -11,16 +11,153 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Obtiene productos de la API Syscom y devuelve el HTML del grid + paginación.
+ * Extrae marcas únicas de una lista de productos (claves: marca, brand, fabricante).
+ *
+ * @param array $productos Lista de productos de la API.
+ * @return array Lista de marcas ordenadas.
+ */
+function centinela_tienda_extract_marcas( $productos ) {
+	$seen = array();
+	$marcas = array();
+	$keys = array( 'marca', 'brand', 'fabricante' );
+	foreach ( (array) $productos as $p ) {
+		if ( ! is_array( $p ) ) {
+			continue;
+		}
+		$m = '';
+		foreach ( $keys as $key ) {
+			if ( isset( $p[ $key ] ) ) {
+				$val = $p[ $key ];
+				if ( is_array( $val ) && isset( $val['nombre'] ) ) {
+					$m = trim( (string) $val['nombre'] );
+				} elseif ( trim( (string) $val ) !== '' ) {
+					$m = trim( (string) $val );
+				}
+				if ( $m !== '' ) {
+					break;
+				}
+			}
+		}
+		if ( $m !== '' && ! isset( $seen[ $m ] ) ) {
+			$seen[ $m ] = true;
+			$marcas[] = $m;
+		}
+	}
+	sort( $marcas );
+	return $marcas;
+}
+
+/**
+ * Devuelve el precio numérico de un producto (lista con IVA) para filtrar por rango.
+ *
+ * @param array $prod Un producto de la API (con clave precios).
+ * @return float Precio numérico en COP.
+ */
+function centinela_tienda_producto_precio_num( $prod ) {
+	if ( ! is_array( $prod ) ) {
+		return 0.0;
+	}
+	$precios = isset( $prod['precios'] ) && is_array( $prod['precios'] ) ? $prod['precios'] : array();
+	$precio_raw = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $precios ) : '';
+	if ( $precio_raw === '' ) {
+		$precio_raw = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
+	}
+	return function_exists( 'centinela_parse_precio_api' ) ? centinela_parse_precio_api( $precio_raw ) : 0.0;
+}
+
+/**
+ * Devuelve el nombre de la marca de un producto (misma lógica que extract_marcas).
+ *
+ * @param array $prod Producto de la API.
+ * @return string Nombre de la marca o vacío.
+ */
+function centinela_tienda_producto_marca( $prod ) {
+	if ( ! is_array( $prod ) ) {
+		return '';
+	}
+	$keys = array( 'marca', 'brand', 'fabricante' );
+	foreach ( $keys as $key ) {
+		if ( isset( $prod[ $key ] ) ) {
+			$val = $prod[ $key ];
+			if ( is_array( $val ) && isset( $val['nombre'] ) ) {
+				return trim( (string) $val['nombre'] );
+			}
+			if ( trim( (string) $val ) !== '' ) {
+				return trim( (string) $val );
+			}
+		}
+	}
+	return '';
+}
+
+/**
+ * Filtra una lista de productos por marca (nombre exacto, sin depender de la API).
+ *
+ * @param array  $productos Lista de productos de la API.
+ * @param string $marca     Nombre de la marca a filtrar (vacío = no filtrar).
+ * @return array Lista filtrada.
+ */
+function centinela_tienda_filter_productos_por_marca( $productos, $marca = '' ) {
+	if ( $marca === '' || empty( $productos ) ) {
+		return $productos;
+	}
+	$marca_trim = trim( $marca );
+	$out        = array();
+	foreach ( $productos as $p ) {
+		$prod_marca = centinela_tienda_producto_marca( $p );
+		if ( $prod_marca !== '' && $prod_marca === $marca_trim ) {
+			$out[] = $p;
+		}
+	}
+	return $out;
+}
+
+/**
+ * Filtra una lista de productos por rango de precio (min/max en COP).
+ *
+ * @param array  $productos Lista de productos de la API.
+ * @param string $min_price Precio mínimo (vacío = sin límite).
+ * @param string $max_price Precio máximo (vacío = sin límite).
+ * @return array Lista filtrada.
+ */
+function centinela_tienda_filter_productos_por_precio( $productos, $min_price = '', $max_price = '' ) {
+	if ( empty( $productos ) ) {
+		return array();
+	}
+	$min_num = ( $min_price !== '' && is_numeric( $min_price ) ) ? (float) $min_price : null;
+	$max_num = ( $max_price !== '' && is_numeric( $max_price ) ) ? (float) $max_price : null;
+	if ( $min_num === null && $max_num === null ) {
+		return $productos;
+	}
+	$out = array();
+	foreach ( $productos as $p ) {
+		$precio = centinela_tienda_producto_precio_num( $p );
+		if ( $min_num !== null && $precio < $min_num ) {
+			continue;
+		}
+		if ( $max_num !== null && $precio > $max_num ) {
+			continue;
+		}
+		$out[] = $p;
+	}
+	return $out;
+}
+
+/**
+ * Obtiene productos de la API (misma lógica que render), filtra por precio y extrae marcas.
+ * Usado en la carga inicial de la tienda para rellenar el sidebar de marcas sin depender de JS.
  *
  * @param string $categoria_id ID de categoría Syscom (vacío = todos).
  * @param int    $pagina      Página 1-based.
- * @param string $ordenar     Orden: relevancia, precio_asc, precio_desc, etc.
- * @param string $cat_path    Ruta amigable (ej. videovigilancia/proteccion-contra-descargas/redes) para URLs SEO.
- * @return string HTML del grid y paginación.
+ * @param string $ordenar     Orden.
+ * @param string $cat_path    Ruta amigable.
+ * @param string $marca       Filtro marca.
+ * @param string $min_price   Precio mínimo.
+ * @param string $max_price   Precio máximo.
+ * @return array { 'productos' => [], 'paginas' => int, 'marcas' => [] }
  */
-function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1, $ordenar = 'relevancia', $cat_path = '' ) {
-	$productos_api    = array();
+function centinela_tienda_get_productos_data( $categoria_id = '', $pagina = 1, $ordenar = 'relevancia', $cat_path = '', $marca = '', $min_price = '', $max_price = '' ) {
+	$productos_api     = array();
 	$productos_paginas = 0;
 
 	if ( class_exists( 'Centinela_Syscom_API' ) ) {
@@ -34,10 +171,80 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 		}
 		$resp = Centinela_Syscom_API::get_productos( $args );
 		if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
+			$productos_api     = $resp['productos'];
+			$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+		}
+		if ( $categoria_id === '' && empty( $productos_api ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+			$arbol = Centinela_Syscom_API::get_categorias_arbol();
+			if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
+				$args['categoria'] = (string) $arbol[0]['id'];
+				$resp = Centinela_Syscom_API::get_productos( $args );
+				if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) && ! empty( $resp['productos'] ) ) {
+					$productos_api     = $resp['productos'];
+					$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+				}
+			}
+		}
+	}
+
+	// Filtrar por precio en PHP (no en API) para tener siempre una página completa y poder extraer marcas del rango.
+	$productos_tras_precio = $productos_api;
+	if ( ! empty( $productos_api ) && function_exists( 'centinela_tienda_filter_productos_por_precio' ) ) {
+		$productos_tras_precio = centinela_tienda_filter_productos_por_precio( $productos_api, $min_price, $max_price );
+	}
+
+	// Marcas del sidebar = las que tienen productos en el rango de precio actual (o todas si el rango está vacío).
+	$marcas = function_exists( 'centinela_tienda_extract_marcas' ) ? centinela_tienda_extract_marcas( ! empty( $productos_tras_precio ) ? $productos_tras_precio : $productos_api ) : array();
+
+	// Filtrar por marca en PHP.
+	if ( $marca !== '' && ! empty( $productos_tras_precio ) && function_exists( 'centinela_tienda_filter_productos_por_marca' ) ) {
+		$productos_tras_precio = centinela_tienda_filter_productos_por_marca( $productos_tras_precio, $marca );
+	}
+
+	$productos_api = $productos_tras_precio;
+
+	return array(
+		'productos' => $productos_api,
+		'paginas'   => $productos_paginas,
+		'marcas'    => $marcas,
+	);
+}
+
+/**
+ * Obtiene productos de la API Syscom y devuelve el HTML del grid + paginación.
+ * Opcionalmente recibe datos pre-obtenidos para evitar doble llamada.
+ *
+ * @param string $categoria_id ID de categoría Syscom (vacío = todos).
+ * @param int    $pagina      Página 1-based.
+ * @param string $ordenar     Orden: relevancia, precio_asc, precio_desc, etc.
+ * @param string $cat_path    Ruta amigable para URLs SEO.
+ * @param string $marca       Filtro por marca (busqueda en API); vacío = sin filtrar.
+ * @param string $min_price   Precio mínimo (número); vacío = sin filtro.
+ * @param string $max_price   Precio máximo (número); vacío = sin filtro.
+ * @param array  $prefetched  Opcional. [ 'productos' => [], 'paginas' => 0 ] para no volver a llamar a la API.
+ * @return string HTML del grid y paginación.
+ */
+function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1, $ordenar = 'relevancia', $cat_path = '', $marca = '', $min_price = '', $max_price = '', $prefetched = null ) {
+	$productos_api    = array();
+	$productos_paginas = 0;
+
+	if ( $prefetched !== null && isset( $prefetched['productos'] ) ) {
+		$productos_api    = $prefetched['productos'];
+		$productos_paginas = isset( $prefetched['paginas'] ) ? (int) $prefetched['paginas'] : 0;
+	} elseif ( class_exists( 'Centinela_Syscom_API' ) ) {
+		$args = array(
+			'pagina' => max( 1, (int) $pagina ),
+			'orden'  => sanitize_text_field( $ordenar ),
+			'cop'    => true,
+		);
+		if ( $categoria_id !== '' ) {
+			$args['categoria'] = $categoria_id;
+		}
+		$resp = Centinela_Syscom_API::get_productos( $args );
+		if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
 			$productos_api    = $resp['productos'];
 			$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
 		}
-		// Si sin categoría no devuelve productos, usar la primera categoría del árbol como fallback para mostrar algo.
 		if ( $categoria_id === '' && empty( $productos_api ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
 			$arbol = Centinela_Syscom_API::get_categorias_arbol();
 			if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
@@ -51,19 +258,39 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 		}
 	}
 
+	// Filtrar por precio en PHP (siempre; no se envía a la API para tener página completa y marcas del rango).
+	if ( ! empty( $productos_api ) && function_exists( 'centinela_tienda_filter_productos_por_precio' ) ) {
+		$productos_api = centinela_tienda_filter_productos_por_precio( $productos_api, $min_price, $max_price );
+	}
+
+	// Filtrar por marca en PHP.
+	if ( $marca !== '' && ! empty( $productos_api ) && function_exists( 'centinela_tienda_filter_productos_por_marca' ) ) {
+		$productos_api = centinela_tienda_filter_productos_por_marca( $productos_api, $marca );
+	}
+
 	ob_start();
 
 	if ( ! empty( $productos_api ) ) {
 		?>
 		<div class="centinela-tienda__grid">
 			<?php foreach ( $productos_api as $prod ) :
-				$pid    = isset( $prod['producto_id'] ) ? $prod['producto_id'] : ( isset( $prod['id'] ) ? $prod['id'] : '' );
-				$titulo = isset( $prod['titulo'] ) ? $prod['titulo'] : '';
-				$img    = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
+				$pid       = isset( $prod['producto_id'] ) ? $prod['producto_id'] : ( isset( $prod['id'] ) ? $prod['id'] : '' );
+				$titulo    = isset( $prod['titulo'] ) ? $prod['titulo'] : '';
+				$img       = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
+				$modelo    = isset( $prod['modelo'] ) ? trim( (string) $prod['modelo'] ) : '';
+				$prod_marca = function_exists( 'centinela_tienda_producto_marca' ) ? centinela_tienda_producto_marca( $prod ) : ( isset( $prod['marca'] ) ? trim( (string) $prod['marca'] ) : '' );
 				$precios = isset( $prod['precios'] ) && is_array( $prod['precios'] ) ? $prod['precios'] : array();
-				$precio = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
+				$precio_especial = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_descuento'] ) ? $precios['precio_descuento'] : '' );
+				$precio = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $precios ) : '';
+				if ( $precio === '' ) {
+					$precio = $precio_especial ? $precio_especial : ( isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '' );
+				}
+				$tiene_precio_especial = $precio_especial !== '' && $precio_especial !== null;
 				// URL legacy /tienda/producto/ID-slug/ para que Ver producto y enlaces lleven al detalle sin recargar tienda.
 				$url    = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $pid, $titulo, '' ) : home_url( '/tienda/producto/' . $pid . '/' );
+				// URL para filtrar por marca: /tienda/?marca=X o /tienda/cat-path/?marca=X
+				$marca_base = home_url( '/tienda/' . ( $cat_path !== '' ? trim( $cat_path ) . '/' : '' ) );
+				$marca_url  = $prod_marca !== '' ? add_query_arg( 'marca', rawurlencode( $prod_marca ), $marca_base ) : $marca_base;
 				?>
 				<article class="centinela-tienda__card" data-product-id="<?php echo esc_attr( $pid ); ?>">
 					<div class="centinela-tienda__card-image-wrap">
@@ -86,8 +313,22 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 						<h2 class="centinela-tienda__card-title">
 							<a href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $titulo ); ?></a>
 						</h2>
+						<?php if ( $modelo !== '' || $prod_marca !== '' ) : ?>
+							<div class="centinela-tienda__card-meta">
+								<?php if ( $modelo !== '' ) : ?><p class="centinela-tienda__card-modelo"><?php echo esc_html( $modelo ); ?></p><?php endif; ?>
+								<?php if ( $prod_marca !== '' ) : ?><p class="centinela-tienda__card-marca"><a href="<?php echo esc_url( $marca_url ); ?>" class="centinela-tienda__card-marca-link"><?php echo esc_html( $prod_marca ); ?></a></p><?php endif; ?>
+							</div>
+						<?php endif; ?>
 						<?php if ( $precio ) : ?>
-							<p class="centinela-tienda__card-price"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio ) : $precio . ' COP' ); ?></p>
+							<div class="centinela-tienda__card-price-wrap">
+								<?php if ( $tiene_precio_especial ) : ?>
+									<p class="centinela-tienda__card-price-label"><?php esc_html_e( 'Precio Especial:', 'centinela-group-theme' ); ?></p>
+									<p class="centinela-tienda__card-price"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio_especial ) : $precio_especial . ' COP' ); ?></p>
+									<p class="centinela-tienda__card-price-disclaimer"><?php esc_html_e( 'Precio válido hasta agotar existencias', 'centinela-group-theme' ); ?></p>
+								<?php else : ?>
+									<p class="centinela-tienda__card-price"><?php echo esc_html( function_exists( 'centinela_format_precio_cop' ) ? centinela_format_precio_cop( $precio ) : $precio . ' COP' ); ?></p>
+								<?php endif; ?>
+							</div>
 						<?php endif; ?>
 					</div>
 				</article>
@@ -143,25 +384,162 @@ function centinela_tienda_rest_routes() {
 				'default'           => 'relevancia',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
+			'marca' => array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'min_price' => array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'max_price' => array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
 		),
 		'callback' => function ( $request ) {
-			$categoria = $request->get_param( 'categoria' );
-			$cat_path  = $request->get_param( 'cat_path' );
-			$pagina    = $request->get_param( 'pagina' );
-			$ordenar   = $request->get_param( 'ordenar' );
+			$categoria  = $request->get_param( 'categoria' );
+			$cat_path   = $request->get_param( 'cat_path' );
+			$pagina     = $request->get_param( 'pagina' );
+			$ordenar    = $request->get_param( 'ordenar' );
+			$marca      = $request->get_param( 'marca' );
+			$min_price  = $request->get_param( 'min_price' );
+			$max_price  = $request->get_param( 'max_price' );
 			if ( $cat_path !== '' && function_exists( 'centinela_resolve_cat_path_to_syscom_id' ) ) {
 				$resolved = centinela_resolve_cat_path_to_syscom_id( trim( $cat_path ) );
 				if ( $resolved !== null ) {
 					$categoria = $resolved;
 				}
 			}
-			$html = centinela_tienda_render_productos_html( $categoria, $pagina, $ordenar, $cat_path );
+			// Obtener siempre una página completa de productos (sin precio en API); filtro precio y marca se aplican en PHP.
+			$productos_data = null;
+			if ( class_exists( 'Centinela_Syscom_API' ) ) {
+				$args = array(
+					'pagina' => max( 1, (int) $pagina ),
+					'orden'  => sanitize_text_field( $ordenar ),
+					'cop'    => true,
+				);
+				if ( $categoria !== '' ) {
+					$args['categoria'] = $categoria;
+				}
+				$resp = Centinela_Syscom_API::get_productos( $args );
+				if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
+					$productos_data = array(
+						'productos' => $resp['productos'],
+						'paginas'   => isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0,
+					);
+					if ( $categoria === '' && empty( $resp['productos'] ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+						$arbol = Centinela_Syscom_API::get_categorias_arbol();
+						if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
+							$args['categoria'] = (string) $arbol[0]['id'];
+							$resp = Centinela_Syscom_API::get_productos( $args );
+							if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
+								$productos_data = array(
+									'productos' => $resp['productos'],
+									'paginas'   => isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0,
+								);
+							}
+						}
+					}
+				}
+			}
+			$marcas = array();
+			if ( $productos_data !== null ) {
+				$prods_raw = $productos_data['productos'];
+				$prods     = $prods_raw;
+				if ( function_exists( 'centinela_tienda_filter_productos_por_precio' ) ) {
+					$prods = centinela_tienda_filter_productos_por_precio( $prods, $min_price, $max_price );
+				}
+				// Marcas del sidebar: del conjunto tras filtro precio; si ese conjunto está vacío, usar el sin filtrar por precio para que la lista no desaparezca.
+				if ( function_exists( 'centinela_tienda_extract_marcas' ) ) {
+					$marcas = centinela_tienda_extract_marcas( ! empty( $prods ) ? $prods : $prods_raw );
+				}
+				// Filtrar por marca en PHP (la API no filtra bien por marca vía busqueda).
+				if ( $marca !== '' && function_exists( 'centinela_tienda_filter_productos_por_marca' ) ) {
+					$prods = centinela_tienda_filter_productos_por_marca( $prods, $marca );
+				}
+				$productos_data['productos'] = $prods;
+			}
+			$html = centinela_tienda_render_productos_html( $categoria, $pagina, $ordenar, $cat_path, $marca, $min_price, $max_price, $productos_data );
 			return new WP_REST_Response( array(
-				'html'      => $html,
-				'pagina'    => (int) $pagina,
-				'categoria' => $categoria,
-				'cat_path'  => $cat_path,
+				'html'       => $html,
+				'pagina'     => (int) $pagina,
+				'categoria'  => $categoria,
+				'cat_path'   => $cat_path,
+				'marca'      => $marca,
+				'min_price'  => $min_price,
+				'max_price'  => $max_price,
+				'marcas'     => $marcas,
 			), 200 );
+		},
+	) );
+
+	// Endpoint para obtener marcas disponibles (por categoría o todas).
+	register_rest_route( 'centinela/v1', '/tienda-marcas', array(
+		'methods'             => 'GET',
+		'permission_callback' => '__return_true',
+		'args'                => array(
+			'categoria' => array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'cat_path'  => array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+		),
+		'callback' => function ( $request ) {
+			$categoria = $request->get_param( 'categoria' );
+			$cat_path  = $request->get_param( 'cat_path' );
+			if ( $cat_path !== '' && function_exists( 'centinela_resolve_cat_path_to_syscom_id' ) ) {
+				$resolved = centinela_resolve_cat_path_to_syscom_id( trim( $cat_path ) );
+				if ( $resolved !== null ) {
+					$categoria = $resolved;
+				}
+			}
+			$cache_key = 'centinela_tienda_marcas_' . md5( $categoria );
+			$marcas    = get_transient( $cache_key );
+			if ( $marcas === false && class_exists( 'Centinela_Syscom_API' ) ) {
+				$all_marcas = array();
+				$args_base  = array(
+					'categoria' => $categoria,
+					'orden'     => 'relevancia',
+					'cop'       => true,
+				);
+				// Fallback: si sin categoría no hay productos, usar primera categoría del árbol.
+				if ( $categoria === '' && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+					$arbol = Centinela_Syscom_API::get_categorias_arbol();
+					if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
+						$args_base['categoria'] = (string) $arbol[0]['id'];
+					}
+				}
+				for ( $p = 1; $p <= 3; $p++ ) {
+					$args = array_merge( $args_base, array( 'pagina' => $p ) );
+					$resp = Centinela_Syscom_API::get_productos( $args );
+					if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) && function_exists( 'centinela_tienda_extract_marcas' ) ) {
+						$page_marcas = centinela_tienda_extract_marcas( $resp['productos'] );
+						$all_marcas = array_unique( array_merge( $all_marcas, $page_marcas ) );
+					}
+					$paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+					if ( $p >= $paginas || is_wp_error( $resp ) || ! isset( $resp['productos'] ) || empty( $resp['productos'] ) ) {
+						if ( $p === 1 && empty( $all_marcas ) ) {
+							break;
+						}
+						if ( $p > 1 ) {
+							break;
+						}
+					}
+				}
+				$marcas = array_values( $all_marcas );
+				sort( $marcas );
+				set_transient( $cache_key, $marcas, 30 * MINUTE_IN_SECONDS );
+			}
+			return new WP_REST_Response( array( 'marcas' => is_array( $marcas ) ? $marcas : array() ), 200 );
 		},
 	) );
 }
@@ -322,9 +700,11 @@ function centinela_tienda_quickview_route() {
 			$precios     = isset( $producto['precios'] ) && is_array( $producto['precios'] ) ? $producto['precios'] : array();
 			$precio_esp  = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_descuento'] ) ? $precios['precio_descuento'] : '' );
 			$precio_lista = isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
-			$precio_raw  = $precio_esp ?: $precio_lista;
-			$precio_raw  = is_string( $precio_raw ) ? preg_replace( '/\s*COP\s*$/i', '', trim( $precio_raw ) ) : $precio_raw;
-			$precio_raw  = function_exists( 'centinela_normalizar_precio_cop' ) ? centinela_normalizar_precio_cop( $precio_raw ) : $precio_raw;
+			$precio_mostrar = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $precios ) : '';
+			if ( $precio_mostrar === '' ) {
+				$precio_mostrar = $precio_esp ?: $precio_lista;
+			}
+			$precio_raw  = function_exists( 'centinela_parse_precio_api' ) ? centinela_parse_precio_api( $precio_mostrar ) : $precio_mostrar;
 			// URL legacy /tienda/producto/ID-slug/ para que "Ver producto" en quickview lleve al detalle.
 			$url = function_exists( 'centinela_get_producto_url' ) ? centinela_get_producto_url( $id, isset( $producto['titulo'] ) ? $producto['titulo'] : '', '' ) : home_url( '/tienda/producto/' . $id . '/' );
 			$categorias  = isset( $producto['categorías'] ) ? $producto['categorías'] : ( isset( $producto['categorias'] ) ? $producto['categorias'] : array() );
@@ -345,10 +725,12 @@ function centinela_tienda_quickview_route() {
 			}, $imgs_list );
 			$img_portada = isset( $imgs_urls[0] ) ? $imgs_urls[0] : ( isset( $producto['img_portada'] ) ? trim( $producto['img_portada'] ) : '' );
 
+			$precio_formateado = ( $precio_mostrar !== '' && function_exists( 'centinela_format_precio_cop' ) ) ? centinela_format_precio_cop( $precio_mostrar ) : '';
 			return new WP_REST_Response( array(
 				'id'             => $id,
 				'titulo'         => $producto['titulo'],
 				'precio'         => $precio_raw,
+				'precio_formateado' => $precio_formateado,
 				'precio_lista'   => $precio_lista,
 				'categoria'      => $categoria,
 				'modelo'         => $modelo,
