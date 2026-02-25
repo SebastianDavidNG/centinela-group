@@ -124,11 +124,23 @@ function centinela_checkout_create_wc_order( $items, $form ) {
 
 		$order_total = 0.0;
 		foreach ( $items as $item ) {
-			$qty   = max( 1, (int) ( isset( $item['qty'] ) ? $item['qty'] : 1 ) );
-			$price = isset( $item['price'] ) ? centinela_parse_precio_api( $item['price'] ) : 0.0;
-			$total = $price * $qty;
-			$title = isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : ( 'Producto #' . ( isset( $item['id'] ) ? $item['id'] : '' ) );
-			$product_id_api = isset( $item['id'] ) ? $item['id'] : '';
+			$qty     = max( 1, (int) ( isset( $item['qty'] ) ? $item['qty'] : 1 ) );
+			$is_wc   = isset( $item['source'] ) && $item['source'] === 'wc';
+			$item_id = isset( $item['id'] ) ? $item['id'] : '';
+
+			if ( $is_wc && $item_id !== '' && function_exists( 'wc_get_product' ) ) {
+				$product = wc_get_product( (int) $item_id );
+				if ( $product && $product->is_purchasable() && $product->is_in_stock() ) {
+					$order->add_product( $product, $qty );
+					$order_total += (float) $product->get_price() * $qty;
+					continue;
+				}
+			}
+
+			// Syscom (API): línea con producto placeholder.
+			$price         = isset( $item['price'] ) ? centinela_parse_precio_api( $item['price'] ) : 0.0;
+			$total         = $price * $qty;
+			$title         = isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : ( 'Producto #' . $item_id );
 
 			$order->add_product( $placeholder, $qty, array(
 				'subtotal' => $total,
@@ -138,8 +150,8 @@ function centinela_checkout_create_wc_order( $items, $form ) {
 			$last        = end( $order_items );
 			if ( $last ) {
 				$last->set_name( $title );
-				if ( $product_id_api !== '' ) {
-					$last->add_meta_data( '_centinela_producto_id', $product_id_api, true );
+				if ( $item_id !== '' ) {
+					$last->add_meta_data( '_centinela_producto_id', $item_id, true );
 				}
 				$last->save();
 			}
@@ -178,10 +190,12 @@ function centinela_checkout_wompi_rest_routes() {
 				'items'    => array(
 					'type'       => 'object',
 					'properties' => array(
-						'id'    => array( 'type' => array( 'string', 'integer' ) ),
-						'qty'   => array( 'type' => array( 'string', 'integer' ) ),
-						'title' => array( 'type' => 'string' ),
-						'price' => array( 'type' => array( 'string', 'number' ) ),
+						'id'          => array( 'type' => array( 'string', 'integer' ) ),
+						'qty'         => array( 'type' => array( 'string', 'integer' ) ),
+						'title'       => array( 'type' => 'string' ),
+						'price'       => array( 'type' => array( 'string', 'number' ) ),
+						'source'      => array( 'type' => 'string' ),
+						'product_url' => array( 'type' => 'string' ),
 					),
 				),
 			),

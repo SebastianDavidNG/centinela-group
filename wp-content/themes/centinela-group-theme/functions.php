@@ -177,6 +177,9 @@ function centinela_theme_setup() {
 	add_theme_support( 'editor-styles' );
 	add_theme_support( 'automatic-feed-links' );
 
+	// Necesario para que WooCommerce use las plantillas del tema (p. ej. woocommerce/single-product.php con hero).
+	add_theme_support( 'woocommerce' );
+
 	register_nav_menus( array(
 		'primary'   => __( 'Menú principal', 'centinela-group-theme' ),
 		'footer'    => __( 'Menú pie de página', 'centinela-group-theme' ),

@@ -328,6 +328,62 @@
   }
 }
 
+// Formulario agregar al carrito WooCommerce: mismo aspecto que Syscom
+.centinela-single-producto__cart-row--wc {
+  .cart {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin-bottom: 0;
+  }
+
+  .quantity {
+    margin-right: 0;
+    margin-bottom: 0;
+
+    label {
+      font-size: 0.875rem;
+      font-weight: $font-weight-medium;
+      color: $blue-color;
+      margin-right: 0.5rem;
+    }
+
+    input.qty {
+      width: 4.5rem;
+      padding: 0.5rem;
+      font-size: 0.9375rem;
+      border: 1px solid #e5e7eb;
+      border-radius: $button-border-radius;
+      text-align: center;
+    }
+  }
+
+  // Mismo aspecto que .centinela-single-producto__btn--primary (Syscom); sobrescribe .button.alt de WC
+  .single_add_to_cart_button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 10rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: $font-weight-medium;
+    text-decoration: none;
+    border-radius: $button-border-radius;
+    border: 2px solid $green-color;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    background: $green-color;
+    color: $white-color;
+
+    &:hover {
+      background: color.adjust($green-color, $lightness: -8%);
+      border-color: color.adjust($green-color, $lightness: -8%);
+      color: $white-color;
+    }
+  }
+}
+
 .centinela-single-producto__actions {
   display: flex;
   flex-wrap: wrap;

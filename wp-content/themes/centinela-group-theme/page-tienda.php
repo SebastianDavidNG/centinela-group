@@ -13,10 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $es_tienda_wc = ( function_exists( 'is_shop' ) && is_shop() ) || ( get_queried_object() && get_queried_object()->post_name === 'tienda-centinela' );
 
-if ( ! $es_tienda_wc ) {
-	wp_enqueue_script( 'centinela-tienda-ajax', get_template_directory_uri() . '/assets/js/tienda-ajax.js', array(), defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0', true );
-	wp_enqueue_script( 'centinela-tienda-quickview', get_template_directory_uri() . '/assets/js/tienda-quickview.js', array( 'centinela-tienda-ajax', 'centinela-image-lightbox' ), defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0', true );
-}
+wp_enqueue_script( 'centinela-tienda-ajax', get_template_directory_uri() . '/assets/js/tienda-ajax.js', array(), defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0', true );
+// Vista rápida: misma plantilla para Syscom y para tienda-centinela (WooCommerce).
+wp_enqueue_script( 'centinela-tienda-quickview', get_template_directory_uri() . '/assets/js/tienda-quickview.js', array( 'centinela-tienda-ajax', 'centinela-image-lightbox' ), defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0', true );
 
 get_header();
 
@@ -330,7 +329,7 @@ rewind_posts();
 								$img = get_the_post_thumbnail_url( get_the_ID(), 'medium' );
 								$precio = $product->get_price_html();
 								?>
-								<article class="centinela-tienda__card" data-product-id="<?php echo esc_attr( get_the_ID() ); ?>">
+								<article class="centinela-tienda__card" data-product-id="<?php echo esc_attr( get_the_ID() ); ?>" data-quickview-source="wc">
 									<div class="centinela-tienda__card-image-wrap">
 										<a href="<?php echo esc_url( $url ); ?>" class="centinela-tienda__card-link centinela-tienda__card-image" aria-label="<?php echo esc_attr( $titulo ); ?>">
 											<?php if ( $img ) : ?>
@@ -340,6 +339,7 @@ rewind_posts();
 											<?php endif; ?>
 										</a>
 										<div class="centinela-tienda__card-overlay">
+											<button type="button" class="centinela-tienda__quickview-btn" data-product-id="<?php echo esc_attr( get_the_ID() ); ?>" data-quickview-source="wc"><span class="centinela-tienda__overlay-btn-text"><?php esc_html_e( 'Vista rápida', 'centinela-group-theme' ); ?></span><svg class="centinela-header__cta-icon centinela-tienda__overlay-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
 											<a href="<?php echo esc_url( $url ); ?>" class="centinela-tienda__add-cart"><span class="centinela-tienda__overlay-btn-text"><?php esc_html_e( 'Ver producto', 'centinela-group-theme' ); ?></span><svg class="centinela-header__cta-icon centinela-tienda__overlay-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
 										</div>
 									</div>
@@ -391,8 +391,7 @@ rewind_posts();
 		</main>
 	</div>
 
-	<?php if ( ! $es_tienda_wc ) : ?>
-	<!-- Modal Vista rápida (solo tienda Syscom) -->
+	<!-- Modal Vista rápida (tienda Syscom y tienda-centinela WooCommerce) -->
 	<div id="centinela-quickview-modal" class="centinela-quickview" role="dialog" aria-modal="true" aria-labelledby="centinela-quickview-title" aria-hidden="true">
 		<div class="centinela-quickview__backdrop" data-close-quickview></div>
 		<div class="centinela-quickview__box">
@@ -425,7 +424,6 @@ rewind_posts();
 			</div>
 		</div>
 	</div>
-	<?php endif; ?>
 </div>
 
 <?php

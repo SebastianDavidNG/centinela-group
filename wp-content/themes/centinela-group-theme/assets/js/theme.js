@@ -343,20 +343,27 @@
     var items = getCartItems();
     var id = String(item.id);
     var qty = Math.max(1, parseInt(item.qty, 10) || 1);
-    var existing = items.filter(function (i) { return String(i.id) === id; })[0];
+    var source = item.source === 'wc' ? 'wc' : 'syscom';
+    var existing = items.filter(function (i) {
+      return String(i.id) === id && (i.source || 'syscom') === source;
+    })[0];
     if (existing) {
       existing.qty += qty;
       if (item.title) existing.title = item.title;
       if (item.image) existing.image = item.image;
       if (item.price !== undefined && item.price !== '') existing.price = item.price;
+      if (item.product_url) existing.product_url = item.product_url;
     } else {
-      items.push({
+      var newItem = {
         id: id,
         qty: qty,
         title: item.title || '',
         image: item.image || '',
         price: item.price || ''
-      });
+      };
+      if (source === 'wc') newItem.source = 'wc';
+      if (item.product_url) newItem.product_url = item.product_url;
+      items.push(newItem);
     }
     saveCartItems(items);
   }

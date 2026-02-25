@@ -66,6 +66,191 @@ function centinela_filter_shop_page_id_on_tienda_url( $shop_page_id ) {
 add_filter( 'option_woocommerce_shop_page_id', 'centinela_filter_shop_page_id_on_tienda_url', 1 );
 
 /**
+ * Hacer que los productos WooCommerce usen la base /tienda-centinela/ en la URL.
+ * Así las fichas de producto quedan en /tienda-centinela/nombre-producto/ (misma familia que la tienda).
+ */
+function centinela_filter_woocommerce_permalinks( $value ) {
+	$value = is_array( $value ) ? $value : array();
+	$value['product_base'] = 'tienda-centinela';
+	return $value;
+}
+add_filter( 'option_woocommerce_permalinks', 'centinela_filter_woocommerce_permalinks', 1 );
+
+/**
+ * Regla de reescritura con prioridad alta para que /tienda-centinela/slug-producto/ resuelva como producto,
+ * y no como subpágina de la página "tienda-centinela" (que provocaba 404).
+ */
+function centinela_tienda_centinela_product_rewrite_rule() {
+	add_rewrite_rule(
+		'tienda-centinela/([^/]+)/?$',
+		'index.php?product=$matches[1]',
+		'top'
+	);
+}
+add_action( 'init', 'centinela_tienda_centinela_product_rewrite_rule', 20 );
+
+/**
+ * Buscar producto WooCommerce por slug (post_name).
+ *
+ * @param string $slug post_name del producto.
+ * @return int 0 si no existe.
+ */
+function centinela_get_product_id_by_slug( $slug ) {
+	$slug = sanitize_title( $slug );
+	if ( $slug === '' ) {
+		return 0;
+	}
+	// Búsqueda directa por post_name y post_type para evitar problemas con get_posts/query_var.
+	global $wpdb;
+	$id = (int) $wpdb->get_var( $wpdb->prepare(
+		"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_name = %s AND post_status = 'publish' LIMIT 1",
+		$slug
+	) );
+	if ( $id ) {
+		return $id;
+	}
+	$posts = get_posts( array(
+		'post_type'      => 'product',
+		'name'           => $slug,
+		'post_status'    => 'publish',
+		'posts_per_page' => 1,
+		'fields'         => 'ids',
+		'no_found_rows'  => true,
+	) );
+	if ( ! empty( $posts ) ) {
+		return (int) $posts[0];
+	}
+	return 0;
+}
+
+/**
+ * Si la URL es /tienda-centinela/slug/ y existe un producto con ese slug, forzar la carga del producto.
+ * Usamos el filtro 'request' para que la consulta principal reciba name + post_type.
+ */
+function centinela_request_tienda_centinela_product( $query_vars ) {
+	if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+		return $query_vars;
+	}
+	$path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+	$path = $path ? trim( $path ) : '';
+	if ( ! preg_match( '#^/?tienda-centinela/([^/]+)/?$#', $path, $m ) ) {
+		return $query_vars;
+	}
+	$slug = trim( $m[1], '/' );
+	if ( $slug === '' ) {
+		return $query_vars;
+	}
+	$product_id = centinela_get_product_id_by_slug( $slug );
+	if ( ! $product_id ) {
+		$product_id = function_exists( 'wc_get_product_id_by_sku' ) ? wc_get_product_id_by_sku( $slug ) : 0;
+	}
+	if ( ! $product_id ) {
+		return $query_vars;
+	}
+	return array(
+		'name'      => $slug,
+		'post_type' => 'product',
+		'product'   => $slug,
+	);
+}
+add_filter( 'request', 'centinela_request_tienda_centinela_product', 1 );
+
+/**
+ * Si la URL es /tienda-centinela/slug/ y existe el producto, forzar la carga de su ficha (evitar 404).
+ */
+function centinela_template_redirect_tienda_centinela_product() {
+	global $wp_query;
+
+	if ( is_admin() || ( defined( 'DOING_AJAX' ) && DOING_AJAX ) ) {
+		return;
+	}
+	if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+		return;
+	}
+	$path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+	$path = $path ? trim( $path, '/' ) : '';
+	// Aceptar "tienda-centinela/producto-centinela" con o sin barras.
+	if ( $path !== 'tienda-centinela' && strpos( $path, 'tienda-centinela/' ) !== 0 ) {
+		return;
+	}
+	$parts = explode( '/', $path );
+	if ( count( $parts ) !== 2 || $parts[0] !== 'tienda-centinela' ) {
+		return;
+	}
+	$slug = $parts[1];
+	if ( $slug === '' ) {
+		return;
+	}
+
+	// Buscar por post_name; si no, por SKU.
+	$product_id = centinela_get_product_id_by_slug( $slug );
+	if ( ! $product_id && function_exists( 'wc_get_product_id_by_sku' ) ) {
+		$product_id = wc_get_product_id_by_sku( $slug );
+	}
+
+	// Depuración: ?centinela_debug_product=1 muestra si encontramos el producto (quitar en producción).
+	if ( ! empty( $_GET['centinela_debug_product'] ) ) {
+		status_header( 200 );
+		header( 'Content-Type: text/plain; charset=utf-8' );
+		echo 'slug=' . esc_html( $slug ) . "\n";
+		echo 'product_id=' . (int) $product_id . "\n";
+		echo 'template_exists=' . ( file_exists( get_template_directory() . '/woocommerce/single-product.php' ) ? 'yes' : 'no' );
+		exit;
+	}
+
+	if ( ! $product_id ) {
+		return;
+	}
+
+	// Siempre forzar esta URL como ficha de producto (evitar 404 por conflicto con la página tienda-centinela).
+	$wp_query = new WP_Query( array(
+		'p'         => $product_id,
+		'post_type' => 'product',
+	) );
+	if ( ! $wp_query->have_posts() ) {
+		return;
+	}
+
+	$wp_query->the_post();
+	status_header( 200 );
+	nocache_headers();
+
+	$template = get_template_directory() . '/woocommerce/single-product.php';
+	if ( ! file_exists( $template ) ) {
+		$template = get_stylesheet_directory() . '/woocommerce/single-product.php';
+	}
+	if ( file_exists( $template ) ) {
+		include $template;
+		exit;
+	}
+}
+add_action( 'template_redirect', 'centinela_template_redirect_tienda_centinela_product', 0 );
+
+/**
+ * Flush rewrite rules para que /tienda-centinela/producto-slug/ funcione (incluye la regla "top" de productos).
+ */
+function centinela_maybe_flush_rewrite_for_tienda_centinela() {
+	if ( get_option( 'centinela_flush_rewrite_tienda_centinela', '' ) === '1' ) {
+		return;
+	}
+	flush_rewrite_rules();
+	update_option( 'centinela_flush_rewrite_tienda_centinela', '1' );
+}
+add_action( 'init', 'centinela_maybe_flush_rewrite_for_tienda_centinela', 999 );
+
+/**
+ * Tras añadir la regla "top" para productos bajo tienda-centinela, forzar un flush adicional una vez.
+ */
+function centinela_maybe_flush_rewrite_tienda_centinela_v2() {
+	if ( get_option( 'centinela_flush_rewrite_tienda_centinela_v2', '' ) === '1' ) {
+		return;
+	}
+	flush_rewrite_rules();
+	update_option( 'centinela_flush_rewrite_tienda_centinela_v2', '1' );
+}
+add_action( 'init', 'centinela_maybe_flush_rewrite_tienda_centinela_v2', 999 );
+
+/**
  * Vaciar el contenido de la página en tienda-centinela solo en frontend.
  * WooCommerce inyecta el listado de productos en the_content cuando la página es la shop;
  * al vaciarlo aquí evitamos duplicar el listado (la plantilla ya muestra el grid en .centinela-tienda).
@@ -81,6 +266,14 @@ function centinela_tienda_suppress_shop_page_content( $content ) {
 	}
 	return '';
 }
+
+/**
+ * Texto del botón "Agregar al carrito" en ficha de producto WC: igual que Syscom.
+ */
+function centinela_woocommerce_single_add_to_cart_text( $text, $product ) {
+	return _x( 'Agregar al carrito', 'single product add to cart button', 'centinela-group-theme' );
+}
+add_filter( 'woocommerce_product_single_add_to_cart_text', 'centinela_woocommerce_single_add_to_cart_text', 10, 2 );
 
 /**
  * En la tienda WC (tienda-centinela) quitar wrappers y breadcrumb por defecto para usar nuestra estructura.
@@ -192,3 +385,58 @@ function centinela_dismiss_wc_shop_notice() {
 	exit;
 }
 add_action( 'admin_init', 'centinela_dismiss_wc_shop_notice' );
+
+/**
+ * REST: vista rápida para productos WooCommerce (misma forma que Syscom para el modal).
+ */
+function centinela_woocommerce_quickview_route() {
+	register_rest_route( 'centinela/v1', '/producto-wc-quick-view', array(
+		'methods'             => 'GET',
+		'permission_callback' => '__return_true',
+		'args'                => array(
+			'id' => array(
+				'type'              => 'integer',
+				'required'          => true,
+				'sanitize_callback' => 'absint',
+			),
+		),
+		'callback' => function ( $request ) {
+			$id = (int) $request->get_param( 'id' );
+			if ( ! function_exists( 'wc_get_product' ) ) {
+				return new WP_REST_Response( array( 'error' => 'WooCommerce no disponible' ), 404 );
+			}
+			$product = wc_get_product( $id );
+			if ( ! $product || ! $product->is_visible() ) {
+				return new WP_REST_Response( array( 'error' => 'Producto no encontrado' ), 404 );
+			}
+			$gallery_ids = $product->get_gallery_image_ids();
+			$thumb_id    = $product->get_image_id();
+			$image_ids   = $thumb_id ? array_merge( array( $thumb_id ), $gallery_ids ) : $gallery_ids;
+			$image_ids   = array_unique( array_filter( $image_ids ) );
+			$imagenes    = array_map( function ( $img_id ) { return wp_get_attachment_image_url( $img_id, 'medium' ); }, $image_ids );
+			$imagenes_large = array_map( function ( $img_id ) { return wp_get_attachment_image_url( $img_id, 'full' ); }, $image_ids );
+			$url = $product->get_permalink();
+			$add_to_cart_url = add_query_arg( 'add-to-cart', $id, $url );
+			$terms = get_the_terms( $id, 'product_cat' );
+			$categoria = '';
+			if ( $terms && ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+				$categoria = $terms[0]->name;
+			}
+			return new WP_REST_Response( array(
+				'id'               => (string) $id,
+				'titulo'           => $product->get_name(),
+				'precio'           => $product->get_price( 'edit' ),
+				'precio_formateado'=> $product->get_price_html(),
+				'categoria'        => $categoria,
+				'modelo'           => $product->get_sku(),
+				'marca'            => '',
+				'imagenes'         => $imagenes,
+				'imagenes_large'   => $imagenes_large,
+				'img_portada'      => isset( $imagenes[0] ) ? $imagenes[0] : '',
+				'url'              => $url,
+				'add_to_cart_url'  => $add_to_cart_url,
+			), 200 );
+		},
+	) );
+}
+add_action( 'rest_api_init', 'centinela_woocommerce_quickview_route' );

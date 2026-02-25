@@ -36,7 +36,9 @@
     return div.innerHTML;
   }
 
-  function productUrl(id) {
+  function productUrl(item) {
+    if (item && item.product_url) return item.product_url;
+    var id = (item && item.id != null) ? item.id : item;
     return window.location.origin + '/tienda/producto/' + encodeURIComponent(String(id)) + '/';
   }
 
@@ -69,7 +71,7 @@
       var imgHtml = item.image
         ? '<img src="' + escapeHtml(item.image) + '" alt="" loading="lazy" class="centinela-cart__thumb-img" />'
         : '<span class="centinela-cart__thumb-placeholder"></span>';
-      var productUrlAttr = productUrl(item.id);
+      var productUrlAttr = productUrl(item);
       rows += '<tr class="centinela-cart__row" data-index="' + index + '">';
       rows += '<td class="centinela-cart__cell centinela-cart__cell--product">';
       rows += '<a href="' + escapeHtml(productUrlAttr) + '" class="centinela-cart__product-link">';

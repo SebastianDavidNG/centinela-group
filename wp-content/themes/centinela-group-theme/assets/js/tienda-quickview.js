@@ -12,6 +12,9 @@
 
   var currentProductId = null;
   var currentProductData = null; // { titulo, image, price } para el carrito
+  var currentAddToCartUrl = null; // Para productos WC: redirigir a add-to-cart
+  var currentQuickViewSource = ''; // 'wc' = producto WooCommerce (mismo carrito que Syscom)
+  var currentProductUrl = '';
   var currentImagenes = [];
   var currentImagenesLarge = [];
   var zoomEl = document.getElementById('centinela-quickview-zoom');
@@ -84,6 +87,8 @@
     var thumbs = document.getElementById('centinela-quickview-thumbs');
 
     currentProductId = data.id || null;
+    currentAddToCartUrl = data.add_to_cart_url || null;
+    currentProductUrl = data.url || '';
     currentProductData = {
       titulo: data.titulo || '',
       image: (data.imagenes && data.imagenes[0]) ? data.imagenes[0] : (data.img_portada || ''),
@@ -96,7 +101,14 @@
       categoriaEl.style.display = (data.categoria && data.categoria.trim()) ? '' : 'none';
     }
     if (title) title.textContent = data.titulo || '';
-    if (price) price.textContent = (data.precio_formateado && data.precio_formateado.trim()) ? data.precio_formateado : formatPrecioCOP(data.precio);
+    if (price) {
+      var precioStr = (data.precio_formateado && data.precio_formateado.trim()) ? data.precio_formateado : formatPrecioCOP(data.precio);
+      if (currentAddToCartUrl && precioStr.indexOf('<') !== -1) {
+        price.innerHTML = precioStr;
+      } else {
+        price.textContent = precioStr;
+      }
+    }
     if (link) {
       link.href = data.url || '#';
       link.textContent = 'Ver producto';
@@ -204,6 +216,11 @@
 
   document.getElementById('centinela-quickview-addcart') && document.getElementById('centinela-quickview-addcart').addEventListener('click', function () {
     if (!currentProductId) return;
+    if (currentAddToCartUrl) {
+      window.location.href = currentAddToCartUrl;
+      closeModal();
+      return;
+    }
     var qtyInput = document.getElementById('centinela-quickview-qty');
     var qty = 1;
     if (qtyInput) {
@@ -211,19 +228,28 @@
       if (qty < 1) qty = 1;
     }
     if (typeof window.centinelaAddToCart === 'function') {
-      window.centinelaAddToCart({
+      var cartItem = {
         id: String(currentProductId),
         qty: qty,
         title: currentProductData ? currentProductData.titulo : '',
         image: currentProductData ? currentProductData.image : '',
         price: currentProductData ? currentProductData.price : ''
-      });
+      };
+      if (currentQuickViewSource === 'wc') {
+        cartItem.source = 'wc';
+        if (currentProductUrl) cartItem.product_url = currentProductUrl;
+      }
+      window.centinelaAddToCart(cartItem);
     }
     closeModal();
   });
 
-  function loadQuickView(productId) {
-    var url = restBase + '/centinela/v1/producto-quick-view?id=' + encodeURIComponent(productId);
+  function loadQuickView(productId, source) {
+    currentQuickViewSource = source || '';
+    var isWc = source === 'wc';
+    var url = isWc
+      ? restBase + '/centinela/v1/producto-wc-quick-view?id=' + encodeURIComponent(productId)
+      : restBase + '/centinela/v1/producto-quick-view?id=' + encodeURIComponent(productId);
     fetch(url, { headers: { Accept: 'application/json' } })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -239,7 +265,8 @@
     if (quickBtn) {
       e.preventDefault();
       var id = quickBtn.getAttribute('data-product-id');
-      if (id) loadQuickView(id);
+      var source = quickBtn.getAttribute('data-quickview-source') || '';
+      if (id) loadQuickView(id, source);
       return;
     }
     if (e.target.closest('[data-close-quickview]')) {
