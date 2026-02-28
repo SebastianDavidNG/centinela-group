@@ -1,0 +1,8 @@
+"Cotizacion de prueba"
+
+Modelo;Cantidad;"Descuento %";Precio;Importe
+XB-T23;1;0;22474.68;22474.68
+
+Subtotal;;;;"CO $ 22.474,68"
+I.V.A.;;;;"CO $ 4.270,19"
+TOTAL;;;;"CO $ 26.744,87"

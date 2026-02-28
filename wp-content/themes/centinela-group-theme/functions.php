@@ -324,6 +324,7 @@ add_filter( 'template_include', 'centinela_force_tienda_template', 999 );
  */
 require_once CENTINELA_THEME_DIR . '/inc/class-syscom-api.php';
 require_once CENTINELA_THEME_DIR . '/inc/syscom-settings.php';
+require_once CENTINELA_THEME_DIR . '/inc/cotizador-admin.php';
 require_once CENTINELA_THEME_DIR . '/inc/hero-slider.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-header.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-footer.php';

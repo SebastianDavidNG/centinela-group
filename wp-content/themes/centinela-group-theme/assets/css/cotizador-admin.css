@@ -1,0 +1,623 @@
+/**
+ * Estilos del Cotizador en el Admin de WordPress
+ *
+ * @package Centinela_Group_Theme
+ */
+
+.centinela-cotizador-wrap {
+	max-width: 1200px;
+}
+
+.centinela-cotizador-form .centinela-cotizador-field {
+	margin-bottom: 1.5em;
+}
+
+.centinela-cotizador-form .centinela-cotizador-field label {
+	display: block;
+	margin-bottom: 0.35em;
+	font-weight: 600;
+}
+
+.centinela-cotizador-section {
+	margin-top: 2em;
+	padding-top: 1.5em;
+	border-top: 1px solid #c3c4c7;
+}
+
+.centinela-cotizador-section-title {
+	margin: 0 0 1em;
+	font-size: 1.1em;
+}
+
+.centinela-cotizador-busqueda {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75em;
+	margin-bottom: 1.5em;
+}
+
+.centinela-cotizador-busqueda #centinela-cotizador-tipo-busqueda {
+	min-width: 140px;
+}
+
+.centinela-cotizador-autocomplete-wrap {
+	position: relative;
+	flex: 1;
+	min-width: 260px;
+}
+
+.centinela-cotizador-autocomplete-wrap input {
+	width: 100%;
+	max-width: 400px;
+}
+
+.centinela-cotizador-spinner {
+	position: absolute;
+	right: 10px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 20px;
+	height: 20px;
+	border: 2px solid #c3c4c7;
+	border-top-color: #2271b1;
+	border-radius: 50%;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s;
+}
+
+.centinela-cotizador-autocomplete-wrap.is-loading .centinela-cotizador-spinner {
+	animation: centinela-cotizador-spin 0.7s linear infinite;
+	opacity: 1;
+}
+
+@keyframes centinela-cotizador-spin {
+	to {
+		transform: translateY(-50%) rotate(360deg);
+	}
+}
+
+.centinela-cotizador-sugerencias {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	z-index: 100;
+	margin: 2px 0 0;
+	padding: 0;
+	list-style: none;
+	background: #fff;
+	border: 1px solid #8c8f94;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+	max-height: 280px;
+	overflow-y: auto;
+}
+
+.centinela-cotizador-sugerencias[hidden] {
+	display: none !important;
+}
+
+.centinela-cotizador-sugerencias li {
+	margin: 0;
+	padding: 0;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.centinela-cotizador-sugerencias li:last-child {
+	border-bottom: none;
+}
+
+.centinela-cotizador-sugerencias button {
+	display: block;
+	width: 100%;
+	margin: 0;
+	padding: 10px 12px;
+	text-align: left;
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 1.4;
+	color: #1d2327;
+}
+
+.centinela-cotizador-sugerencias button:hover,
+.centinela-cotizador-sugerencias button[aria-selected="true"] {
+	background: #f0f0f1;
+}
+
+.centinela-cotizador-sugerencias .centinela-cotizador-sug-modelo {
+	color: #50575e;
+	font-size: 12px;
+	margin-top: 2px;
+}
+
+.centinela-cotizador-sugerencias .centinela-cotizador-sug-precio {
+	font-weight: 600;
+	margin-left: 8px;
+}
+
+.centinela-cotizador-tabla-wrap {
+	overflow-x: auto;
+}
+
+.centinela-cotizador-tabla {
+	margin-top: 0;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-modelo {
+	max-width: 200px;
+	min-width: 270px;
+	width: 270px;
+}
+
+.centinela-cotizador-producto-cell {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.centinela-cotizador-producto-modelo {
+	display: block;
+	font-weight: 700;
+	font-size: 13px;
+	line-height: 1.3;
+	word-break: break-word;
+}
+
+.centinela-cotizador-producto-titulo {
+	display: block;
+	font-size: 12px;
+	line-height: 1.3;
+	color: #646970;
+	margin-top: 2px;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-cantidad,
+.centinela-cotizador-tabla .centinela-cotizador-col-descuento,
+.centinela-cotizador-tabla .centinela-cotizador-col-importe {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-precio {
+	min-width: 110px;
+	width: 120px;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-precio input {
+	min-width: 100px;
+}
+
+.centinela-cotizador-tabla input[type="number"],
+.centinela-cotizador-tabla input[type="text"] {
+	width: 100%;
+	min-width: 70px;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-importe {
+	display: inline-block;
+	min-width: 80px;
+	padding: 4px 8px;
+	font-weight: 600;
+}
+
+.centinela-cotizador-tabla-vacia td {
+	color: #646970;
+	font-style: italic;
+}
+
+.centinela-cotizador-tabla tbody tr.producto-fila .centinela-cotizador-col-acciones {
+	vertical-align: middle;
+}
+
+.centinela-cotizador-btn-eliminar {
+	color: #b32d2e;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.centinela-cotizador-btn-eliminar:hover {
+	color: #d63638;
+	text-decoration: underline;
+}
+
+/* Sección de dos columnas: Datos del Cliente + Mis Datos de Contacto */
+.centinela-cotizador-datos-columnas {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 2em;
+	align-items: start;
+}
+
+@media screen and (max-width: 782px) {
+	.centinela-cotizador-datos-columnas {
+		grid-template-columns: 1fr;
+	}
+}
+
+.centinela-cotizador-datos-columnas .centinela-cotizador-col {
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 1.25em 1.5em;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-datos-columnas .centinela-cotizador-section-title {
+	margin-top: 0;
+	margin-bottom: 1em;
+	padding-bottom: 0.5em;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.centinela-cotizador-datos-columnas .centinela-cotizador-field {
+	margin-bottom: 1.25em;
+}
+
+.centinela-cotizador-datos-columnas .centinela-cotizador-field:last-child {
+	margin-bottom: 0;
+}
+
+.centinela-cotizador-datos-columnas .centinela-cotizador-field label {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.centinela-cotizador-datos-columnas input[type="text"],
+.centinela-cotizador-datos-columnas input[type="email"],
+.centinela-cotizador-datos-columnas input[type="date"],
+.centinela-cotizador-datos-columnas select,
+.centinela-cotizador-datos-columnas textarea {
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-datos-columnas #centinela-cotizador-cliente-vigencia {
+	display: block;
+	min-height: 32px;
+}
+
+/* Layout principal: full width, form (izq) + Resumen (der) lado a lado */
+.centinela-cotizador-layout {
+	display: flex;
+	width: 100%;
+	max-width: 100%;
+	align-items: start;
+}
+
+.centinela-cotizador-contenido {
+	display: flex;
+	gap: 2em;
+	align-items: start;
+	flex: 1;
+	min-width: 0;
+}
+
+.centinela-cotizador-contenido .centinela-cotizador-form {
+	flex: 1;
+	min-width: 0;
+}
+
+.centinela-cotizador-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5em;
+	flex-shrink: 0;
+	width: 340px;
+}
+
+.centinela-cotizador-contenido .centinela-cotizador-resumen {
+	width: 100%;
+}
+
+@media screen and (max-width: 1200px) {
+	.centinela-cotizador-contenido {
+		flex-direction: column;
+	}
+	.centinela-cotizador-sidebar {
+		width: 100%;
+	}
+}
+
+/* Sección Logo (derecha, sobre Resumen) */
+.centinela-cotizador-logo-section {
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 1.5em;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-logo-title {
+	margin: 0 0 0.35em;
+	font-size: 1.1em;
+	padding-bottom: 0.5em;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.centinela-cotizador-logo-section .description {
+	margin: 0 0 1em;
+	font-size: 12px;
+	color: #646970;
+}
+
+.centinela-cotizador-logo-preview-wrap {
+	margin-bottom: 1em;
+}
+
+.centinela-cotizador-logo-preview {
+	min-height: 80px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #fff;
+	border: 1px dashed #c3c4c7;
+	border-radius: 4px;
+	padding: 12px;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-logo-preview img {
+	max-width: 180px;
+	max-height: 80px;
+	object-fit: contain;
+}
+
+.centinela-cotizador-logo-placeholder {
+	color: #646970;
+	font-size: 13px;
+	font-style: italic;
+}
+
+.centinela-cotizador-logo-formats {
+	margin: 0.5em 0 0;
+	font-size: 11px;
+	color: #787c82;
+}
+
+.centinela-cotizador-logo-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.centinela-cotizador-logo-actions .button-link-delete {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+/* Panel Resumen (derecha) */
+.centinela-cotizador-resumen {
+	position: sticky;
+	top: 32px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 1.5em;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-resumen-title {
+	margin: 0 0 1em;
+	padding-bottom: 0.5em;
+	border-bottom: 1px solid #c3c4c7;
+	font-size: 1.1em;
+}
+
+.centinela-cotizador-resumen .centinela-cotizador-field {
+	margin-bottom: 1.25em;
+}
+
+.centinela-cotizador-resumen .centinela-cotizador-field label {
+	display: block;
+	margin-bottom: 0.35em;
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.centinela-cotizador-resumen select,
+.centinela-cotizador-resumen input[type="number"] {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-field-tc .centinela-cotizador-tc-wrap {
+	display: flex;
+	gap: 0.5em;
+	align-items: center;
+}
+
+.centinela-cotizador-field-tc .centinela-cotizador-tc-wrap input {
+	flex: 1;
+	min-width: 0;
+}
+
+.centinela-cotizador-resumen-totales {
+	margin-top: 1.5em;
+	margin-bottom: 1.5em;
+	padding-top: 1em;
+	border-top: 1px solid #c3c4c7;
+}
+
+.centinela-cotizador-resumen-fila {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 0.75em;
+	font-size: 13px;
+}
+
+.centinela-cotizador-resumen-fila.centinela-cotizador-resumen-iva {
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.centinela-cotizador-resumen-iva-pct {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.centinela-cotizador-resumen-iva-pct input {
+	width: 70px;
+}
+
+.centinela-cotizador-resumen-valor {
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.centinela-cotizador-resumen-fila.centinela-cotizador-resumen-total {
+	margin-top: 1em;
+	padding-top: 0.75em;
+	border-top: 2px solid #1d2327;
+	font-size: 1.1em;
+	font-weight: 700;
+}
+
+.centinela-cotizador-resumen-botones {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5em;
+}
+
+.centinela-cotizador-resumen-botones .button {
+	width: 100%;
+	justify-content: center;
+}
+
+/* Modales */
+.centinela-cotizador-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	box-sizing: border-box;
+}
+
+.centinela-cotizador-modal[hidden] {
+	display: none !important;
+}
+
+.centinela-cotizador-modal-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.centinela-cotizador-modal-content {
+	position: relative;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+	max-width: 480px;
+	width: 100%;
+	max-height: 90vh;
+	overflow-y: auto;
+	padding: 1.5em;
+}
+
+.centinela-cotizador-modal-carrito-content {
+	max-width: 520px;
+}
+
+.centinela-cotizador-modal-enviar-content {
+	max-width: 640px;
+}
+
+.centinela-cotizador-email-preview-wrap {
+	position: relative;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	background: #f6f7f7;
+	min-height: 280px;
+}
+
+.centinela-cotizador-email-preview {
+	display: block;
+	width: 100%;
+	height: 320px;
+	border: 0;
+	background: #fff;
+}
+
+.centinela-cotizador-email-preview-loading {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: #646970;
+	font-size: 13px;
+}
+
+.centinela-cotizador-modal-title {
+	margin: 0 0 1em;
+	font-size: 1.2em;
+}
+
+.centinela-cotizador-modal-content .centinela-cotizador-field {
+	margin-bottom: 1em;
+}
+
+.centinela-cotizador-modal-content .centinela-cotizador-field label {
+	display: block;
+	margin-bottom: 0.35em;
+	font-weight: 600;
+}
+
+.centinela-cotizador-modal-msg {
+	margin: 0.5em 0 1em;
+	min-height: 1.4em;
+	font-size: 13px;
+}
+
+.centinela-cotizador-modal-msg.success {
+	color: #00a32a;
+}
+
+.centinela-cotizador-modal-msg.error {
+	color: #d63638;
+}
+
+.centinela-cotizador-modal-confirm {
+	margin: 0 0 1em;
+	font-size: 14px;
+}
+
+.centinela-cotizador-modal-actions {
+	display: flex;
+	gap: 0.5em;
+	justify-content: flex-end;
+	margin-top: 1.5em;
+}
+
+.centinela-cotizador-modal-link-wrap {
+	margin-top: 1em;
+	padding-top: 1em;
+	border-top: 1px solid #c3c4c7;
+}
+
+.centinela-cotizador-modal-link-wrap label {
+	display: block;
+	margin-bottom: 0.35em;
+	font-weight: 600;
+}
+
+.centinela-cotizador-link-row {
+	display: flex;
+	gap: 0.5em;
+	margin-top: 0.35em;
+}
+
+.centinela-cotizador-link-row input {
+	flex: 1;
+	min-width: 0;
+}
