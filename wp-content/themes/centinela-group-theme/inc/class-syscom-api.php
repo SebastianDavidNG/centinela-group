@@ -21,6 +21,49 @@ class Centinela_Syscom_API {
 	const TRANSIENT_CATEGORIAS_ARBOL = 'centinela_syscom_categorias_arbol';
 	const CACHE_CATEGORIAS_HOURS    = 6;
 
+	/**
+	 * Obtener tipo de cambio vigente desde Syscom (1 USD = X COP).
+	 * Usa el endpoint /tipocambio de la API Syscom Colombia.
+	 *
+	 * @return float|WP_Error Tipo de cambio (COP por USD) o error.
+	 */
+	public static function get_tipo_cambio_usd_cop() {
+		$token = self::get_token();
+		if ( is_wp_error( $token ) ) {
+			return $token;
+		}
+		$url      = self::API_BASE . 'tipocambio';
+		$response = wp_remote_get( $url, array(
+			'timeout' => 10,
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $token,
+				'Accept'        => 'application/json',
+			),
+		) );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+		if ( $code !== 200 || ! is_array( $data ) ) {
+			$msg = is_array( $data ) && isset( $data['message'] ) ? $data['message'] : $body;
+			return new WP_Error( 'centinela_syscom', sprintf( __( 'Error al obtener tipo de cambio Syscom: %s', 'centinela-group-theme' ), $msg ) );
+		}
+		// La documentación muestra campos: normal, un_dia, una_semana, etc.
+		// Usamos "normal" como TRM principal; si no existe, intentamos con "un_dia".
+		$valor = 0.0;
+		if ( isset( $data['normal'] ) && is_numeric( $data['normal'] ) ) {
+			$valor = (float) $data['normal'];
+		} elseif ( isset( $data['un_dia'] ) && is_numeric( $data['un_dia'] ) ) {
+			$valor = (float) $data['un_dia'];
+		}
+		if ( $valor <= 0 ) {
+			return new WP_Error( 'centinela_syscom', __( 'Tipo de cambio Syscom inválido.', 'centinela-group-theme' ) );
+		}
+		return $valor;
+	}
+
 	// Orden de categorías nivel 1 como en https://www.syscomcolombia.com/ (por coincidencia de nombre)
 	const ORDER_NIVEL1_SYSCOM = array(
 		'Videovigilancia',

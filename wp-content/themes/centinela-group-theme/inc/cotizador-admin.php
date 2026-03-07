@@ -466,27 +466,29 @@ function centinela_cotizador_ajax_tipo_cambio() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
-	$cached = get_transient( 'centinela_cotizador_tipo_cambio_usd_cop' );
-	if ( is_numeric( $cached ) && $cached > 0 ) {
-		wp_send_json_success( array( 'tipo_cambio' => (float) $cached ) );
-	}
-	// Intentar API gratuita (USD base: 1 USD = X COP)
-	$url = 'https://api.exchangerate-api.com/v4/latest/USD';
-	$response = wp_remote_get( $url, array( 'timeout' => 10 ) );
 	$tipo_cambio = 0;
-	if ( ! is_wp_error( $response ) ) {
-		$code = wp_remote_retrieve_response_code( $response );
-		$body = wp_remote_retrieve_body( $response );
-		$data = json_decode( $body, true );
-		if ( $code === 200 && is_array( $data ) && isset( $data['rates']['COP'] ) ) {
-			$tipo_cambio = (float) $data['rates']['COP'];
+	// Intentar primero con el tipo de cambio oficial de Syscom (TRM que ves en su panel).
+	if ( class_exists( 'Centinela_Syscom_API' ) && method_exists( 'Centinela_Syscom_API', 'get_tipo_cambio_usd_cop' ) ) {
+		$tc_syscom = Centinela_Syscom_API::get_tipo_cambio_usd_cop();
+		if ( ! is_wp_error( $tc_syscom ) ) {
+			$tipo_cambio = (float) $tc_syscom;
+		}
+	}
+	// Si falla Syscom, usar API gratuita (USD base: 1 USD = X COP) como respaldo.
+	if ( $tipo_cambio <= 0 ) {
+		$url      = 'https://api.exchangerate-api.com/v4/latest/USD';
+		$response = wp_remote_get( $url, array( 'timeout' => 10 ) );
+		if ( ! is_wp_error( $response ) ) {
+			$code = wp_remote_retrieve_response_code( $response );
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+			if ( $code === 200 && is_array( $data ) && isset( $data['rates']['COP'] ) ) {
+				$tipo_cambio = (float) $data['rates']['COP'];
+			}
 		}
 	}
 	if ( $tipo_cambio <= 0 ) {
 		$tipo_cambio = (float) get_option( 'centinela_cotizador_tipo_cambio_default', 4000 );
-	}
-	if ( $tipo_cambio > 0 ) {
-		set_transient( 'centinela_cotizador_tipo_cambio_usd_cop', $tipo_cambio, DAY_IN_SECONDS );
 	}
 	wp_send_json_success( array( 'tipo_cambio' => $tipo_cambio ) );
 }

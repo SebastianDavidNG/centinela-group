@@ -325,7 +325,9 @@ add_filter( 'template_include', 'centinela_force_tienda_template', 999 );
 require_once CENTINELA_THEME_DIR . '/inc/class-syscom-api.php';
 require_once CENTINELA_THEME_DIR . '/inc/syscom-settings.php';
 require_once CENTINELA_THEME_DIR . '/inc/cotizador-admin.php';
+require_once CENTINELA_THEME_DIR . '/inc/cotizaciones-web-form.php';
 require_once CENTINELA_THEME_DIR . '/inc/hero-slider.php';
+require_once CENTINELA_THEME_DIR . '/inc/whatsapp-float-global.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-header.php';
 require_once CENTINELA_THEME_DIR . '/inc/template-footer.php';
 require_once CENTINELA_THEME_DIR . '/inc/woocommerce-productos.php';
@@ -377,6 +379,33 @@ function centinela_register_hero_slider_assets() {
 		array( 'swiper' ),
 		CENTINELA_THEME_VERSION,
 		true
+	);
+	wp_register_script(
+		'centinela-loop-carousel',
+		CENTINELA_THEME_URI . '/assets/js/loop-carousel.js',
+		array( 'swiper' ),
+		CENTINELA_THEME_VERSION,
+		true
+	);
+	wp_register_script(
+		'centinela-cotizacion-web-form',
+		CENTINELA_THEME_URI . '/assets/js/cotizacion-web-form.js',
+		array( 'jquery' ),
+		CENTINELA_THEME_VERSION,
+		true
+	);
+	wp_register_style(
+		'centinela-cotizacion-web-form',
+		CENTINELA_THEME_URI . '/assets/css/cotizacion-web-form.css',
+		array(),
+		CENTINELA_THEME_VERSION
+	);
+	wp_localize_script(
+		'centinela-cotizacion-web-form',
+		'centinelaCwf',
+		array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+		)
 	);
 }
 add_action( 'wp_enqueue_scripts', 'centinela_register_hero_slider_assets', 5 );

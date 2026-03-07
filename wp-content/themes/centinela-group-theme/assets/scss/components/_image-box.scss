@@ -1,0 +1,102 @@
+// =============================================================================
+// Image Box – Widget Elementor
+// Caja cuadrada: imagen de fondo, overlay (hover → transparente), título centrado, enlace en todo el elemento.
+// BEM: .centinela-image-box
+// =============================================================================
+
+@use '../variables' as *;
+
+$image-box-overlay: rgba(16, 120, 165, 0.2);
+$image-box-transition: 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+
+.centinela-image-box {
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+}
+
+.centinela-image-box__wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.centinela-image-box__bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e8e8e8;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  transform: scale(1);
+  transition: transform $image-box-transition;
+}
+
+.centinela-image-box__wrap:hover .centinela-image-box__bg {
+  transform: scale(1.08);
+}
+
+.centinela-image-box__overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: $image-box-overlay;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity $image-box-transition, background $image-box-transition;
+}
+
+.centinela-image-box__wrap:hover .centinela-image-box__overlay {
+  background: transparent;
+  opacity: 0;
+}
+
+.centinela-image-box__title {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  color: $white-color;
+  font-family: $font-family-base;
+  font-weight: $font-weight-bold;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  pointer-events: none;
+
+  @media (min-width: 768px) {
+    font-size: 1.5rem;
+  }
+}
+
+.centinela-image-box__wrap:hover .centinela-image-box__title {
+  color: $white-color;
+}
+
+.centinela-image-box__wrap:focus-visible {
+  outline: 2px solid $green-color;
+  outline-offset: 2px;
+}
+
+.elementor-widget-centinela_image_box {
+  .centinela-image-box {
+    min-height: 200px;
+  }
+}

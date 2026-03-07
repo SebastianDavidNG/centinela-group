@@ -1,0 +1,76 @@
+// =============================================================================
+// Botón flotante WhatsApp – fixed sobre todo el contenido, colores de marca
+// 60×60px, animación scale en loop. BEM: .centinela-whatsapp-float
+// =============================================================================
+
+@use '../variables' as *;
+
+// Colores oficiales de la marca WhatsApp
+$whatsapp-green: #25d366;
+$whatsapp-green-hover: #20bd5a;
+$whatsapp-white: #ffffff;
+
+@keyframes centinela-whatsapp-float-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+// El widget de Elementor no debe ocupar espacio; el botón es fixed.
+.elementor-widget-centinela_whatsapp_float .elementor-widget-container {
+  position: static;
+  min-height: 0;
+  padding: 0;
+}
+
+.centinela-whatsapp-float {
+  position: fixed;
+  bottom: 1.5rem;
+  z-index: 999999;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  min-width: 60px;
+  min-height: 60px;
+  padding: 0;
+  border-radius: 50%;
+  background-color: $whatsapp-green;
+  color: $whatsapp-white;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.5);
+  text-decoration: none;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  animation: centinela-whatsapp-float-pulse 2.5s ease-in-out infinite;
+
+  &--left {
+    left: 1.5rem;
+  }
+
+  &--right {
+    right: 1.5rem;
+  }
+
+  &:hover {
+    background-color: $whatsapp-green-hover;
+    color: $whatsapp-white;
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.55);
+    animation: none;
+    transform: scale(1.05);
+  }
+
+  &:focus {
+    outline: 2px solid $whatsapp-green-hover;
+    outline-offset: 3px;
+  }
+
+  &__icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+}

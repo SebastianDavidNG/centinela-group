@@ -92,6 +92,20 @@ $content-block-breakpoint: 767px;
   }
 }
 
+// Subtítulo (encima del título): color y tamaño se controlan desde el widget
+.centinela-content-block__subtitle {
+  margin: 0 0 0.35rem;
+  font-family: $font-family-base;
+  font-weight: $font-weight-medium;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+
+  @media (min-width: 768px) {
+    margin-bottom: 0.5rem;
+  }
+}
+
 .centinela-content-block--reverse .centinela-content-block__body {
   @media (min-width: 768px) {
     padding: 0 1.5rem 0 3rem; /* texto a la izquierda: más espacio a la izquierda */
@@ -220,6 +234,12 @@ $content-block-breakpoint: 767px;
   background: $black-color;
   border-color: $black-color;
   color: $white-color;
+  text-decoration: none;
+}
+
+// Botón con color personalizado (inline): hover un poco más oscuro
+.centinela-content-block__link--custom:hover {
+  filter: brightness(0.92);
   text-decoration: none;
 }
 

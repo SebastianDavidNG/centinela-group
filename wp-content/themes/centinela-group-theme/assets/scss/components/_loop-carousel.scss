@@ -1,0 +1,291 @@
+// =============================================================================
+// Loop Carousel – Carrusel de entradas (query) – Widget Elementor
+// BEM: .centinela-loop-carousel. Slides con imagen, título, extracto, enlace.
+// =============================================================================
+
+@use '../variables' as *;
+
+.centinela-loop-carousel {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  padding: 2rem 0;
+  font-family: $font-family-base;
+  box-sizing: border-box;
+  overflow-x: hidden;
+
+  @media (min-width: 768px) {
+    padding: 3rem 0;
+  }
+}
+
+.centinela-loop-carousel__inner {
+  position: relative;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+
+  @media (min-width: 768px) {
+    padding: 0 2rem;
+  }
+}
+
+.centinela-loop-carousel__swiper {
+  width: 100%;
+  overflow: hidden;
+
+  .swiper-wrapper {
+    align-items: stretch;
+    box-sizing: border-box;
+  }
+}
+
+.centinela-loop-carousel__track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.centinela-loop-carousel__slide {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: auto;
+}
+
+.centinela-loop-carousel__slide-link {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover {
+    .centinela-loop-carousel__title {
+      color: $green-color;
+    }
+  }
+}
+
+.centinela-loop-carousel__card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background-color: #fff;
+  box-shadow: 0 5px 83px 0 rgba(170, 170, 170, 0.1);
+  overflow: hidden;
+}
+
+.centinela-loop-carousel--vertical .centinela-loop-carousel__card {
+  flex-direction: column;
+}
+
+.centinela-loop-carousel--horizontal .centinela-loop-carousel__card {
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+
+  .centinela-loop-carousel__image {
+    @media (min-width: 768px) {
+      flex: 0 0 40%;
+      min-width: 0;
+    }
+  }
+
+  .centinela-loop-carousel__body {
+    @media (min-width: 768px) {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+  }
+}
+
+// Misma transición que Image Box para hover de imagen y overlay
+$loop-carousel-image-transition: 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+$loop-carousel-overlay: rgba(16, 120, 165, 0.2);
+
+.centinela-loop-carousel__image {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+  overflow: hidden;
+  background-color: #f0f0f0;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    aspect-ratio: 16 / 10;
+    transform: scale(1);
+    transition: transform $loop-carousel-image-transition;
+  }
+}
+
+.centinela-loop-carousel__image-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: $loop-carousel-overlay;
+  opacity: 1;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity $loop-carousel-image-transition, background $loop-carousel-image-transition;
+}
+
+.centinela-loop-carousel__slide:hover .centinela-loop-carousel__image img {
+  transform: scale(1.08);
+}
+
+.centinela-loop-carousel__slide:hover .centinela-loop-carousel__image-overlay {
+  background: transparent;
+  opacity: 0;
+}
+
+.centinela-loop-carousel--horizontal .centinela-loop-carousel__image img {
+  @media (min-width: 768px) {
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: 200px;
+  }
+}
+
+.centinela-loop-carousel__body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  @media (min-width: 768px) {
+    padding: 1.5rem;
+  }
+}
+
+.centinela-loop-carousel__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: $font-weight-bold;
+  line-height: 1.3;
+  transition: color 0.2s ease;
+
+  a {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      color: $green-color;
+    }
+  }
+
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+  }
+}
+
+.centinela-loop-carousel__excerpt {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.centinela-loop-carousel__button {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: $font-weight-medium;
+  text-align: center;
+  text-decoration: none;
+  color: $white-color;
+  background-color: $green-color;
+  border: none;
+  border-radius: $button-border-radius;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  align-self: flex-start;
+
+  &:hover {
+    background-color: $blue-color;
+    color: $white-color;
+  }
+}
+
+.centinela-loop-carousel__pagination {
+  margin: 1rem auto 0;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+
+  .swiper-pagination-bullet {
+    width: 20px;
+    height: 10px;
+    margin: 0;
+    border-radius: 0;
+    background: rgba($blue-color, 0.3);
+    opacity: 1;
+    transition: background 0.2s ease, width 0.2s ease;
+  }
+
+  .swiper-pagination-bullet-active {
+    width: 30px;
+    height: 10px;
+    background: $green-color;
+  }
+}
+
+.centinela-loop-carousel__prev,
+.centinela-loop-carousel__next {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: $blue-color;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: $green-color;
+  }
+
+  &:focus {
+    outline: 2px solid $green-color;
+    outline-offset: 2px;
+  }
+}
+
+.centinela-loop-carousel__prev {
+  left: 0;
+}
+
+.centinela-loop-carousel__next {
+  right: 0;
+}
+
+// Swiper navigation arrows (flechas por defecto de Swiper)
+.centinela-loop-carousel .swiper-button-prev::after,
+.centinela-loop-carousel .swiper-button-next::after {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.elementor-widget-centinela_loop_carousel {
+  .centinela-loop-carousel__swiper {
+    min-height: 180px;
+  }
+}
