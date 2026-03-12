@@ -1,0 +1,191 @@
+// =============================================================================
+// Gallery Pro – Widget Elementor (réplica Pro: Grid, Masonry, Justified, lightbox, overlay)
+// BEM: .centinela-gallery-pro
+// =============================================================================
+
+@use '../variables' as *;
+
+$gallery-pro-transition: 0.35s ease;
+
+.centinela-gallery-pro {
+  width: 100%;
+  overflow: hidden;
+
+  // Asegurar que las imágenes sean visibles (evitar que estilos externos las oculten)
+  &__grid {
+    display: grid;
+    width: 100%;
+    gap: 15px;
+    grid-auto-rows: auto;
+
+    img {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  // No usamos Swiper en la galería: ocultar preloader si algo lo inyecta y forzar que img use src
+  .swiper-lazy-preloader {
+    display: none !important;
+  }
+
+  &__image-wrap img {
+    // Evitar que Swiper/lazy convierta a data-src; nuestras imágenes siempre usan src
+    min-width: 0;
+    min-height: 0;
+  }
+
+  // ---- Grid layout: columnas y relación de aspecto (variables CSS desde el widget)
+  &--grid &__grid {
+    grid-template-columns: repeat(var(--cgp-cols, 4), 1fr);
+
+    @media (max-width: 1024px) {
+      grid-template-columns: repeat(var(--cgp-cols-tablet, 3), 1fr);
+    }
+
+    @media (max-width: 767px) {
+      grid-template-columns: repeat(var(--cgp-cols-mobile, 2), 1fr);
+    }
+  }
+
+  &--grid &__item {
+    position: relative;
+    overflow: hidden;
+  }
+
+  &--grid &__image-wrap {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    // Aspect ratio se aplica por control (1:1, 4:3, etc.) vía inline o clase
+    aspect-ratio: var(--cgp-aspect, 1);
+  }
+
+  &--grid &__image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform $gallery-pro-transition, opacity $gallery-pro-transition;
+  }
+
+  // ---- Masonry / Justified: el JS posiciona en absoluto; el grid es contenedor
+  &--masonry &__grid,
+  &--justified &__grid {
+    // JS sobrescribe display y height
+  }
+
+  &--masonry &__item,
+  &--justified &__item {
+    overflow: hidden;
+  }
+
+  &--masonry &__image-wrap,
+  &--justified &__image-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  &--masonry &__image-wrap img,
+  &--justified &__image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform $gallery-pro-transition, opacity $gallery-pro-transition;
+  }
+
+  // ---- Item y enlace
+  &__item {
+    margin: 0;
+    padding: 0;
+  }
+
+  &__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    width: 100%;
+    height: 100%;
+
+    &:focus {
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+    }
+  }
+
+  &__image-wrap {
+    background-color: #eee;
+  }
+
+  &__caption {
+    display: block;
+    margin: 0;
+    padding: 0.25em 0 0;
+    font-size: 0.9em;
+  }
+
+  // ---- Overlay
+  &__overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    transition: opacity $gallery-pro-transition;
+    pointer-events: none;
+  }
+
+  &__item:hover &__overlay {
+    opacity: 1;
+  }
+
+  &__overlay-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    text-align: center;
+    color: #fff;
+  }
+
+  &__overlay-title {
+    font-weight: 600;
+  }
+
+  &__overlay-caption,
+  &__overlay-desc {
+    font-size: 0.9em;
+    opacity: 0.95;
+  }
+
+  // ---- Hover: zoom
+  &--hover-zoom &__image-wrap img {
+    transform: scale(1);
+  }
+
+  &--hover-zoom &__item:hover &__image-wrap img {
+    transform: scale(1.08);
+  }
+
+  // ---- Hover: slide-up (overlay ya hace efecto; imagen puede subir un poco)
+  &--hover-slide-up &__image-wrap img {
+    transform: translateY(0);
+  }
+
+  &--hover-slide-up &__item:hover &__image-wrap img {
+    transform: translateY(-4px);
+  }
+
+  // ---- Hover: fade (opacidad se controla por controles del widget)
+  &--hover-fade &__image-wrap img {
+    opacity: 1;
+  }
+}

@@ -122,6 +122,7 @@ function centinela_cotizaciones_web_form_render_list_page() {
 				<thead>
 					<tr>
 						<th><?php esc_html_e( 'Asunto / Resumen', 'centinela-group-theme' ); ?></th>
+						<th><?php esc_html_e( 'Origen', 'centinela-group-theme' ); ?></th>
 						<th><?php esc_html_e( 'Fecha', 'centinela-group-theme' ); ?></th>
 						<th><?php esc_html_e( 'Acciones', 'centinela-group-theme' ); ?></th>
 					</tr>
@@ -129,6 +130,10 @@ function centinela_cotizaciones_web_form_render_list_page() {
 				<tbody>
 					<?php while ( $query->have_posts() ) : $query->the_post(); ?>
 						<?php
+						$datos = get_post_meta( get_the_ID(), '_cotizacion_web_form_datos', true );
+						$datos = is_array( $datos ) ? $datos : array();
+						$origin_label = sanitize_text_field( __( 'Origen del formulario', 'centinela-group-theme' ) );
+						$origin = isset( $datos[ $origin_label ] ) ? $datos[ $origin_label ] : '';
 						$view_url = add_query_arg( array(
 							'page'   => 'centinela-cotizaciones-web-form-view',
 							'id'     => get_the_ID(),
@@ -140,6 +145,7 @@ function centinela_cotizaciones_web_form_render_list_page() {
 						?>
 						<tr>
 							<td><strong><?php the_title(); ?></strong></td>
+							<td><?php echo $origin !== '' ? esc_html( $origin ) : '—'; ?></td>
 							<td><?php echo esc_html( get_the_date( '' ) . ' ' . get_the_time( '' ) ); ?></td>
 							<td>
 								<a href="<?php echo esc_url( $view_url ); ?>" class="button button-small"><?php esc_html_e( 'Ver', 'centinela-group-theme' ); ?></a>
@@ -303,6 +309,12 @@ function centinela_cotizaciones_web_form_ajax_submit() {
 		} else {
 			$sanitized[ $key ] = sanitize_textarea_field( (string) $value );
 		}
+	}
+	// Origen del formulario (Home, Contacto, etc.) enviado por el widget como campo oculto.
+	$form_source = isset( $_POST['centinela_cwf_source'] ) ? sanitize_text_field( wp_unslash( $_POST['centinela_cwf_source'] ) ) : '';
+	if ( $form_source !== '' ) {
+		$origin_label = sanitize_text_field( __( 'Origen del formulario', 'centinela-group-theme' ) );
+		$sanitized[ $origin_label ] = $form_source;
 	}
 	$post_id = centinela_cotizaciones_web_form_save_submission( $sanitized );
 	if ( is_wp_error( $post_id ) ) {

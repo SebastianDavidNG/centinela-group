@@ -291,6 +291,17 @@ class Centinela_Cotizacion_Web_Form_Widget extends \Elementor\Widget_Base {
 			)
 		);
 
+		$this->add_control(
+			'form_source',
+			array(
+				'label'       => __( 'Etiqueta de origen (solo admin)', 'centinela-group-theme' ),
+				'type'        => \Elementor\Controls_Manager::TEXT,
+				'default'     => __( 'Formulario cotización Home', 'centinela-group-theme' ),
+				'placeholder' => __( 'Ej: Formulario página de contacto', 'centinela-group-theme' ),
+				'description' => __( 'Se guarda junto al envío para distinguir desde qué página o variante del formulario se envió (Home, Contacto, etc.). No se muestra al usuario.', 'centinela-group-theme' ),
+			)
+		);
+
 		$this->end_controls_section();
 
 		$this->start_controls_section(
@@ -401,6 +412,7 @@ class Centinela_Cotizacion_Web_Form_Widget extends \Elementor\Widget_Base {
 		$fields = isset( $settings['form_fields'] ) && is_array( $settings['form_fields'] ) ? $settings['form_fields'] : array();
 		$send_email = isset( $settings['send_email_copy'] ) && $settings['send_email_copy'] === 'yes';
 		$email_recipients = $send_email && ! empty( $settings['email_recipients'] ) ? $settings['email_recipients'] : '';
+		$form_source = isset( $settings['form_source'] ) ? $settings['form_source'] : '';
 		$cols_desktop = isset( $settings['columns_desktop'] ) ? $settings['columns_desktop'] : '1';
 		$cols_tablet  = isset( $settings['columns_tablet'] ) ? $settings['columns_tablet'] : '1';
 		$cols_mobile  = isset( $settings['columns_mobile'] ) ? $settings['columns_mobile'] : '1';
@@ -412,6 +424,9 @@ class Centinela_Cotizacion_Web_Form_Widget extends \Elementor\Widget_Base {
 			<form class="centinela-cwf__form" action="" method="post" novalidate>
 				<?php echo $nonce; ?>
 				<input type="hidden" name="centinela_cwf_emails" value="<?php echo esc_attr( $email_recipients ); ?>" />
+				<?php if ( $form_source !== '' ) : ?>
+					<input type="hidden" name="centinela_cwf_source" value="<?php echo esc_attr( $form_source ); ?>" />
+				<?php endif; ?>
 				<div class="centinela-cwf__fields centinela-cwf__fields--d-<?php echo esc_attr( $cols_desktop ); ?> centinela-cwf__fields--t-<?php echo esc_attr( $cols_tablet ); ?> centinela-cwf__fields--m-<?php echo esc_attr( $cols_mobile ); ?>">
 					<?php
 					foreach ( $fields as $index => $item ) {

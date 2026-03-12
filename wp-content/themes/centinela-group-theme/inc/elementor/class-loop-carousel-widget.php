@@ -245,6 +245,19 @@ class Centinela_Loop_Carousel_Widget extends \Elementor\Widget_Base {
 		);
 
 		$this->add_control(
+			'show_subtitle_testimonio',
+			array(
+				'label'        => __( 'Mostrar subtítulo (solo Testimonios)', 'centinela-group-theme' ),
+				'type'         => \Elementor\Controls_Manager::SWITCHER,
+				'label_on'     => __( 'Sí', 'centinela-group-theme' ),
+				'label_off'    => __( 'No', 'centinela-group-theme' ),
+				'return_value' => 'yes',
+				'default'      => '',
+				'description'  => __( 'Si el tipo de contenido es Testimonios, muestra el primer widget Encabezado del testimonio (con los estilos que aplicaste en el editor del testimonio).', 'centinela-group-theme' ),
+			)
+		);
+
+		$this->add_control(
 			'show_excerpt',
 			array(
 				'label'        => __( 'Mostrar extracto', 'centinela-group-theme' ),
@@ -617,6 +630,8 @@ class Centinela_Loop_Carousel_Widget extends \Elementor\Widget_Base {
 		$image_size = $settings['image_size'];
 		$show_title = $settings['show_title'] === 'yes';
 		$title_tag = $settings['title_tag'];
+		$show_subtitle_testimonio = ! empty( $settings['show_subtitle_testimonio'] ) && $settings['show_subtitle_testimonio'] === 'yes';
+		$post_type_for_query = $settings['post_type'];
 		$show_excerpt = $settings['show_excerpt'] === 'yes';
 		$excerpt_length = (int) $settings['excerpt_length'];
 		$show_button = $settings['show_button'] === 'yes';
@@ -680,6 +695,14 @@ class Centinela_Loop_Carousel_Widget extends \Elementor\Widget_Base {
 												<?php endif; ?>
 											</<?php echo esc_html( $title_tag ); ?>>
 										<?php endif; ?>
+										<?php
+										if ( $show_subtitle_testimonio && $post_type_for_query === 'testimonio' && function_exists( 'centinela_testimonio_render_subtitle' ) ) {
+											$subtitle_html = centinela_testimonio_render_subtitle( $post_id );
+											if ( $subtitle_html !== '' ) {
+												echo '<div class="centinela-loop-carousel__subtitle">' . $subtitle_html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML from Elementor render_element
+											}
+										}
+										?>
 										<?php if ( $excerpt !== '' ) : ?>
 											<div class="centinela-loop-carousel__excerpt"><?php echo wp_kses_post( $excerpt ); ?></div>
 										<?php endif; ?>

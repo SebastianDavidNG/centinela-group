@@ -1,0 +1,288 @@
+// =============================================================================
+// Footer – Diseño según Figma (fondo #229379, columnas, barra inferior)
+// BEM: .centinela-footer
+// =============================================================================
+
+@use '../variables' as *;
+
+$footer-bg: $green-color;
+$footer-text: $white-color;
+$footer-text-muted: rgba(255, 255, 255, 0.8);
+$footer-title-size: 17px;
+$footer-body-size: 14px;
+$footer-semibold: 600;
+
+// Breakpoints por defecto (puedes sobrescribirlos con variables CSS).
+$footer-bp-tablet: 640px;
+$footer-bp-desktop: 1024px;
+
+.centinela-footer {
+  /*
+   * Columnas y espacios editables desde Apariencia → Personalizar → CSS adicional.
+   * Ejemplo: .centinela-footer { --footer-cols-mobile: 2; --footer-cols-tablet: 3; --footer-gap-desktop: 48px; }
+   * Breakpoints por defecto: tablet 640px, desktop 1024px (cambiar en SCSS o tema hijo).
+   */
+  --footer-cols-mobile: 1;
+  --footer-cols-tablet: 2;
+  --footer-cols-desktop: 5;
+  --footer-contact-span-tablet: 2; /* columnas que ocupa Contacto en tablet (si tablet tiene 2, 2 = ancho completo) */
+  --footer-gap-mobile: 24px;
+  --footer-gap-tablet: 24px;
+  --footer-gap-desktop: 40px;
+
+  background-color: $footer-bg;
+  color: $footer-text;
+  font-family: $font-family-base;
+  font-size: $footer-body-size;
+  font-weight: $font-weight-regular;
+  line-height: 1.5;
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  &__inner {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 40px 24px 24px;
+    @media (min-width: $footer-bp-desktop) {
+      padding: 48px 40px 32px;
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(var(--footer-cols-mobile), 1fr);
+    gap: var(--footer-gap-mobile);
+    row-gap: 32px;
+
+    @media (min-width: $footer-bp-tablet) {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--footer-gap-tablet);
+    }
+    @media (min-width: $footer-bp-desktop) {
+      grid-template-columns: repeat(var(--footer-cols-desktop), 1fr);
+      gap: var(--footer-gap-desktop);
+    }
+  }
+
+  &__col {
+    &--logo {
+      @media (min-width: $footer-bp-tablet) {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: center;
+      }
+      @media (min-width: $footer-bp-desktop) {
+        grid-column: 1;
+        display: block;
+      }
+    }
+    &--contacto {
+      @media (min-width: $footer-bp-desktop) {
+        grid-column: span 1;
+      }
+    }
+  }
+
+  &__logo {
+    max-width: 187px;
+  }
+
+  &__logo-link {
+    display: block;
+    line-height: 0;
+
+    &--text {
+      line-height: 1.4;
+    }
+  }
+
+  &__logo img {
+    display: block;
+    height: auto;
+    max-height: 55px;
+    width: auto;
+  }
+
+  // Logo del personalizador (suele ser a color): convertir a blanco sobre fondo verde.
+  &__logo img:not(.centinela-footer__logo-img) {
+    filter: brightness(0) invert(1);
+  }
+
+  // Logo ACF: se muestra tal cual (subir versión blanca para fondo verde).
+  &__logo-img {
+    display: block;
+    height: auto;
+    max-height: 55px;
+    width: auto;
+  }
+
+  &__logo-text .centinela-footer__site-name {
+    font-size: 18px;
+    font-weight: $footer-semibold;
+    color: $footer-text;
+  }
+
+  &__title {
+    font-size: $footer-title-size;
+    font-weight: $footer-semibold;
+    margin: 0 0 12px;
+    color: $footer-text;
+  }
+
+  &__nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__nav-item {
+    margin-bottom: 4px;
+  }
+
+  &__nav-link {
+    display: inline-block;
+    font-size: $footer-body-size;
+    font-weight: $font-weight-regular;
+    padding: 2px 0;
+  }
+
+  &__contact-widget {
+    p {
+      margin: 0 0 8px;
+      font-size: $footer-body-size;
+      line-height: 1.5;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+    a {
+      font-weight: $footer-semibold;
+    }
+  }
+
+  // Bloque de contacto según Figma: filas con icono + texto (email, teléfono, dirección, enlace).
+  &-contact {
+    &__row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: $footer-body-size;
+      line-height: 1.5;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+    &__icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      color: $footer-text;
+
+      svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    }
+    &__text {
+      margin: 0;
+    }
+    &__link {
+      font-weight: $footer-semibold;
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        opacity: 0.9;
+      }
+    }
+  }
+
+  &__line {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.3);
+    margin: 24px 0 20px;
+    @media (min-width: 1024px) {
+      margin: 32px 0 24px;
+    }
+  }
+
+  &__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  &__social {
+    .centinela-footer__social-widget {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+    a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      color: $footer-text;
+      border-radius: 4px;
+      &:hover {
+        opacity: 0.85;
+      }
+    }
+    img {
+      display: block;
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
+    // Forzar color blanco en el bloque Iconos sociales de Gutenberg (frontend no respeta color del bloque).
+    color: $footer-text !important;
+    .wp-block-social-links {
+      color: $footer-text !important;
+    }
+    .wp-block-social-link-anchor,
+    .wp-block-social-link {
+      color: $footer-text !important;
+    }
+    // SVG: fill y stroke blanco para que el icono se vea blanco (relleno y contorno).
+    svg {
+      fill: $footer-text !important;
+      stroke: $footer-text !important;
+      color: $footer-text !important;
+    }
+    // Imágenes y medios: convertir a blanco (iconos que usen img, object, etc.).
+    img,
+    object,
+    video,
+    canvas,
+    embed,
+    iframe {
+      filter: brightness(0) invert(1) !important;
+    }
+  }
+
+  &__copyright {
+    margin: 0;
+    font-size: $footer-body-size;
+    font-weight: $font-weight-medium;
+    color: $footer-text-muted;
+  }
+}

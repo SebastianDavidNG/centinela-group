@@ -181,11 +181,39 @@ function centinela_theme_setup() {
 	add_theme_support( 'woocommerce' );
 
 	register_nav_menus( array(
-		'primary'   => __( 'Menú principal', 'centinela-group-theme' ),
-		'footer'    => __( 'Menú pie de página', 'centinela-group-theme' ),
+		'primary'            => __( 'Menú principal', 'centinela-group-theme' ),
+		'footer'             => __( 'Menú pie de página (legacy)', 'centinela-group-theme' ),
+		'footer_servicios'   => __( 'Footer: Servicios', 'centinela-group-theme' ),
+		'footer_casos_exito' => __( 'Footer: Casos de éxito', 'centinela-group-theme' ),
+		'footer_nosotros'    => __( 'Footer: Nosotros', 'centinela-group-theme' ),
 	) );
 }
 add_action( 'after_setup_theme', 'centinela_theme_setup' );
+
+/**
+ * Registrar áreas de widgets del footer (según diseño Figma).
+ */
+function centinela_theme_widgets_init() {
+	register_sidebar( array(
+		'name'          => __( 'Footer: Redes sociales', 'centinela-group-theme' ),
+		'id'            => 'footer-social',
+		'description'   => __( 'Iconos o enlaces de redes sociales. Se muestra en la barra inferior del footer.', 'centinela-group-theme' ),
+		'before_widget' => '<div id="%1$s" class="centinela-footer__social-widget %2$s">',
+		'after_widget'  => '</div>',
+		'before_title'  => '<span class="screen-reader-text">',
+		'after_title'   => '</span>',
+	) );
+	register_sidebar( array(
+		'name'          => __( 'Footer: Contacto', 'centinela-group-theme' ),
+		'id'            => 'footer-contacto',
+		'description'   => __( 'Correo, teléfono, dirección y enlace "Cómo llegar". Columna derecha del footer.', 'centinela-group-theme' ),
+		'before_widget' => '<div id="%1$s" class="centinela-footer__contact-widget %2$s">',
+		'after_widget'  => '</div>',
+		'before_title'  => '<span class="screen-reader-text">',
+		'after_title'   => '</span>',
+	) );
+}
+add_action( 'widgets_init', 'centinela_theme_widgets_init' );
 
 /**
  * Soporte para Elementor (compatible con versión gratuita)
@@ -334,6 +362,7 @@ require_once CENTINELA_THEME_DIR . '/inc/woocommerce-productos.php';
 require_once CENTINELA_THEME_DIR . '/inc/woocommerce-tienda-config.php';
 require_once CENTINELA_THEME_DIR . '/inc/tienda-ajax.php';
 require_once CENTINELA_THEME_DIR . '/inc/centinela-checkout-wompi.php';
+require_once CENTINELA_THEME_DIR . '/inc/testimonios-cpt.php';
 
 /**
  * Registrar Swiper y hero-slider para que Elementor los encole cuando use el widget Hero Slider
@@ -384,6 +413,13 @@ function centinela_register_hero_slider_assets() {
 		'centinela-loop-carousel',
 		CENTINELA_THEME_URI . '/assets/js/loop-carousel.js',
 		array( 'swiper' ),
+		CENTINELA_THEME_VERSION,
+		true
+	);
+	wp_register_script(
+		'centinela-gallery-pro',
+		CENTINELA_THEME_URI . '/assets/js/gallery-pro.js',
+		array(),
 		CENTINELA_THEME_VERSION,
 		true
 	);
@@ -545,8 +581,9 @@ function centinela_theme_nav_menu_css_class( $classes, $item, $args ) {
 	if ( isset( $args->theme_location ) && 'primary' === $args->theme_location ) {
 		$classes[] = 'centinela-header__item';
 	}
-	if ( isset( $args->theme_location ) && 'footer' === $args->theme_location ) {
-		$classes[] = 'block';
+	$footer_locations = array( 'footer', 'footer_servicios', 'footer_casos_exito', 'footer_nosotros' );
+	if ( isset( $args->theme_location ) && in_array( $args->theme_location, $footer_locations, true ) ) {
+		$classes[] = 'centinela-footer__nav-item';
 	}
 	return $classes;
 }
@@ -556,8 +593,9 @@ function centinela_theme_nav_menu_link_attributes( $atts, $item, $args ) {
 	if ( isset( $args->theme_location ) && 'primary' === $args->theme_location ) {
 		$atts['class'] = isset( $atts['class'] ) ? $atts['class'] . ' centinela-header__link' : 'centinela-header__link';
 	}
-	if ( isset( $args->theme_location ) && 'footer' === $args->theme_location ) {
-		$atts['class'] = isset( $atts['class'] ) ? $atts['class'] . ' text-gray-400 hover:text-white no-underline' : 'text-gray-400 hover:text-white no-underline';
+	$footer_locations = array( 'footer', 'footer_servicios', 'footer_casos_exito', 'footer_nosotros' );
+	if ( isset( $args->theme_location ) && in_array( $args->theme_location, $footer_locations, true ) ) {
+		$atts['class'] = isset( $atts['class'] ) ? $atts['class'] . ' centinela-footer__nav-link' : 'centinela-footer__nav-link';
 	}
 	return $atts;
 }
