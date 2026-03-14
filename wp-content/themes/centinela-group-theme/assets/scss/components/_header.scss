@@ -10,6 +10,7 @@
 $header-link-underline-active: 3px;
 
 // Barra fija sobre el hero (header + submenu). Ref. WiseGuard home-alternative
+// En el top: visible (transparente). Al scroll down: animación slide + fixed con fondo
 .centinela-header-bar {
   position: absolute;
   top: 0;
@@ -17,6 +18,24 @@ $header-link-underline-active: 3px;
   right: 0;
   z-index: 50;
   width: 100%;
+  transition: background-color 0.25s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Al hacer scroll down: fixed, fondo #021C37 con opacidad y entra deslizando desde arriba
+  &--scrolled {
+    position: fixed;
+    background-color: rgba($blue-color, 0.92);
+    transform: translateY(0);
+  }
+
+  // Solo para la animación de entrada al scroll down: empieza arriba y desliza a su sitio
+  &--scrolled-in {
+    transform: translateY(-100%);
+  }
+
+  // Al volver al top: desliza hacia arriba y luego vuelve a estado normal (visible, transparente)
+  &--scrolled-out {
+    transform: translateY(-100%);
+  }
 }
 
 .centinela-header {
@@ -1358,12 +1377,72 @@ $header-link-underline-active: 3px;
     max-width: 36rem;
   }
 
+  &__form-wrap {
+    width: 100%;
+    position: relative;
+  }
+
   &__form {
     display: flex;
     align-items: center;
     gap: 0;
     border-bottom: 2px solid rgba($white-color, 0.3);
     padding-bottom: 0.5rem;
+  }
+
+  &__suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    max-height: 20rem;
+    overflow-y: auto;
+    background: rgba($blue-color, 0.98);
+    color: $white-color;
+    border-radius: 0.25rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.2);
+    padding: 0.5rem 0;
+    border: 1px solid rgba($white-color, 0.2);
+  }
+
+  &__suggestions-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba($white-color, 0.85);
+    padding: 0.25rem 0.75rem 0.125rem;
+    margin: 0;
+  }
+
+  &__suggestions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.5rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__suggestions-link {
+    display: block;
+    padding: 0.4rem 0.75rem;
+    color: $white-color;
+    text-decoration: none;
+    font-size: 0.9375rem;
+
+    &:hover {
+      background: rgba($white-color, 0.12);
+      color: $white-color;
+    }
+  }
+
+  &__suggestions-modelo {
+    font-size: 0.8125rem;
+    color: rgba($white-color, 0.8);
+    font-weight: 400;
   }
 
   &__input {
@@ -1426,6 +1505,53 @@ $header-link-underline-active: 3px;
       outline-offset: 2px;
     }
   }
+}
+
+// Toast "Producto agregado" al añadir al carrito
+.centinela-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background-color: $blue-color;
+  color: $white-color;
+  font-size: 0.9375rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s ease;
+  max-width: min(90vw, 28rem);
+
+  &--visible {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: $green-color;
+    color: $white-color;
+    font-size: 0.75rem;
+    font-weight: $font-weight-bold;
+  }
+
+  &__text {
+    strong {
+      font-weight: $font-weight-medium;
+    }
+  }
+}
+
+#centinela-add-to-cart-toast {
+  border: none;
+  border-radius: 0;
 }
 
 .screen-reader-text {

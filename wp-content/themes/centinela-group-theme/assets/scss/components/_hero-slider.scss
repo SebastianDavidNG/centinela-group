@@ -18,6 +18,9 @@ $hero-overlay: linear-gradient(
 
 // Altura aproximada del header + submenú para dejar espacio al contenido
 $hero-offset-top: 4rem;
+// Breakpoints para tablet/mobile
+$hero-mobile: 767px;
+$hero-tablet: 1024px;
 
 // Evitar espacio superior: contenedor principal y contenedores Elementor (.e-con > .e-con-inner)
 .site-main {
@@ -114,8 +117,16 @@ $hero-offset-top: 4rem;
     padding: $hero-offset-top 1rem 0;
     box-sizing: border-box;
 
+    @media (max-width: $hero-mobile) {
+      padding: 2.5rem 1rem 5rem; // menos top en mobile, más bottom para paginación
+    }
+
     @media (min-width: 768px) {
       padding: $hero-offset-top 2rem 0;
+    }
+
+    @media (min-width: 768px) and (max-width: $hero-tablet) {
+      padding: $hero-offset-top 1.5rem 0; // tablet: padding lateral intermedio
     }
 
     @media (min-width: 1024px) {
@@ -131,7 +142,16 @@ $hero-offset-top: 4rem;
     justify-content: flex-start;
     align-items: flex-start;
     min-height: 0;
+    width: 100%;
     padding-top: 1.5rem;
+    box-sizing: border-box;
+
+    @media (max-width: $hero-mobile) {
+      justify-content: center; // centrado vertical respecto a la pantalla
+      padding-top: 0;
+      align-items: center; // centrado horizontal respecto a la pantalla
+      text-align: center;
+    }
 
     @media (min-width: 768px) {
       justify-content: center;
@@ -141,6 +161,20 @@ $hero-offset-top: 4rem;
 
   &__content {
     max-width: 36rem;
+    width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: $hero-mobile) {
+      max-width: 100%;
+      padding: 0 10%; // márgenes laterales iguales, contenido centrado en la pantalla
+      text-align: center;
+    }
+
+    @media (min-width: 768px) and (max-width: $hero-tablet) {
+      max-width: 100%;
+      padding: 0 40px;
+      text-align: left;
+    }
   }
 
   // Bloque de iconos fijo (fuera del slider): anclado abajo, animación de entrada (ref. WiseGuard)
@@ -171,6 +205,10 @@ $hero-offset-top: 4rem;
 
     @media (min-width: 768px) {
       padding: 0 2rem;
+    }
+
+    @media (min-width: 768px) and (max-width: $hero-tablet) {
+      padding: 0 1.5rem;
     }
   }
 
@@ -222,6 +260,11 @@ $hero-offset-top: 4rem;
       box-sizing: border-box;
       padding: 0 2rem 0;
       --centinela-icons-text-color: #{$white-color};
+    }
+
+    @media (min-width: 768px) and (max-width: $hero-tablet) {
+      min-height: 150px;
+      padding: 0 1.5rem 0;
     }
   }
 
@@ -385,9 +428,18 @@ $hero-offset-top: 4rem;
     line-height: 1.2;
     letter-spacing: 0.02em;
 
+    @media (max-width: $hero-mobile) {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
     @media (min-width: 768px) {
       font-size: 2.25rem;
       margin-bottom: 1.25rem;
+    }
+
+    @media (min-width: 768px) and (max-width: $hero-tablet) {
+      font-size: 2rem;
     }
 
     @media (min-width: 1024px) {
@@ -403,6 +455,12 @@ $hero-offset-top: 4rem;
     font-weight: $font-weight-regular;
     line-height: 1.6;
 
+    @media (max-width: $hero-mobile) {
+      font-size: 0.9375rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.55;
+    }
+
     @media (min-width: 768px) {
       font-size: 1.125rem;
       margin-bottom: 2rem;
@@ -414,6 +472,11 @@ $hero-offset-top: 4rem;
     flex-wrap: wrap;
     align-items: center;
     gap: 1rem 1.25rem;
+
+    @media (max-width: $hero-mobile) {
+      gap: 0.75rem 1rem;
+      justify-content: center; // botones centrados con el texto en mobile
+    }
   }
 
   &__cta {
@@ -434,6 +497,18 @@ $hero-offset-top: 4rem;
       padding: 0 1.5rem;
       background-color: $green-color;
       color: $white-color;
+
+      @media (max-width: $hero-mobile) {
+        min-height: 52px;
+        height: 52px;
+        padding: 0 1.25rem;
+        font-size: 0.875rem;
+      }
+
+      @media (min-width: 768px) and (max-width: $hero-tablet) {
+        min-height: 60px;
+        height: 60px;
+      }
 
       &:hover {
         background-color: color.adjust($green-color, $lightness: -6%);
@@ -458,6 +533,22 @@ $hero-offset-top: 4rem;
       color: $blue-color;
       border: 12px solid hsla(0, 0%, 100%, 0.3);
       transition: border-color 0.35s ease, color 0.35s ease, transform 0.35s ease, box-shadow 0.35s ease;
+
+      @media (max-width: $hero-mobile) {
+        width: 64px;
+        height: 64px;
+        min-width: 64px;
+        min-height: 64px;
+        border-width: 8px;
+      }
+
+      @media (min-width: 768px) and (max-width: $hero-tablet) {
+        width: 80px;
+        height: 80px;
+        min-width: 80px;
+        min-height: 80px;
+        border-width: 10px;
+      }
 
       &::before {
         position: absolute;
@@ -496,6 +587,16 @@ $hero-offset-top: 4rem;
         height: 36px;
         fill: currentColor;
         transition: fill 0.35s ease;
+
+        @media (max-width: $hero-mobile) {
+          width: 24px;
+          height: 24px;
+        }
+
+        @media (min-width: 768px) and (max-width: $hero-tablet) {
+          width: 28px;
+          height: 28px;
+        }
       }
     }
 
@@ -513,12 +614,25 @@ $hero-offset-top: 4rem;
     right: 0;
     z-index: 2;
 
+    @media (max-width: $hero-mobile) {
+      bottom: 1.25rem;
+    }
+
+    @media (min-width: 768px) and (max-width: $hero-tablet) {
+      bottom: 1.5rem;
+    }
+
     .swiper-pagination-bullet {
       width: 10px;
       height: 10px;
       background: rgba($white-color, 0.5);
       opacity: 1;
       transition: background 0.2s ease, transform 0.2s ease;
+
+      @media (max-width: $hero-mobile) {
+        width: 8px;
+        height: 8px;
+      }
     }
 
     .swiper-pagination-bullet-active {
@@ -545,6 +659,12 @@ $hero-offset-top: 4rem;
     cursor: pointer;
     transition: color 0.2s ease;
 
+    @media (max-width: $hero-mobile) {
+      width: 36px;
+      height: 36px;
+      margin-top: -18px;
+    }
+
     &:hover {
       color: $white-color !important;
     }
@@ -558,14 +678,30 @@ $hero-offset-top: 4rem;
       font-size: 2.5rem;
       font-weight: $font-weight-medium;
       color: inherit;
+
+      @media (max-width: $hero-mobile) {
+        font-size: 2rem;
+      }
+
+      @media (min-width: 768px) and (max-width: $hero-tablet) {
+        font-size: 2.25rem;
+      }
     }
   }
 
   &__prev {
     left: 1rem;
+
+    @media (max-width: $hero-mobile) {
+      left: 0.5rem;
+    }
   }
 
   &__next {
     right: 1rem;
+
+    @media (max-width: $hero-mobile) {
+      right: 0.5rem;
+    }
   }
 }

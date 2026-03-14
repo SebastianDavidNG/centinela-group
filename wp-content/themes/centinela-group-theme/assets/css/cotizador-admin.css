@@ -1,32 +1,191 @@
 /**
  * Estilos del Cotizador en el Admin de WordPress
+ * Diseño tipo Material Design: inputs outline, botones elevados, cards con sombra.
  *
  * @package Centinela_Group_Theme
  */
 
+/* -----------------------------------------------------------------------------
+   Material Design – variables (solo dentro del cotizador)
+   ----------------------------------------------------------------------------- */
 .centinela-cotizador-wrap {
+	--cot-primary: #1543A0;
+	--cot-primary-hover: #0d2d6b;
+	--cot-primary-ripple: rgba(21, 67, 160, 0.12);
+	--cot-surface: #ffffff;
+	--cot-surface-2: #f8f9fa;
+	--cot-border: rgba(0, 0, 0, 0.12);
+	--cot-border-focus: var(--cot-primary);
+	--cot-text: #1a1a1a;
+	--cot-text-secondary: #5f6368;
+	--cot-error: #d93025;
+	--cot-radius: 8px;
+	--cot-radius-sm: 4px;
+	--cot-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+	--cot-elevation-2: 0 2px 6px rgba(0, 0, 0, 0.07), 0 4px 12px rgba(0, 0, 0, 0.05);
+	--cot-elevation-3: 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+	font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	max-width: 1200px;
 }
 
+.centinela-cotizador-wrap > h1 {
+	font-size: 1.75rem;
+	font-weight: 600;
+	color: var(--cot-text);
+	letter-spacing: -0.01em;
+	margin-bottom: 1.25rem;
+}
+
+/* -----------------------------------------------------------------------------
+   Campos de formulario – Material outlined
+   ----------------------------------------------------------------------------- */
 .centinela-cotizador-form .centinela-cotizador-field {
 	margin-bottom: 1.5em;
 }
 
 .centinela-cotizador-form .centinela-cotizador-field label {
 	display: block;
-	margin-bottom: 0.35em;
-	font-weight: 600;
+	margin-bottom: 0.5em;
+	font-weight: 500;
+	font-size: 0.875rem;
+	color: var(--cot-text-secondary);
+	letter-spacing: 0.01em;
 }
 
+/* Inputs y selects: estilo outline (borde completo, redondeado, focus con color primario) */
+.centinela-cotizador-wrap input[type="text"],
+.centinela-cotizador-wrap input[type="email"],
+.centinela-cotizador-wrap input[type="date"],
+.centinela-cotizador-wrap input[type="number"],
+.centinela-cotizador-wrap select,
+.centinela-cotizador-wrap textarea {
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: 10px 14px;
+	font-size: 0.9375rem;
+	font-family: inherit;
+	color: var(--cot-text);
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius-sm);
+	outline: none;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.centinela-cotizador-wrap input[type="text"]:hover,
+.centinela-cotizador-wrap input[type="email"]:hover,
+.centinela-cotizador-wrap input[type="date"]:hover,
+.centinela-cotizador-wrap input[type="number"]:hover,
+.centinela-cotizador-wrap select:hover,
+.centinela-cotizador-wrap textarea:hover {
+	border-color: rgba(0, 0, 0, 0.2);
+}
+
+.centinela-cotizador-wrap input[type="text"]:focus,
+.centinela-cotizador-wrap input[type="email"]:focus,
+.centinela-cotizador-wrap input[type="date"]:focus,
+.centinela-cotizador-wrap input[type="number"]:focus,
+.centinela-cotizador-wrap select:focus,
+.centinela-cotizador-wrap textarea:focus {
+	border-color: var(--cot-border-focus);
+	box-shadow: 0 0 0 2px var(--cot-primary-ripple);
+}
+
+.centinela-cotizador-wrap textarea {
+	min-height: 88px;
+	resize: vertical;
+}
+
+.centinela-cotizador-wrap select {
+	cursor: pointer;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235f6368' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 12px center;
+	padding-right: 36px;
+}
+
+/* -----------------------------------------------------------------------------
+   Botones – Material elevated / filled / text
+   ----------------------------------------------------------------------------- */
+.centinela-cotizador-wrap .button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35em;
+	min-height: 40px;
+	padding: 8px 20px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	font-family: inherit;
+	letter-spacing: 0.02em;
+	color: var(--cot-text);
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius-sm);
+	box-shadow: var(--cot-elevation-1);
+	cursor: pointer;
+	transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.centinela-cotizador-wrap .button:hover {
+	background: var(--cot-surface-2);
+	border-color: rgba(0, 0, 0, 0.18);
+	box-shadow: var(--cot-elevation-2);
+}
+
+.centinela-cotizador-wrap .button:focus {
+	outline: none;
+	border-color: var(--cot-primary);
+	box-shadow: 0 0 0 2px var(--cot-primary-ripple);
+}
+
+.centinela-cotizador-wrap .button-primary {
+	color: #fff;
+	background: var(--cot-primary);
+	border-color: var(--cot-primary);
+}
+
+.centinela-cotizador-wrap .button-primary:hover {
+	background: var(--cot-primary-hover);
+	border-color: var(--cot-primary-hover);
+	box-shadow: var(--cot-elevation-2);
+}
+
+.centinela-cotizador-wrap .button-large {
+	min-height: 44px;
+	padding: 10px 24px;
+	font-size: 0.9375rem;
+}
+
+.centinela-cotizador-wrap .button-link-delete {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	color: var(--cot-error);
+}
+
+.centinela-cotizador-wrap .button-link-delete:hover {
+	background: rgba(217, 48, 37, 0.08);
+	border-color: transparent;
+}
+
+/* -----------------------------------------------------------------------------
+   Secciones y títulos
+   ----------------------------------------------------------------------------- */
 .centinela-cotizador-section {
 	margin-top: 2em;
 	padding-top: 1.5em;
-	border-top: 1px solid #c3c4c7;
+	border-top: 1px solid var(--cot-border);
 }
 
 .centinela-cotizador-section-title {
 	margin: 0 0 1em;
-	font-size: 1.1em;
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: var(--cot-text);
+	letter-spacing: 0.01em;
 }
 
 .centinela-cotizador-busqueda {
@@ -54,13 +213,13 @@
 
 .centinela-cotizador-spinner {
 	position: absolute;
-	right: 10px;
+	right: 12px;
 	top: 50%;
 	transform: translateY(-50%);
 	width: 20px;
 	height: 20px;
-	border: 2px solid #c3c4c7;
-	border-top-color: #2271b1;
+	border: 2px solid var(--cot-border);
+	border-top-color: var(--cot-primary);
 	border-radius: 50%;
 	opacity: 0;
 	pointer-events: none;
@@ -84,12 +243,13 @@
 	right: 0;
 	top: 100%;
 	z-index: 100;
-	margin: 2px 0 0;
+	margin: 4px 0 0;
 	padding: 0;
 	list-style: none;
-	background: #fff;
-	border: 1px solid #8c8f94;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius-sm);
+	box-shadow: var(--cot-elevation-3);
 	max-height: 280px;
 	overflow-y: auto;
 }
@@ -124,11 +284,11 @@
 
 .centinela-cotizador-sugerencias button:hover,
 .centinela-cotizador-sugerencias button[aria-selected="true"] {
-	background: #f0f0f1;
+	background: var(--cot-primary-ripple);
 }
 
 .centinela-cotizador-sugerencias .centinela-cotizador-sug-modelo {
-	color: #50575e;
+	color: var(--cot-text-secondary);
 	font-size: 12px;
 	margin-top: 2px;
 }
@@ -140,10 +300,32 @@
 
 .centinela-cotizador-tabla-wrap {
 	overflow-x: auto;
+	border-radius: var(--cot-radius-sm);
+	border: 1px solid var(--cot-border);
+	box-shadow: var(--cot-elevation-1);
 }
 
 .centinela-cotizador-tabla {
 	margin-top: 0;
+	border: none;
+	background: var(--cot-surface);
+}
+
+.centinela-cotizador-tabla thead th {
+	background: var(--cot-surface-2);
+	color: var(--cot-text);
+	font-weight: 600;
+	font-size: 0.8125rem;
+	padding: 12px 10px;
+	border-bottom: 1px solid var(--cot-border);
+}
+
+.centinela-cotizador-tabla tbody td {
+	border-color: var(--cot-border);
+}
+
+.centinela-cotizador-tabla tbody tr.producto-fila:hover {
+	background: rgba(21, 67, 160, 0.03);
 }
 
 .centinela-cotizador-tabla .centinela-cotizador-col-modelo {
@@ -195,6 +377,8 @@
 	width: 100%;
 	min-width: 70px;
 	box-sizing: border-box;
+	padding: 6px 10px;
+	font-size: 0.875rem;
 }
 
 .centinela-cotizador-tabla .centinela-cotizador-importe {
@@ -205,7 +389,7 @@
 }
 
 .centinela-cotizador-tabla-vacia td {
-	color: #646970;
+	color: var(--cot-text-secondary);
 	font-style: italic;
 }
 
@@ -214,13 +398,13 @@
 }
 
 .centinela-cotizador-btn-eliminar {
-	color: #b32d2e;
+	color: var(--cot-error);
 	text-decoration: none;
 	cursor: pointer;
 }
 
 .centinela-cotizador-btn-eliminar:hover {
-	color: #d63638;
+	opacity: 0.9;
 	text-decoration: underline;
 }
 
@@ -239,18 +423,19 @@
 }
 
 .centinela-cotizador-datos-columnas .centinela-cotizador-col {
-	background: #f6f7f7;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius);
 	padding: 1.25em 1.5em;
 	box-sizing: border-box;
+	box-shadow: var(--cot-elevation-1);
 }
 
 .centinela-cotizador-datos-columnas .centinela-cotizador-section-title {
 	margin-top: 0;
 	margin-bottom: 1em;
 	padding-bottom: 0.5em;
-	border-bottom: 1px solid #c3c4c7;
+	border-bottom: 1px solid var(--cot-border);
 }
 
 .centinela-cotizador-datos-columnas .centinela-cotizador-field {
@@ -325,24 +510,27 @@
 
 /* Sección Logo (derecha, sobre Resumen) */
 .centinela-cotizador-logo-section {
-	background: #f6f7f7;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius);
 	padding: 1.5em;
 	box-sizing: border-box;
+	box-shadow: var(--cot-elevation-1);
 }
 
 .centinela-cotizador-logo-title {
 	margin: 0 0 0.35em;
-	font-size: 1.1em;
+	font-size: 1.1rem;
+	font-weight: 600;
 	padding-bottom: 0.5em;
-	border-bottom: 1px solid #c3c4c7;
+	border-bottom: 1px solid var(--cot-border);
+	color: var(--cot-text);
 }
 
 .centinela-cotizador-logo-section .description {
 	margin: 0 0 1em;
-	font-size: 12px;
-	color: #646970;
+	font-size: 0.8125rem;
+	color: var(--cot-text-secondary);
 }
 
 .centinela-cotizador-logo-preview-wrap {
@@ -354,9 +542,9 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: #fff;
-	border: 1px dashed #c3c4c7;
-	border-radius: 4px;
+	background: var(--cot-surface-2);
+	border: 1px dashed var(--cot-border);
+	border-radius: var(--cot-radius-sm);
 	padding: 12px;
 	box-sizing: border-box;
 }
@@ -368,15 +556,15 @@
 }
 
 .centinela-cotizador-logo-placeholder {
-	color: #646970;
-	font-size: 13px;
+	color: var(--cot-text-secondary);
+	font-size: 0.8125rem;
 	font-style: italic;
 }
 
 .centinela-cotizador-logo-formats {
 	margin: 0.5em 0 0;
-	font-size: 11px;
-	color: #787c82;
+	font-size: 0.6875rem;
+	color: var(--cot-text-secondary);
 }
 
 .centinela-cotizador-logo-actions {
@@ -394,18 +582,21 @@
 .centinela-cotizador-resumen {
 	position: sticky;
 	top: 32px;
-	background: #f6f7f7;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius);
 	padding: 1.5em;
 	box-sizing: border-box;
+	box-shadow: var(--cot-elevation-2);
 }
 
 .centinela-cotizador-resumen-title {
 	margin: 0 0 1em;
 	padding-bottom: 0.5em;
-	border-bottom: 1px solid #c3c4c7;
-	font-size: 1.1em;
+	border-bottom: 1px solid var(--cot-border);
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: var(--cot-text);
 }
 
 .centinela-cotizador-resumen .centinela-cotizador-field {
@@ -440,7 +631,7 @@
 	margin-top: 1.5em;
 	margin-bottom: 1.5em;
 	padding-top: 1em;
-	border-top: 1px solid #c3c4c7;
+	border-top: 1px solid var(--cot-border);
 }
 
 .centinela-cotizador-resumen-fila {
@@ -474,9 +665,10 @@
 .centinela-cotizador-resumen-fila.centinela-cotizador-resumen-total {
 	margin-top: 1em;
 	padding-top: 0.75em;
-	border-top: 2px solid #1d2327;
+	border-top: 2px solid var(--cot-primary);
 	font-size: 1.1em;
 	font-weight: 700;
+	color: var(--cot-text);
 }
 
 .centinela-cotizador-resumen-botones {
@@ -509,15 +701,15 @@
 .centinela-cotizador-modal-backdrop {
 	position: absolute;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.45);
 }
 
 .centinela-cotizador-modal-content {
 	position: relative;
-	background: #fff;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+	background: var(--cot-surface);
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius);
+	box-shadow: var(--cot-elevation-3);
 	max-width: 480px;
 	width: 100%;
 	max-height: 90vh;
@@ -535,9 +727,9 @@
 
 .centinela-cotizador-email-preview-wrap {
 	position: relative;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	background: #f6f7f7;
+	border: 1px solid var(--cot-border);
+	border-radius: var(--cot-radius-sm);
+	background: var(--cot-surface-2);
 	min-height: 280px;
 }
 
@@ -546,7 +738,8 @@
 	width: 100%;
 	height: 320px;
 	border: 0;
-	background: #fff;
+	background: var(--cot-surface);
+	border-radius: 0 0 var(--cot-radius-sm) var(--cot-radius-sm);
 }
 
 .centinela-cotizador-email-preview-loading {
@@ -554,13 +747,15 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	color: #646970;
-	font-size: 13px;
+	color: var(--cot-text-secondary);
+	font-size: 0.8125rem;
 }
 
 .centinela-cotizador-modal-title {
 	margin: 0 0 1em;
-	font-size: 1.2em;
+	font-size: 1.25rem;
+	font-weight: 600;
+	color: var(--cot-text);
 }
 
 .centinela-cotizador-modal-content .centinela-cotizador-field {
@@ -580,11 +775,11 @@
 }
 
 .centinela-cotizador-modal-msg.success {
-	color: #00a32a;
+	color: #0f9d58;
 }
 
 .centinela-cotizador-modal-msg.error {
-	color: #d63638;
+	color: var(--cot-error);
 }
 
 .centinela-cotizador-modal-confirm {
@@ -602,7 +797,7 @@
 .centinela-cotizador-modal-link-wrap {
 	margin-top: 1em;
 	padding-top: 1em;
-	border-top: 1px solid #c3c4c7;
+	border-top: 1px solid var(--cot-border);
 }
 
 .centinela-cotizador-modal-link-wrap label {

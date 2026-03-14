@@ -361,6 +361,7 @@ require_once CENTINELA_THEME_DIR . '/inc/template-footer.php';
 require_once CENTINELA_THEME_DIR . '/inc/woocommerce-productos.php';
 require_once CENTINELA_THEME_DIR . '/inc/woocommerce-tienda-config.php';
 require_once CENTINELA_THEME_DIR . '/inc/tienda-ajax.php';
+require_once CENTINELA_THEME_DIR . '/inc/centinela-search.php';
 require_once CENTINELA_THEME_DIR . '/inc/centinela-checkout-wompi.php';
 require_once CENTINELA_THEME_DIR . '/inc/testimonios-cpt.php';
 

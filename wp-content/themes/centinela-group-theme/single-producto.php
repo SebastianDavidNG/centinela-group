@@ -164,10 +164,17 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 				$addcart_image = ! empty( $producto_imagenes[0] ) ? ( ! empty( $producto_imagenes[0]['url'] ) ? $producto_imagenes[0]['url'] : '' ) : '';
 				$addcart_price_raw = $precio_lista_iva !== '' ? $precio_lista_iva : ( $precio_esp ? $precio_esp : $precio_lista );
 				$addcart_price     = function_exists( 'centinela_parse_precio_api' ) ? centinela_parse_precio_api( $addcart_price_raw ) : $addcart_price_raw;
+				$producto_inventario = function_exists( 'centinela_syscom_producto_inventario' ) ? centinela_syscom_producto_inventario( $producto ) : null;
 				?>
+				<?php if ( $producto_inventario !== null && $producto_inventario !== '' ) : ?>
+					<p class="centinela-single-producto__stock" id="centinela-single-producto-stock-wrap" data-stock-total="<?php echo esc_attr( (string) $producto_inventario ); ?>"><?php echo esc_html( __( 'Stock disponible:', 'centinela-group-theme' ) ); ?> <span class="centinela-single-producto__stock-value" id="centinela-single-producto-stock-value"><?php echo esc_html( (string) $producto_inventario ); ?></span></p>
+				<?php endif; ?>
 				<div class="centinela-single-producto__cart-row">
 					<label for="centinela-single-producto-qty" class="centinela-single-producto__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
-					<input type="number" id="centinela-single-producto-qty" class="centinela-single-producto__qty" min="1" value="1" />
+					<?php
+					$has_stock_display = $producto_inventario !== null && $producto_inventario !== '' && is_numeric( $producto_inventario );
+					?>
+					<input type="number" id="centinela-single-producto-qty" class="centinela-single-producto__qty" min="<?php echo $has_stock_display ? '0' : '1'; ?>" value="<?php echo $has_stock_display ? '0' : '1'; ?>"<?php echo $has_stock_display ? ' max="' . esc_attr( (int) $producto_inventario ) . '"' : ''; ?> />
 					<button type="button" id="centinela-single-producto-addcart" class="centinela-btn centinela-single-producto__btn centinela-single-producto__btn--primary"
 						data-product-id="<?php echo esc_attr( $producto_id ); ?>"
 						data-product-title="<?php echo esc_attr( $producto['titulo'] ); ?>"
@@ -406,12 +413,43 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 		});
 	});
 
+	var stockWrap = document.getElementById('centinela-single-producto-stock-wrap');
+	var stockValueEl = document.getElementById('centinela-single-producto-stock-value');
+	var qtyEl = document.getElementById('centinela-single-producto-qty');
 	var addcart = document.getElementById('centinela-single-producto-addcart');
+
+	function updateStockDisplay() {
+		if (!qtyEl) return;
+		var total = (stockWrap && stockWrap.getAttribute('data-stock-total')) ? parseInt(stockWrap.getAttribute('data-stock-total'), 10) : NaN;
+		if (isNaN(total)) total = null;
+		var qty = parseInt(qtyEl.value, 10);
+		if (isNaN(qty) || qty < 0) qty = 0;
+		if (total !== null) {
+			qtyEl.value = Math.max(0, Math.min(qty, total));
+		} else {
+			qtyEl.value = Math.max(0, qty);
+		}
+		qty = parseInt(qtyEl.value, 10);
+		if (stockValueEl && total !== null) {
+			var remaining = Math.max(0, total - qty);
+			stockValueEl.textContent = String(remaining);
+		}
+		if (addcart) {
+			addcart.disabled = qty < 1;
+		}
+	}
+
+	if (qtyEl) {
+		qtyEl.addEventListener('input', updateStockDisplay);
+		qtyEl.addEventListener('change', updateStockDisplay);
+		updateStockDisplay();
+	}
+
 	if (addcart) {
 		addcart.addEventListener('click', function() {
 			var id = addcart.getAttribute('data-product-id');
-			var qtyEl = document.getElementById('centinela-single-producto-qty');
-			var qty = (qtyEl && parseInt(qtyEl.value, 10)) || 1;
+			var qty = (qtyEl && parseInt(qtyEl.value, 10)) || 0;
+			if (qty < 1) return;
 			if (id && window.centinelaAddToCart) {
 				window.centinelaAddToCart({
 					id: id,

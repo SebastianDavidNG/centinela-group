@@ -422,6 +422,12 @@ function centinela_woocommerce_quickview_route() {
 			if ( $terms && ! is_wp_error( $terms ) && ! empty( $terms ) ) {
 				$categoria = $terms[0]->name;
 			}
+			$stock = $product->managing_stock() ? $product->get_stock_quantity() : null;
+			if ( $stock !== null && $stock !== '' ) {
+				$stock = (int) $stock;
+			} else {
+				$stock = null;
+			}
 			return new WP_REST_Response( array(
 				'id'               => (string) $id,
 				'titulo'           => $product->get_name(),
@@ -435,6 +441,7 @@ function centinela_woocommerce_quickview_route() {
 				'img_portada'      => isset( $imagenes[0] ) ? $imagenes[0] : '',
 				'url'              => $url,
 				'add_to_cart_url'  => $add_to_cart_url,
+				'stock'            => $stock,
 			), 200 );
 		},
 	) );

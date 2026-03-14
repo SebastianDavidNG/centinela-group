@@ -162,6 +162,69 @@
     });
   }
 
+  // Búsqueda en vivo (sugerencias desde REST API: contenido + productos Syscom)
+  var searchSuggestions = document.getElementById('centinela-search-suggestions');
+  var searchSuggestionsTimer = null;
+  if (searchField && searchSuggestions) {
+    function hideSuggestions() {
+      searchSuggestions.setAttribute('hidden', '');
+      searchSuggestions.innerHTML = '';
+    }
+    function showSuggestions(html) {
+      searchSuggestions.innerHTML = html;
+      searchSuggestions.removeAttribute('hidden');
+    }
+    function fetchSuggestions(q) {
+      if (!q || q.length < 2) {
+        hideSuggestions();
+        return;
+      }
+      fetch(window.location.origin + '/wp-json/centinela/v1/search?q=' + encodeURIComponent(q) + '&limit_content=5&limit_productos=8')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var contenido = (data && data.contenido) ? data.contenido : [];
+          var productos = (data && data.productos) ? data.productos : [];
+          if (contenido.length === 0 && productos.length === 0) {
+            hideSuggestions();
+            return;
+          }
+          var parts = [];
+          if (contenido.length > 0) {
+            parts.push('<p class="centinela-search-overlay__suggestions-title">Contenido</p><ul class="centinela-search-overlay__suggestions-list">');
+            contenido.forEach(function (c) {
+              parts.push('<li><a href="' + (c.url || '#') + '" class="centinela-search-overlay__suggestions-link">' + (c.title ? c.title.replace(/</g, '&lt;') : '') + '</a></li>');
+            });
+            parts.push('</ul>');
+          }
+          if (productos.length > 0) {
+            parts.push('<p class="centinela-search-overlay__suggestions-title">Productos</p><ul class="centinela-search-overlay__suggestions-list">');
+            productos.forEach(function (p) {
+              parts.push('<li><a href="' + (p.url || '#') + '" class="centinela-search-overlay__suggestions-link">' + (p.titulo ? p.titulo.replace(/</g, '&lt;') : '') + (p.modelo ? ' <span class="centinela-search-overlay__suggestions-modelo">(' + p.modelo.replace(/</g, '&lt;') + ')</span>' : '') + '</a></li>');
+            });
+            parts.push('</ul>');
+          }
+          showSuggestions(parts.join(''));
+        })
+        .catch(function () { hideSuggestions(); });
+    }
+    searchField.addEventListener('input', function () {
+      var q = (searchField.value || '').trim();
+      clearTimeout(searchSuggestionsTimer);
+      if (q.length < 2) {
+        hideSuggestions();
+        return;
+      }
+      searchSuggestionsTimer = setTimeout(function () { fetchSuggestions(q); }, 280);
+    });
+    searchField.addEventListener('blur', function () {
+      setTimeout(hideSuggestions, 180);
+    });
+    searchField.addEventListener('focus', function () {
+      var q = (searchField.value || '').trim();
+      if (q.length >= 2 && searchSuggestions.innerHTML) searchSuggestions.removeAttribute('hidden');
+    });
+  }
+
   // Submenú de categorías: toggle de subcategorías en móvil (acordeón)
   var submenuToggles = document.querySelectorAll('.centinela-submenu__toggle');
   submenuToggles.forEach(function (btn) {
@@ -505,9 +568,29 @@
     updateCartCountDisplay();
   }
   window.centinelaUpdateCartCount = updateCartCountDisplay;
+  function showAddedToCartToast(productTitle) {
+    var title = (productTitle || '').trim() || 'Producto';
+    var toast = document.getElementById('centinela-add-to-cart-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'centinela-add-to-cart-toast';
+      toast.className = 'centinela-toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      document.body.appendChild(toast);
+    }
+    toast.innerHTML = '<span class="centinela-toast__icon" aria-hidden="true">✓</span><span class="centinela-toast__text">Agregado al carrito: <strong>' + (title.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</strong></span>';
+    toast.classList.add('centinela-toast--visible');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(function () {
+      toast.classList.remove('centinela-toast--visible');
+    }, 3500);
+  }
+
   window.centinelaAddToCart = function (item) {
     addItemToCart(item);
     updateCartCountDisplay();
+    showAddedToCartToast(item && item.title);
   };
   window.centinelaGetCartItems = getCartItems;
   window.centinelaSaveCartItems = saveCartItems;
@@ -515,4 +598,62 @@
   window.centinelaUpdateItemQty = updateItemQty;
   window.centinelaParsePrice = parsePrice;
   window.centinelaFormatPrice = formatPrice;
+
+  // Header: fixed + fondo #021C37 al scroll down con animación slide; slide up al volver al top (estilo WiseGuard)
+  (function () {
+    var headerBar = document.querySelector('.centinela-header-bar');
+    if (!headerBar) return;
+    var scrollThreshold = 60;
+    var isScrolled = false;
+    var animatingOut = false;
+    var outEndHandler = null;
+
+    function cancelOutAnimation() {
+      if (!animatingOut) return;
+      animatingOut = false;
+      isScrolled = true;
+      if (outEndHandler) {
+        headerBar.removeEventListener('transitionend', outEndHandler);
+        outEndHandler = null;
+      }
+      headerBar.classList.remove('centinela-header-bar--scrolled-out');
+    }
+
+    function onScroll() {
+      var scrollY = window.scrollY || window.pageYOffset || 0;
+
+      if (scrollY > scrollThreshold) {
+        if (animatingOut) cancelOutAnimation();
+        if (!isScrolled) {
+          isScrolled = true;
+          headerBar.classList.remove('centinela-header-bar--scrolled-out');
+          headerBar.classList.add('centinela-header-bar--scrolled', 'centinela-header-bar--scrolled-in');
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              headerBar.classList.remove('centinela-header-bar--scrolled-in');
+            });
+          });
+        }
+      } else {
+        if (isScrolled && !animatingOut) {
+          isScrolled = false;
+          headerBar.classList.add('centinela-header-bar--scrolled-out');
+          animatingOut = true;
+          outEndHandler = function onOutEnd(e) {
+            if (e.target !== headerBar || e.propertyName !== 'transform') return;
+            headerBar.removeEventListener('transitionend', onOutEnd);
+            outEndHandler = null;
+            headerBar.classList.remove('centinela-header-bar--scrolled', 'centinela-header-bar--scrolled-out');
+            animatingOut = false;
+          };
+          headerBar.addEventListener('transitionend', outEndHandler);
+        }
+      }
+    }
+
+    window.addEventListener('scroll', function () {
+      window.requestAnimationFrame(onScroll);
+    }, { passive: true });
+    onScroll();
+  })();
 })();

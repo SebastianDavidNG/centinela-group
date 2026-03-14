@@ -85,6 +85,10 @@ $content-block-breakpoint: 767px;
   padding: 2rem 1rem;
   box-sizing: border-box;
 
+  @media (max-width: $content-block-breakpoint) {
+    padding: 2rem 3rem;
+  }
+
   @media (min-width: 768px) {
     flex: 1 1 50%;
     max-width: 55%;
@@ -263,6 +267,12 @@ $content-block-breakpoint: 767px;
   .swiper-wrapper {
     align-items: stretch;
     transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .swiper-slide {
+      align-self: center;
+    }
   }
 }
 

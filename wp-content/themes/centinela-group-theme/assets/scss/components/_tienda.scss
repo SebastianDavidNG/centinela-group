@@ -448,6 +448,10 @@ $centinela-expand-duration: 0.35s;
     grid-template-columns: repeat(2, 1fr);
   }
 
+  @media (min-width: 768px) and (max-width: 1024px) {
+    grid-template-columns: repeat(1, 1fr);
+  }
+
   @media (min-width: 1024px) {
     grid-template-columns: repeat(3, 1fr);
     gap: 1.75rem;
@@ -466,6 +470,10 @@ $centinela-expand-duration: 0.35s;
 
   @media (min-width: 640px) {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 768px) and (max-width: 1024px) {
+    grid-template-columns: repeat(1, 1fr);
   }
 
   @media (min-width: 1024px) {
@@ -697,6 +705,22 @@ $centinela-expand-duration: 0.35s;
     color: $green-color;
     text-decoration: underline;
   }
+}
+
+.centinela-tienda__card-inventario {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+}
+
+.centinela-tienda__card-inventario-label {
+  text-transform: uppercase;
+  color: $blue-color-2;
+  font-weight: $font-weight-bold;
+}
+
+.centinela-tienda__card-inventario-value {
+  color: $green-color;
+  font-weight: $font-weight-bold;
 }
 
 .centinela-tienda__card-price-wrap {
@@ -1085,6 +1109,11 @@ $centinela-expand-duration: 0.35s;
       background: color.adjust($green-color, $lightness: -8%);
       border-color: color.adjust($green-color, $lightness: -8%);
       color: $white-color;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
   }
 

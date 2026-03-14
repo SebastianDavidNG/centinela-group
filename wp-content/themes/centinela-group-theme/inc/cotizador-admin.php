@@ -43,6 +43,42 @@ function centinela_cotizador_register_cpt() {
 add_action( 'init', 'centinela_cotizador_register_cpt' );
 
 /**
+ * Formatea una fecha Y-m-d a texto legible en español: "Febrero 28 del 2026".
+ *
+ * @param string $fecha_ymd Fecha en formato Y-m-d (ej. 2026-02-28).
+ * @return string Fecha formateada o cadena vacía si no hay fecha válida.
+ */
+function centinela_cotizador_format_vigencia_fecha( $fecha_ymd ) {
+	$fecha_ymd = is_string( $fecha_ymd ) ? trim( $fecha_ymd ) : '';
+	if ( $fecha_ymd === '' ) {
+		return '';
+	}
+	$t = strtotime( $fecha_ymd );
+	if ( $t === false ) {
+		return $fecha_ymd;
+	}
+	$meses = array(
+		1  => __( 'Enero', 'centinela-group-theme' ),
+		2  => __( 'Febrero', 'centinela-group-theme' ),
+		3  => __( 'Marzo', 'centinela-group-theme' ),
+		4  => __( 'Abril', 'centinela-group-theme' ),
+		5  => __( 'Mayo', 'centinela-group-theme' ),
+		6  => __( 'Junio', 'centinela-group-theme' ),
+		7  => __( 'Julio', 'centinela-group-theme' ),
+		8  => __( 'Agosto', 'centinela-group-theme' ),
+		9  => __( 'Septiembre', 'centinela-group-theme' ),
+		10 => __( 'Octubre', 'centinela-group-theme' ),
+		11 => __( 'Noviembre', 'centinela-group-theme' ),
+		12 => __( 'Diciembre', 'centinela-group-theme' ),
+	);
+	$d = (int) gmdate( 'j', $t );
+	$m = (int) gmdate( 'n', $t );
+	$y = gmdate( 'Y', $t );
+	$mes = isset( $meses[ $m ] ) ? $meses[ $m ] : $m;
+	return $mes . ' ' . $d . ' del ' . $y;
+}
+
+/**
  * Generar cuerpo del correo en HTML optimizado para email (con datos de la cotización)
  *
  * @param array $datos Datos de la cotización (titulo, productos, cliente, moneda, etc.).
@@ -63,7 +99,8 @@ function centinela_cotizador_build_email_html( $datos ) {
 
 	$nombre_cliente   = isset( $cliente['nombre'] ) ? esc_html( $cliente['nombre'] ) : '';
 	$email_cliente    = isset( $cliente['email'] ) ? esc_html( $cliente['email'] ) : '';
-	$vigencia         = isset( $cliente['vigencia'] ) ? esc_html( $cliente['vigencia'] ) : '';
+	$vigencia_raw     = isset( $cliente['vigencia'] ) ? trim( (string) $cliente['vigencia'] ) : '';
+	$vigencia         = $vigencia_raw !== '' ? esc_html( centinela_cotizador_format_vigencia_fecha( $vigencia_raw ) ) : '';
 	$comentarios      = isset( $cliente['comentarios'] ) ? esc_html( $cliente['comentarios'] ) : '';
 	$nombre_asesor    = isset( $contacto['nombre'] ) ? esc_html( $contacto['nombre'] ) : '';
 	$email_asesor     = isset( $contacto['email'] ) ? esc_html( $contacto['email'] ) : '';
@@ -258,10 +295,17 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 		return;
 	}
 	wp_enqueue_style(
+		'centinela-cotizador-fonts',
+		'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap',
+		array(),
+		null
+	);
+	$cotizador_css = get_template_directory() . '/assets/css/cotizador-admin.css';
+	wp_enqueue_style(
 		'centinela-cotizador-admin',
 		get_template_directory_uri() . '/assets/css/cotizador-admin.css',
-		array(),
-		defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0'
+		array( 'centinela-cotizador-fonts' ),
+		file_exists( $cotizador_css ) ? (string) filemtime( $cotizador_css ) : ( defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0' )
 	);
 	wp_enqueue_media();
 	wp_enqueue_script(
@@ -708,6 +752,9 @@ function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 	$iva_valor = isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0;
 	$total     = isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
 	$numero    = isset( $datos['numero'] ) ? $datos['numero'] : get_post_meta( $post_id, '_cotizacion_numero', true );
+	$cliente   = isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
+	$vigencia_raw = isset( $cliente['vigencia'] ) ? trim( (string) $cliente['vigencia'] ) : '';
+	$vigencia_display = $vigencia_raw !== '' ? centinela_cotizador_format_vigencia_fecha( $vigencia_raw ) : '';
 
 	$tmp = wp_tempnam( 'cotizacion-' . $post_id );
 	if ( ! $tmp ) {
@@ -727,6 +774,10 @@ function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 	// Cotización # visible en el archivo Excel/CSV (igual que en el correo y PDF).
 	if ( $numero !== '' ) {
 		fputcsv( $fp, array( __( 'Cotización', 'centinela-group-theme' ) . ' #' . $numero ), ';' );
+		fputcsv( $fp, array( '' ), ';' );
+	}
+	if ( $vigencia_display !== '' ) {
+		fputcsv( $fp, array( __( 'Vigencia', 'centinela-group-theme' ), $vigencia_display ), ';' );
 		fputcsv( $fp, array( '' ), ';' );
 	}
 	fputcsv( $fp, array( $titulo ), ';' );

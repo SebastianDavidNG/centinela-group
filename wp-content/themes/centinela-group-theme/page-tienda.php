@@ -410,6 +410,7 @@ rewind_posts();
 					<p id="centinela-quickview-categoria" class="centinela-quickview__categoria"></p>
 					<h2 id="centinela-quickview-title" class="centinela-quickview__title"></h2>
 					<p id="centinela-quickview-price" class="centinela-quickview__price"></p>
+					<p id="centinela-quickview-stock" class="centinela-single-producto__stock centinela-quickview__stock" style="display: none;"><?php echo esc_html( __( 'Stock disponible:', 'centinela-group-theme' ) ); ?> <span id="centinela-quickview-stock-value" class="centinela-single-producto__stock-value"></span></p>
 					<div class="centinela-quickview__cart-row">
 						<label for="centinela-quickview-qty" class="centinela-quickview__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
 						<input type="number" id="centinela-quickview-qty" class="centinela-quickview__qty" min="1" value="1" />

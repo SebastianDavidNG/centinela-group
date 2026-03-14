@@ -91,6 +91,69 @@ function centinela_tienda_producto_marca( $prod ) {
 }
 
 /**
+ * Normalizar valor de inventario a escalar para mostrar (entero, float o string).
+ *
+ * @param mixed $val Valor devuelto por la API.
+ * @return string|int|float|null
+ */
+function centinela_syscom_inventario_value( $val ) {
+	if ( is_int( $val ) || is_float( $val ) ) {
+		return $val;
+	}
+	if ( is_numeric( $val ) ) {
+		return (int) $val;
+	}
+	if ( is_string( $val ) ) {
+		$trimmed = trim( $val );
+		return $trimmed !== '' ? $trimmed : null;
+	}
+	return null;
+}
+
+/**
+ * Obtener inventario del producto Syscom (API envía campo "inventario" en listado y en detalle).
+ * Acepta inventario a nivel raíz o en claves alternativas por si el listado usa otra estructura.
+ *
+ * @param array $prod Producto de la API (listado o detalle).
+ * @return string|int|float|null Valor de inventario o null si no está disponible.
+ */
+function centinela_syscom_producto_inventario( $prod ) {
+	if ( ! is_array( $prod ) ) {
+		return null;
+	}
+	// API Syscom Colombia: listado y detalle usan "total_existencia" para la cantidad en stock (ver docs).
+	// Fallbacks: inventario, existencia, stock, etc.
+	$keys = array( 'total_existencia', 'inventario', 'existencia', 'stock', 'cantidad_disponible', 'disponibilidad' );
+	foreach ( $keys as $key ) {
+		if ( ! isset( $prod[ $key ] ) ) {
+			continue;
+		}
+		$val = $prod[ $key ];
+		// Valor anidado (ej. ["inventario" => ["cantidad" => 5]])
+		if ( is_array( $val ) ) {
+			if ( isset( $val['cantidad'] ) ) {
+				$out = centinela_syscom_inventario_value( $val['cantidad'] );
+				if ( $out !== null ) {
+					return $out;
+				}
+			}
+			if ( isset( $val['disponible'] ) ) {
+				$out = centinela_syscom_inventario_value( $val['disponible'] );
+				if ( $out !== null ) {
+					return $out;
+				}
+			}
+			continue;
+		}
+		$out = centinela_syscom_inventario_value( $val );
+		if ( $out !== null ) {
+			return $out;
+		}
+	}
+	return null;
+}
+
+/**
  * Filtra una lista de productos por marca (nombre exacto, sin depender de la API).
  *
  * @param array  $productos Lista de productos de la API.
@@ -319,6 +382,17 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 								<?php if ( $prod_marca !== '' ) : ?><p class="centinela-tienda__card-marca"><a href="<?php echo esc_url( $marca_url ); ?>" class="centinela-tienda__card-marca-link"><?php echo esc_html( $prod_marca ); ?></a></p><?php endif; ?>
 							</div>
 						<?php endif; ?>
+						<?php
+						$prod_inventario = null;
+						if ( function_exists( 'centinela_syscom_producto_inventario' ) ) {
+							$prod_inventario = centinela_syscom_producto_inventario( $prod );
+						}
+						if ( $prod_inventario !== null && $prod_inventario !== '' ) {
+							?>
+							<p class="centinela-tienda__card-inventario"><span class="centinela-tienda__card-inventario-label"><?php echo esc_html( __( 'Stock disponible:', 'centinela-group-theme' ) ); ?></span> <span class="centinela-tienda__card-inventario-value"><?php echo esc_html( (string) $prod_inventario ); ?></span></p>
+							<?php
+						}
+						?>
 						<?php if ( $precio ) : ?>
 							<div class="centinela-tienda__card-price-wrap">
 								<?php if ( $tiene_precio_especial ) : ?>
@@ -726,6 +800,7 @@ function centinela_tienda_quickview_route() {
 			$img_portada = isset( $imgs_urls[0] ) ? $imgs_urls[0] : ( isset( $producto['img_portada'] ) ? trim( $producto['img_portada'] ) : '' );
 
 			$precio_formateado = ( $precio_mostrar !== '' && function_exists( 'centinela_format_precio_cop' ) ) ? centinela_format_precio_cop( $precio_mostrar ) : '';
+			$stock = function_exists( 'centinela_syscom_producto_inventario' ) ? centinela_syscom_producto_inventario( $producto ) : null;
 			return new WP_REST_Response( array(
 				'id'             => $id,
 				'titulo'         => $producto['titulo'],
@@ -739,6 +814,7 @@ function centinela_tienda_quickview_route() {
 				'imagenes_large' => $imgs_urls_large,
 				'img_portada'    => $img_portada,
 				'url'            => $url,
+				'stock'          => $stock !== null && $stock !== '' ? $stock : null,
 			), 200 );
 		},
 	) );

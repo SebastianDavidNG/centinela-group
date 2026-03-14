@@ -94,7 +94,19 @@
       image: (data.imagenes && data.imagenes[0]) ? data.imagenes[0] : (data.img_portada || ''),
       price: data.precio != null ? String(data.precio) : ''
     };
-    if (qtyInput) { qtyInput.value = 1; qtyInput.min = 1; }
+    if (qtyInput) {
+      var hasStock = data.stock != null && data.stock !== '' && !isNaN(parseInt(String(data.stock), 10));
+      if (hasStock) {
+        var stockNum = parseInt(String(data.stock), 10);
+        qtyInput.min = 0;
+        qtyInput.value = 0;
+        qtyInput.max = stockNum;
+      } else {
+        qtyInput.min = 1;
+        qtyInput.value = 1;
+        qtyInput.removeAttribute('max');
+      }
+    }
 
     if (categoriaEl) {
       categoriaEl.textContent = data.categoria || '';
@@ -112,6 +124,19 @@
     if (link) {
       link.href = data.url || '#';
       link.textContent = 'Ver producto';
+    }
+    var stockWrap = document.getElementById('centinela-quickview-stock');
+    var stockValueEl = document.getElementById('centinela-quickview-stock-value');
+    if (stockWrap && stockValueEl) {
+      var stockVal = data.stock != null && data.stock !== '' ? String(data.stock) : '';
+      if (stockVal !== '') {
+        stockWrap.setAttribute('data-stock-total', stockVal);
+        stockValueEl.textContent = stockVal;
+        stockWrap.style.display = '';
+      } else {
+        stockWrap.removeAttribute('data-stock-total');
+        stockWrap.style.display = 'none';
+      }
     }
     if (modeloEl) {
       modeloEl.textContent = (data.modelo && data.modelo.trim()) ? ('Modelo: ' + data.modelo) : '';
@@ -157,7 +182,41 @@
         thumbs.appendChild(btn);
       });
     }
+    updateQuickviewStockDisplay();
   }
+
+  function updateQuickviewStockDisplay() {
+    var stockWrap = document.getElementById('centinela-quickview-stock');
+    var stockValueEl = document.getElementById('centinela-quickview-stock-value');
+    var qtyInput = document.getElementById('centinela-quickview-qty');
+    var addcartBtn = document.getElementById('centinela-quickview-addcart');
+    if (!qtyInput) return;
+    var total = (stockWrap && stockWrap.getAttribute('data-stock-total')) ? parseInt(stockWrap.getAttribute('data-stock-total'), 10) : NaN;
+    if (isNaN(total)) total = null;
+    var qty = parseInt(qtyInput.value, 10);
+    if (isNaN(qty) || qty < 0) qty = 0;
+    if (total !== null) {
+      qtyInput.value = Math.max(0, Math.min(qty, total));
+    } else {
+      qtyInput.value = Math.max(0, qty);
+    }
+    qty = parseInt(qtyInput.value, 10);
+    if (stockValueEl && total !== null) {
+      var remaining = Math.max(0, total - qty);
+      stockValueEl.textContent = String(remaining);
+    }
+    if (addcartBtn) {
+      addcartBtn.disabled = qty < 1;
+    }
+  }
+
+  (function () {
+    var qtyInput = document.getElementById('centinela-quickview-qty');
+    if (qtyInput) {
+      qtyInput.addEventListener('input', updateQuickviewStockDisplay);
+      qtyInput.addEventListener('change', updateQuickviewStockDisplay);
+    }
+  })();
 
   function updateZoom(ev) {
     if (!zoomEl || !mainArea || !currentImagenes.length) return;
@@ -216,16 +275,13 @@
 
   document.getElementById('centinela-quickview-addcart') && document.getElementById('centinela-quickview-addcart').addEventListener('click', function () {
     if (!currentProductId) return;
+    var qtyInput = document.getElementById('centinela-quickview-qty');
+    var qty = (qtyInput && parseInt(qtyInput.value, 10)) || 0;
+    if (qty < 1) return;
     if (currentAddToCartUrl) {
       window.location.href = currentAddToCartUrl;
       closeModal();
       return;
-    }
-    var qtyInput = document.getElementById('centinela-quickview-qty');
-    var qty = 1;
-    if (qtyInput) {
-      qty = parseInt(qtyInput.value, 10) || 1;
-      if (qty < 1) qty = 1;
     }
     if (typeof window.centinelaAddToCart === 'function') {
       var cartItem = {
