@@ -8,16 +8,28 @@
 get_header();
 ?>
 
-<div class="container mx-auto px-4 py-16 md:py-24 text-center">
-	<div class="max-w-xl mx-auto">
-		<h1 class="text-6xl md:text-8xl font-bold text-gray-200">404</h1>
-		<h2 class="text-2xl md:text-3xl font-semibold text-gray-800 mt-4"><?php esc_html_e( 'Página no encontrada', 'centinela-group-theme' ); ?></h2>
-		<p class="text-gray-600 mt-4"><?php esc_html_e( 'El contenido que buscas no existe o ha sido movido.', 'centinela-group-theme' ); ?></p>
-		<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="inline-block mt-8 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 no-underline font-medium">
-			<?php esc_html_e( 'Volver al inicio', 'centinela-group-theme' ); ?>
-		</a>
+<main class="centinela-404" role="main">
+	<div class="centinela-404__inner">
+		<p class="centinela-404__code" aria-hidden="true">404</p>
+		<h1 class="centinela-404__title"><?php esc_html_e( 'No encontramos esta página', 'centinela-group-theme' ); ?></h1>
+		<p class="centinela-404__lead"><?php esc_html_e( 'La URL puede haber cambiado, estar desactualizada o no existir. Puedes volver al inicio o ir directo a la tienda.', 'centinela-group-theme' ); ?></p>
+
+		<div class="centinela-404__actions">
+			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="centinela-404__btn centinela-404__btn--primary">
+				<?php esc_html_e( 'Volver al inicio', 'centinela-group-theme' ); ?>
+			</a>
+			<a href="<?php echo esc_url( home_url( '/tienda/' ) ); ?>" class="centinela-404__btn centinela-404__btn--ghost">
+				<?php esc_html_e( 'Ir a la tienda', 'centinela-group-theme' ); ?>
+			</a>
+		</div>
+
+		<form role="search" method="get" class="centinela-404__search" action="<?php echo esc_url( home_url( '/' ) ); ?>">
+			<label for="centinela-404-search" class="screen-reader-text"><?php esc_html_e( 'Buscar', 'centinela-group-theme' ); ?></label>
+			<input id="centinela-404-search" type="search" name="s" class="centinela-404__search-input" placeholder="<?php esc_attr_e( 'Buscar por producto, modelo o marca...', 'centinela-group-theme' ); ?>" />
+			<button type="submit" class="centinela-404__search-btn"><?php esc_html_e( 'Buscar', 'centinela-group-theme' ); ?></button>
+		</form>
 	</div>
-</div>
+</main>
 
 <?php
 get_footer();

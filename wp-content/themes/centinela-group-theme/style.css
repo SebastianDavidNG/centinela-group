@@ -38,6 +38,22 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* Página 404 (fallback si no se recompila SCSS) */
+body.error404{background:#021c37}
+.centinela-404{min-height:72vh;display:flex;align-items:center;justify-content:center;padding:3rem 1rem;padding-top:clamp(6.5rem,11vh,8.5rem);background:radial-gradient(circle at 82% 18%,rgba(34,147,121,.24),transparent 38%),radial-gradient(circle at 14% 86%,rgba(21,67,160,.42),transparent 44%),linear-gradient(180deg,#0a2d53 0%,#021c37 100%)}
+.centinela-404__inner{width:min(100%,52rem);margin:0 auto;padding:2rem;border:1px solid rgba(2,28,55,.1);background:rgba(255,255,255,.88);box-shadow:0 14px 36px rgba(2,28,55,.12);text-align:center}
+.centinela-404__code{margin:0;font-size:clamp(4.25rem,12vw,7rem);line-height:.92;letter-spacing:.04em;color:rgba(2,28,55,.12);font-weight:900}
+.centinela-404__title{margin:.6rem 0 0;font-size:clamp(1.55rem,3.8vw,2.25rem);color:#021c37;font-weight:700}
+.centinela-404__lead{margin:.85rem auto 0;max-width:40rem;font-size:1rem;color:rgba(84,89,95,.92)}
+.centinela-404__actions{margin-top:1.4rem;display:flex;align-items:center;justify-content:center;gap:.75rem;flex-wrap:wrap}
+.centinela-404__btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.75rem;padding:.65rem 1.3rem;border:1px solid transparent;text-decoration:none;font-size:.9375rem;font-weight:700}
+.centinela-404__btn--primary{background:#021c37;color:#fff}
+.centinela-404__btn--ghost{border-color:rgba(2,28,55,.25);background:rgba(255,255,255,.95);color:#021c37}
+.centinela-404__search{margin:1.35rem auto 0;width:min(100%,34rem);display:grid;grid-template-columns:1fr auto;gap:.55rem}
+.centinela-404__search-input{min-height:2.75rem;border:1px solid rgba(2,28,55,.2);background:#fff;padding:.6rem .85rem;color:#021c37;font-size:1rem}
+.centinela-404__search-btn{min-height:2.75rem;border:1px solid #229379;padding:.6rem 1rem;background:#229379;color:#fff;font-size:.9375rem;font-weight:700;cursor:pointer}
+@media (min-width:768px){.centinela-404{padding-top:clamp(9.5rem,18vh,13rem)}.centinela-404__inner{margin-top:1.75rem}}@media (max-width:767px){.centinela-404__inner{padding:1.35rem 1rem 1.2rem}.centinela-404__search{grid-template-columns:1fr}}
+
 /* iOS Safari: evita zoom automático al enfocar el buscador (inputs <16px); sin esto las sugerencias se ven cortadas */
 @media (max-width: 1024px) {
   .centinela-header__mobile-search input.centinela-mobile-search-form__input,

@@ -9,6 +9,7 @@
 @use 'header';
 @use 'hero-slider';
 @use 'hero-page-inner';
+@use '404' as error404;
 @use 'tienda';
 @use 'single-producto';
 @use 'video-modal';

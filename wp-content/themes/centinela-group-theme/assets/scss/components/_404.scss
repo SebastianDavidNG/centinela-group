@@ -1,0 +1,167 @@
+// =============================================================================
+// Página 404
+// =============================================================================
+
+@use '../variables' as *;
+
+body.error404 {
+  background: $blue-color;
+}
+
+// El header bar es absolute/fixed: sin offset el contenido queda bajo la barra + submenú Syscom.
+.centinela-404 {
+  min-height: clamp(26rem, 72vh, 44rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2.5rem, 6vw, 4.5rem) 1rem;
+  padding-top: clamp(6.5rem, 11vh, 8.5rem);
+  background:
+    radial-gradient(circle at 82% 18%, rgba($green-color, 0.24), transparent 38%),
+    radial-gradient(circle at 14% 86%, rgba($blue-color-2, 0.42), transparent 44%),
+    linear-gradient(180deg, #0a2d53 0%, $blue-color 100%);
+}
+
+.centinela-404__inner {
+  width: min(100%, 52rem);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 3.5vw, 2.5rem);
+  border: 1px solid rgba($blue-color, 0.1);
+  background: rgba($white-color, 0.88);
+  box-shadow: 0 14px 36px rgba($blue-color, 0.12);
+  text-align: center;
+}
+
+.centinela-404__code {
+  margin: 0;
+  font-size: clamp(4.25rem, 12vw, 7rem);
+  line-height: 0.92;
+  letter-spacing: 0.04em;
+  color: rgba($blue-color, 0.12);
+  font-weight: $font-weight-black;
+}
+
+.centinela-404__title {
+  margin: 0.6rem 0 0;
+  font-size: clamp(1.55rem, 3.8vw, 2.25rem);
+  color: $blue-color;
+  font-weight: $font-weight-bold;
+}
+
+.centinela-404__lead {
+  margin: 0.85rem auto 0;
+  max-width: 40rem;
+  font-size: 1rem;
+  color: rgba($grey-color, 0.92);
+}
+
+.centinela-404__actions {
+  margin-top: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.centinela-404__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.65rem 1.3rem;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-bold;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.centinela-404__btn--primary {
+  background: $blue-color;
+  color: $white-color;
+
+  &:hover {
+    background: color-mix(in srgb, $blue-color 88%, $black-color 12%);
+    color: $white-color;
+    box-shadow: 0 8px 24px rgba($blue-color, 0.25);
+  }
+}
+
+.centinela-404__btn--ghost {
+  border-color: rgba($blue-color, 0.25);
+  background: rgba($white-color, 0.95);
+  color: $blue-color;
+
+  &:hover {
+    background: rgba($blue-color, 0.06);
+    color: $blue-color;
+  }
+}
+
+.centinela-404__search {
+  margin: 1.35rem auto 0;
+  width: min(100%, 34rem);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+}
+
+.centinela-404__search-input {
+  min-height: 2.75rem;
+  border: 1px solid rgba($blue-color, 0.2);
+  background: $white-color;
+  padding: 0.6rem 0.85rem;
+  color: $blue-color;
+  font-size: 1rem;
+
+  &::placeholder {
+    color: rgba($grey-color, 0.7);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $green-color;
+    box-shadow: 0 0 0 3px rgba($green-color, 0.2);
+  }
+}
+
+.centinela-404__search-btn {
+  min-height: 2.75rem;
+  border: 1px solid $green-color;
+  padding: 0.6rem 1rem;
+  background: $green-color;
+  color: $white-color;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-bold;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, $green-color 90%, $black-color 10%);
+  }
+}
+
+@media (min-width: 768px) {
+  .centinela-404 {
+    // Header ~110px + fila submenú Syscom (~52px) + margen de respiración
+    padding-top: clamp(9.5rem, 18vh, 13rem);
+  }
+
+  .centinela-404__inner {
+    margin-top: 1.75rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .centinela-404__inner {
+    padding: 1.35rem 1rem 1.2rem;
+  }
+
+  .centinela-404__search {
+    grid-template-columns: 1fr;
+  }
+}
