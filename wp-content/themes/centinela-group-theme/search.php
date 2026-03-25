@@ -14,7 +14,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 $search_query = get_search_query();
 $productos    = array();
 if ( $search_query !== '' && strlen( $search_query ) >= 2 && function_exists( 'centinela_search_productos_syscom' ) ) {
-	$productos = centinela_search_productos_syscom( $search_query, 12 );
+	$is_brand_query   = preg_match( '/^[a-zA-Z\\s]{4,}$/', (string) $search_query ) === 1;
+	$limit_productos  = $is_brand_query ? 120 : 12;
+	$fast             = $is_brand_query; // para marca, priorizamos velocidad (paginación "completa" via /tienda/)
+	$productos        = centinela_search_productos_syscom( $search_query, $limit_productos, $fast );
 }
 
 get_header();
@@ -29,7 +32,7 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 ?>
 
 <div class="centinela-search-results container mx-auto px-4 py-8 md:py-12">
-	<div class="max-w-5xl mx-auto">
+	<div class="max-w-6xl mx-auto">
 		<header class="centinela-search-results__header mb-8 screen-reader-text">
 			<h2 class="text-2xl md:text-3xl font-bold text-gray-900">
 				<?php
@@ -77,14 +80,31 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 			<?php if ( ! empty( $productos ) ) : ?>
 				<section class="centinela-search-results__productos" aria-label="<?php esc_attr_e( 'Productos', 'centinela-group-theme' ); ?>">
 					<h2 class="text-xl font-semibold text-gray-900 mb-4"><?php esc_html_e( 'Productos', 'centinela-group-theme' ); ?></h2>
-					<div class="centinela-tienda__grid centinela-search-results__grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+					<?php if ( isset( $is_brand_query ) && $is_brand_query ) : ?>
+						<?php
+						$tienda_base = home_url( '/tienda/' );
+						$marca_url  = add_query_arg( 'marca', rawurlencode( (string) $search_query ), $tienda_base );
+						?>
+						<p class="text-sm text-gray-600 mb-6">
+							<a class="font-semibold text-gray-900 hover:underline" href="<?php echo esc_url( $marca_url ); ?>">
+								Ver todos los productos de <?php echo esc_html( $search_query ); ?>
+							</a>
+						</p>
+					<?php endif; ?>
+					<div class="centinela-tienda__grid centinela-search-results__grid grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-6">
 						<?php foreach ( $productos as $prod ) : ?>
 							<?php
 							$url    = isset( $prod['url'] ) ? $prod['url'] : home_url( '/tienda/producto/' . ( isset( $prod['id'] ) ? $prod['id'] : '' ) . '/' );
 							$titulo = isset( $prod['titulo'] ) ? $prod['titulo'] : '';
 							$modelo = isset( $prod['modelo'] ) ? $prod['modelo'] : '';
+							$marca  = isset( $prod['marca'] ) ? (string) $prod['marca'] : '';
 							$img    = isset( $prod['imagen'] ) ? $prod['imagen'] : '';
 							$precio = isset( $prod['precio_lista'] ) ? $prod['precio_lista'] : 0.0;
+
+							$marca_url = '';
+							if ( $marca !== '' ) {
+								$marca_url = add_query_arg( 'marca', rawurlencode( $marca ), home_url( '/tienda/' ) );
+							}
 							?>
 							<article class="centinela-tienda__card centinela-search-results__card">
 								<div class="centinela-tienda__card-image-wrap">
@@ -102,6 +122,13 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 									</h3>
 									<?php if ( $modelo !== '' ) : ?>
 										<p class="centinela-tienda__card-modelo text-sm text-gray-500"><?php echo esc_html( $modelo ); ?></p>
+									<?php endif; ?>
+									<?php if ( $marca_url !== '' ) : ?>
+										<p class="centinela-tienda__card-marca mt-1">
+											<a class="centinela-tienda__card-marca-link" href="<?php echo esc_url( $marca_url ); ?>">
+												<?php echo esc_html( $marca ); ?>
+											</a>
+										</p>
 									<?php endif; ?>
 									<?php if ( $precio > 0 && function_exists( 'centinela_format_precio_cop' ) ) : ?>
 										<p class="centinela-tienda__card-price mt-2 font-semibold text-gray-900"><?php echo esc_html( centinela_format_precio_cop( $precio ) ); ?></p>

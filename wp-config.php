@@ -1,4 +1,7 @@
 <?php
+
+
+
 /**
  * The base configuration for WordPress
  *
@@ -147,6 +150,8 @@ define( 'WP_SITEURL', 'http://localhost:8081' );
 if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', __DIR__ . '/' );
 }
+
+define( 'DISABLE_WP_CRON', true );
 
 /** Sets up WordPress vars and included files. */
 require_once ABSPATH . 'wp-settings.php';

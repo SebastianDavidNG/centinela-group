@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CENTINELA_THEME_VERSION', '1.0.0' );
+define( 'CENTINELA_THEME_VERSION', '1.0.1' );
 define( 'CENTINELA_THEME_DIR', get_template_directory() );
 define( 'CENTINELA_THEME_URI', get_template_directory_uri() );
 
@@ -128,6 +128,35 @@ function centinela_get_precio_lista_con_iva( $precios ) {
 		}
 	}
 	return isset( $precios['precio_lista'] ) ? $precios['precio_lista'] : '';
+}
+
+/**
+ * Busca recursivamente en un array (ej. respuesta completa de producto API) el primer valor de precio con IVA.
+ * Útil cuando la API devuelve precios en estructuras anidadas o en la raíz.
+ *
+ * @param array $arr Producto o subarray (se recorre recursivamente).
+ * @return string Valor del precio con IVA o vacío.
+ */
+function centinela_find_precio_lista_iva_in_array( $arr ) {
+	if ( ! is_array( $arr ) ) {
+		return '';
+	}
+	$candidatos = array( 'precio_lista_iva', 'precio_lista_con_iva', 'precio_con_iva', 'precio_iva', 'precio_lista_cop', 'precio_cop', 'lista_iva', 'precio_iva_cop' );
+	foreach ( $candidatos as $key ) {
+		if ( isset( $arr[ $key ] ) && $arr[ $key ] !== '' && $arr[ $key ] !== null ) {
+			return $arr[ $key ];
+		}
+	}
+	foreach ( $arr as $v ) {
+		if ( ! is_array( $v ) ) {
+			continue;
+		}
+		$found = centinela_find_precio_lista_iva_in_array( $v );
+		if ( $found !== '' ) {
+			return $found;
+		}
+	}
+	return '';
 }
 
 /**
@@ -331,6 +360,10 @@ add_action( 'template_redirect', 'centinela_fix_404_checkout_url', 0 );
  * También forzamos por REQUEST_URI por si la consulta no resolvió la página (fallback).
  */
 function centinela_force_tienda_template( $template ) {
+	// No sustituir la plantilla de búsqueda (search.php).
+	if ( is_search() ) {
+		return $template;
+	}
 	$page = get_queried_object();
 	$is_tienda_page = $page && $page instanceof WP_Post && $page->post_type === 'page' && $page->post_name === 'tienda';
 	$is_tienda_centinela = $page && $page instanceof WP_Post && $page->post_type === 'page' && $page->post_name === 'tienda-centinela';
@@ -448,6 +481,86 @@ function centinela_register_hero_slider_assets() {
 add_action( 'wp_enqueue_scripts', 'centinela_register_hero_slider_assets', 5 );
 
 /**
+ * Paleta de colores del tema (debe coincidir con assets/scss/_variables.scss).
+ * Se usan como fallback para variables CSS y para colores globales de Elementor.
+ */
+function centinela_get_theme_colors() {
+	return array(
+		'blue'   => '#021C37',
+		'blue-2' => '#1543A0',
+		'green'  => '#229379',
+		'grey'   => '#54595F',
+		'white'  => '#FFFFFF',
+		'black'  => '#000000',
+	);
+}
+
+/**
+ * Inyectar variables de color del tema y colores globales de Elementor en :root.
+ * Así los colores (Blue Color, Green Color, etc.) se mantienen aunque el Kit de Elementor
+ * no se haya migrado o la caché de Elementor esté vacía en producción.
+ */
+function centinela_print_global_color_variables() {
+	$theme_colors = centinela_get_theme_colors();
+
+	// Variables del tema para uso en CSS custom (--centinela-color-*).
+	$vars = array();
+	foreach ( $theme_colors as $name => $hex ) {
+		$vars[] = '--centinela-color-' . str_replace( ' ', '-', $name ) . ': ' . $hex;
+	}
+
+	// Fallback para colores de sistema de Elementor (por si el Kit no está o está vacío).
+	$vars[] = '--e-global-color-primary: ' . $theme_colors['blue'];
+	$vars[] = '--e-global-color-secondary: ' . $theme_colors['blue-2'];
+	$vars[] = '--e-global-color-text: ' . $theme_colors['grey'];
+	$vars[] = '--e-global-color-accent: ' . $theme_colors['green'];
+
+	// Si Elementor está activo, leer el Kit activo y añadir todos los colores globales (system + custom).
+	$kit_id = (int) get_option( 'elementor_active_kit', 0 );
+	if ( $kit_id > 0 ) {
+		$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
+		if ( is_array( $settings ) ) {
+			$system = isset( $settings['system_colors'] ) && is_array( $settings['system_colors'] ) ? $settings['system_colors'] : array();
+			$custom = isset( $settings['custom_colors'] ) && is_array( $settings['custom_colors'] ) ? $settings['custom_colors'] : array();
+			$all_colors = array_merge( $system, $custom );
+			foreach ( $all_colors as $item ) {
+				$id    = isset( $item['_id'] ) ? sanitize_key( $item['_id'] ) : '';
+				$color = isset( $item['color'] ) ? sanitize_hex_color( $item['color'] ) : '';
+				if ( $id !== '' && $color !== '' ) {
+					$vars[] = '--e-global-color-' . $id . ': ' . $color;
+				}
+			}
+		}
+	}
+
+	if ( empty( $vars ) ) {
+		return;
+	}
+
+	echo '<style id="centinela-global-colors">:root{' . implode( ';', $vars ) . '}</style>' . "\n";
+}
+add_action( 'wp_head', 'centinela_print_global_color_variables', 1 );
+
+/**
+ * Aumentar timeout de solicitudes de bucle (servidor llamándose a sí mismo).
+ * En algunos hostings la comprobación de Salud del sitio hace timeout a 5 s y muestra
+ * "No se puede detectar la presencia de la caché de página" aunque la caché funcione.
+ *
+ * @param array  $args Argumentos de la petición HTTP.
+ * @param string $url  URL de la petición.
+ * @return array
+ */
+function centinela_loopback_request_timeout( $args, $url ) {
+	$site_host = parse_url( home_url(), PHP_URL_HOST );
+	$req_host  = parse_url( $url, PHP_URL_HOST );
+	if ( ! empty( $site_host ) && ! empty( $req_host ) && strtolower( $site_host ) === strtolower( $req_host ) ) {
+		$args['timeout'] = 15;
+	}
+	return $args;
+}
+add_filter( 'http_request_args', 'centinela_loopback_request_timeout', 10, 2 );
+
+/**
  * Cargar widgets de Elementor (Hero Slider, etc.) cuando Elementor esté activo
  */
 function centinela_load_elementor_widgets() {
@@ -481,10 +594,10 @@ add_action( 'elementor/editor/after_enqueue_styles', 'centinela_elementor_enqueu
 function centinela_theme_scripts() {
 	$style_deps = array();
 
-	// Roboto: todos los pesos (100, 300, 400, 500, 700, 900)
+	// Roboto: solo pesos usados (400, 500, 700) para reducir carga de fuentes.
 	wp_enqueue_style(
 		'centinela-roboto',
-		'https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap',
+		'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap',
 		array(),
 		null
 	);
@@ -523,14 +636,26 @@ function centinela_theme_scripts() {
 		CENTINELA_THEME_VERSION,
 		true
 	);
-	// Lightbox de imagen (quickview + detalle producto)
-	wp_enqueue_script(
-		'centinela-image-lightbox',
-		CENTINELA_THEME_URI . '/assets/js/image-lightbox.js',
-		array(),
-		CENTINELA_THEME_VERSION,
-		true
+	wp_localize_script(
+		'centinela-theme-script',
+		'centinelaTheme',
+		array(
+			'searchApiUrl'     => rest_url( 'centinela/v1/search' ),
+			'searchPromptsUrl' => rest_url( 'centinela/v1/search-prompts' ),
+		)
 	);
+	// Lightbox de imagen (quickview + detalle producto).
+	// Cargar solo en vistas de tienda/producto y en el detalle Syscom por query var para evitar peso global.
+	$is_syscom_single = (bool) get_query_var( 'centinela_producto_id' );
+	if ( is_page_template( 'page-tienda.php' ) || is_page( 'tienda' ) || is_post_type_archive( 'producto' ) || is_singular( 'producto' ) || $is_syscom_single ) {
+		wp_enqueue_script(
+			'centinela-image-lightbox',
+			CENTINELA_THEME_URI . '/assets/js/image-lightbox.js',
+			array(),
+			CENTINELA_THEME_VERSION,
+			true
+		);
+	}
 }
 add_action( 'wp_enqueue_scripts', 'centinela_theme_scripts', 10 );
 
@@ -543,10 +668,35 @@ function centinela_theme_resource_hints( $urls, $relation_type ) {
 			'href' => 'https://fonts.googleapis.com',
 			'crossorigin' => '',
 		);
+		$urls[] = array(
+			'href' => 'https://fonts.gstatic.com',
+			'crossorigin' => '',
+		);
 	}
 	return $urls;
 }
 add_filter( 'wp_resource_hints', 'centinela_theme_resource_hints', 10, 2 );
+
+/**
+ * Performance: marcar scripts del tema como defer (front-end).
+ */
+function centinela_theme_defer_scripts( $tag, $handle ) {
+	if ( is_admin() ) {
+		return $tag;
+	}
+	$defer_handles = array(
+		'centinela-theme-script',
+		'centinela-image-lightbox',
+	);
+	if ( in_array( $handle, $defer_handles, true ) ) {
+		// Añadir atributo defer si aún no está presente.
+		if ( false === strpos( $tag, ' defer ' ) && false === strpos( $tag, ' defer>' ) ) {
+			$tag = str_replace( ' src', ' defer src', $tag );
+		}
+	}
+	return $tag;
+}
+add_filter( 'script_loader_tag', 'centinela_theme_defer_scripts', 10, 2 );
 
 /**
  * Performance: atributo loading="lazy" en iframes del contenido

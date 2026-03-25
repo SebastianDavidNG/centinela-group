@@ -45,12 +45,19 @@ if ( $es_tienda_wc ) {
 	$wc_products_query = new WP_Query( $wc_query_args );
 } else {
 	$arbol = array();
-if ( class_exists( 'Centinela_Syscom_API' ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
-	$arbol = Centinela_Syscom_API::get_categorias_arbol();
-	if ( is_wp_error( $arbol ) ) {
-		$arbol = array();
+	// Cache del árbol de categorías Syscom: cambia poco y puede ser pesado de construir.
+	if ( class_exists( 'Centinela_Syscom_API' ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+		$cache_key_arbol = 'centinela_tienda_categorias_arbol';
+		$arbol           = get_transient( $cache_key_arbol );
+		if ( ! is_array( $arbol ) ) {
+			$arbol = Centinela_Syscom_API::get_categorias_arbol();
+			if ( is_wp_error( $arbol ) ) {
+				$arbol = array();
+			}
+			// Cache por 6 horas: árbol de categorías casi estático.
+			set_transient( $cache_key_arbol, $arbol, 6 * HOUR_IN_SECONDS );
+		}
 	}
-}
 $syscom_ok = class_exists( 'Centinela_Syscom_API' ) && Centinela_Syscom_API::has_credentials();
 
 // Categoría: desde URL amigable (/tienda/videovigilancia/.../redes/) o fallback ?categoria= (legacy).
@@ -78,7 +85,10 @@ $max_price_actual = isset( $_GET['max_price'] ) ? sanitize_text_field( $_GET['ma
 $tienda_base    = home_url( '/tienda/' );
 $tienda_data    = function_exists( 'centinela_tienda_get_productos_data' ) ? centinela_tienda_get_productos_data( $categoria_id, $pagina_actual, $ordenar, $cat_path_clean, $marca_actual, $min_price_actual, $max_price_actual ) : array( 'productos' => array(), 'paginas' => 0, 'marcas' => array() );
 $productos_html = function_exists( 'centinela_tienda_render_productos_html' ) ? centinela_tienda_render_productos_html( $categoria_id, $pagina_actual, $ordenar, $cat_path_clean, $marca_actual, $min_price_actual, $max_price_actual, array( 'productos' => isset( $tienda_data['productos'] ) ? $tienda_data['productos'] : array(), 'paginas' => isset( $tienda_data['paginas'] ) ? (int) $tienda_data['paginas'] : 0 ) ) : '';
-	$marcas_sidebar = isset( $tienda_data['marcas'] ) && is_array( $tienda_data['marcas'] ) ? $tienda_data['marcas'] : array();
+	$marcas_sidebar = function_exists( 'centinela_tienda_get_marcas_for_sidebar' ) ? centinela_tienda_get_marcas_for_sidebar( $categoria_id, $cat_path_clean ) : array();
+	if ( empty( $marcas_sidebar ) && isset( $tienda_data['marcas'] ) && is_array( $tienda_data['marcas'] ) ) {
+		$marcas_sidebar = $tienda_data['marcas'];
+	}
 }
 
 // Rangos de precio (compartidos por ambas tiendas)
@@ -130,9 +140,34 @@ rewind_posts();
 ?>
 <div class="centinela-tienda">
 	<div class="centinela-tienda__inner max-w-7xl mx-auto px-4 py-8 md:py-12 flex flex-col md:flex-row gap-8">
-		<aside class="centinela-tienda__sidebar w-full md:w-64 flex-shrink-0" role="navigation" aria-label="<?php esc_attr_e( 'Categorías de la tienda', 'centinela-group-theme' ); ?>">
+		<?php if ( ! $es_tienda_wc ) : ?>
+			<div class="centinela-tienda__mobile-filters-bar">
+				<button
+					type="button"
+					id="centinela-mobile-filters-toggle"
+					class="centinela-tienda__mobile-filters-toggle"
+					aria-controls="centinela-tienda-mobile-sidebar"
+					aria-expanded="false"
+				>
+					<span class="centinela-tienda__mobile-filters-toggle-icon" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon>
+						</svg>
+					</span>
+					<span><?php esc_html_e( 'Filtrar productos', 'centinela-group-theme' ); ?></span>
+					<span id="centinela-mobile-filters-count" class="centinela-tienda__mobile-filters-count" hidden>0</span>
+				</button>
+			</div>
+			<div id="centinela-mobile-filters-backdrop" class="centinela-tienda__mobile-filters-backdrop" hidden></div>
+		<?php endif; ?>
+		<aside id="centinela-tienda-mobile-sidebar" class="centinela-tienda__sidebar w-full md:w-64 flex-shrink-0" role="navigation" aria-label="<?php esc_attr_e( 'Categorías de la tienda', 'centinela-group-theme' ); ?>">
 			<div class="centinela-tienda__filters">
-				<h2 class="centinela-tienda__sidebar-title"><?php esc_html_e( 'Categorías', 'centinela-group-theme' ); ?></h2>
+				<div class="centinela-tienda__mobile-filters-head">
+					<h2 class="centinela-tienda__sidebar-title"><?php esc_html_e( 'Categorías', 'centinela-group-theme' ); ?></h2>
+					<button type="button" id="centinela-mobile-filters-close" class="centinela-tienda__mobile-filters-close" aria-label="<?php esc_attr_e( 'Cerrar filtros', 'centinela-group-theme' ); ?>">
+						&times;
+					</button>
+				</div>
 				<?php if ( $es_tienda_wc ) : ?>
 					<nav class="centinela-tienda__nav" role="navigation" aria-label="<?php esc_attr_e( 'Filtrar por categoría', 'centinela-group-theme' ); ?>">
 						<div class="centinela-tienda__cat-group">
@@ -238,33 +273,15 @@ rewind_posts();
 					<!-- Filtro por marca (solo tienda Syscom) -->
 					<div class="centinela-tienda__filter-block centinela-tienda__filter-marcas">
 						<h3 class="centinela-tienda__filter-title"><?php esc_html_e( 'Marcas', 'centinela-group-theme' ); ?></h3>
-						<div id="centinela-tienda-marcas-list" class="centinela-tienda__marcas-list" role="list" aria-label="<?php esc_attr_e( 'Filtrar por marca', 'centinela-group-theme' ); ?>">
-							<?php
-							$marca_base = ( $cat_path_clean !== '' ) ? home_url( '/tienda/' . trim( $cat_path_clean ) . '/' ) : home_url( '/tienda/' );
-							$marca_qs   = array();
-							if ( $min_price_actual !== '' ) {
-								$marca_qs[] = 'min_price=' . rawurlencode( $min_price_actual );
-							}
-							if ( $max_price_actual !== '' ) {
-								$marca_qs[] = 'max_price=' . rawurlencode( $max_price_actual );
-							}
-							$marca_all_url = $marca_qs ? $marca_base . '?' . implode( '&', $marca_qs ) : $marca_base;
-							?>
-							<a href="<?php echo esc_url( $marca_all_url ); ?>" class="centinela-tienda__marca-link <?php echo $marca_actual === '' ? 'centinela-tienda__marca-link--active' : ''; ?>" data-marca=""><?php esc_html_e( 'Todas las marcas', 'centinela-group-theme' ); ?></a>
-							<?php foreach ( $marcas_sidebar as $marca_nombre ) : ?>
-								<?php
-								$qm = array( 'marca' => $marca_nombre );
-								if ( $min_price_actual !== '' ) {
-									$qm['min_price'] = $min_price_actual;
-								}
-								if ( $max_price_actual !== '' ) {
-									$qm['max_price'] = $max_price_actual;
-								}
-								$marca_url = add_query_arg( $qm, $marca_base );
-								$is_active = $marca_actual === $marca_nombre;
-								?>
-								<a href="<?php echo esc_url( $marca_url ); ?>" class="centinela-tienda__marca-link <?php echo $is_active ? 'centinela-tienda__marca-link--active' : ''; ?>" data-marca="<?php echo esc_attr( $marca_nombre ); ?>"><?php echo esc_html( $marca_nombre ); ?></a>
-							<?php endforeach; ?>
+						<p id="centinela-tienda-brand-select-status" class="centinela-tienda__brand-select-status screen-reader-text" aria-live="polite"></p>
+						<div class="centinela-tienda__brand-select-shell">
+							<label for="centinela-tienda-brand-select" class="screen-reader-text"><?php esc_html_e( 'Seleccionar marca', 'centinela-group-theme' ); ?></label>
+							<select id="centinela-tienda-brand-select" class="centinela-tienda__brand-select" aria-label="<?php esc_attr_e( 'Filtrar por marca', 'centinela-group-theme' ); ?>">
+								<option value=""><?php esc_html_e( 'Todas las marcas', 'centinela-group-theme' ); ?></option>
+								<?php foreach ( $marcas_sidebar as $marca_nombre ) : ?>
+									<option value="<?php echo esc_attr( $marca_nombre ); ?>" <?php selected( $marca_actual, $marca_nombre ); ?>><?php echo esc_html( $marca_nombre ); ?></option>
+								<?php endforeach; ?>
+							</select>
 						</div>
 					</div>
 

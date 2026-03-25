@@ -78,15 +78,26 @@
   if (mobileCta) {
     mobileCta.addEventListener('click', function (e) {
       var href = mobileCta.getAttribute('href');
-      if (href && href.indexOf('#') !== -1) {
+      closeMobileMenu();
+      if (!href) return;
+
+      var parsedUrl = null;
+      try {
+        parsedUrl = new URL(href, window.location.href);
+      } catch (err) {
+        return;
+      }
+
+      var hasHash = !!parsedUrl.hash;
+      var samePage = parsedUrl.origin === window.location.origin && parsedUrl.pathname === window.location.pathname;
+      if (hasHash && samePage) {
         e.preventDefault();
-        closeMobileMenu();
-        var id = href.split('#')[1];
+        var id = parsedUrl.hash.replace(/^#/, '');
         var target = id ? document.getElementById(id) : null;
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
-          window.location.hash = href;
+          window.location.hash = parsedUrl.hash;
         }
       }
     });
@@ -162,24 +173,396 @@
     });
   }
 
+  // Desktop: efecto "typewriter" en el buscador inline (sin abrir overlay).
+  (function initDesktopSearchTeaser() {
+    var inputEl = document.getElementById('centinela-desktop-search-field');
+    if (!inputEl) return;
+    if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return;
+
+    var fallbackTerms = ['Reconocimiento facial', 'Hikvision', 'Control de acceso', 'CCTV', 'EPCOM'];
+    var terms = fallbackTerms.slice();
+    var termIndex = 0;
+    var charIndex = 0;
+    var deleting = false;
+    var ticker = null;
+    var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var userInteracted = false;
+
+    function nextDelay() {
+      if (deleting) return 34;
+      return 58;
+    }
+
+    function tick() {
+      if (userInteracted) return;
+      var full = terms[termIndex] || '';
+      if (!full) return;
+      if (!deleting) {
+        charIndex = Math.min(full.length, charIndex + 1);
+        inputEl.value = full.slice(0, charIndex);
+        if (charIndex >= full.length) {
+          deleting = true;
+          ticker = window.setTimeout(tick, 1400);
+          return;
+        }
+      } else {
+        charIndex = Math.max(0, charIndex - 1);
+        inputEl.value = full.slice(0, charIndex);
+        if (charIndex <= 0) {
+          deleting = false;
+          termIndex = (termIndex + 1) % terms.length;
+          ticker = window.setTimeout(tick, 260);
+          return;
+        }
+      }
+      ticker = window.setTimeout(tick, nextDelay());
+    }
+
+    if (reducedMotion) {
+      inputEl.value = terms[0];
+      return;
+    }
+    inputEl.value = '';
+    tick();
+
+    function stopTicker() {
+      if (userInteracted) return;
+      userInteracted = true;
+      if (ticker) window.clearTimeout(ticker);
+      ticker = null;
+      // Al empezar a interactuar, limpiar el texto teaser para no mezclarlo con la búsqueda real.
+      inputEl.value = '';
+    }
+
+    // Cuando el usuario quiere buscar, detenemos el "teaser".
+    inputEl.addEventListener('focus', stopTicker);
+    inputEl.addEventListener('keydown', stopTicker);
+
+    function applyFetchedTerms(fetchedTerms) {
+      fetchedTerms = (Array.isArray(fetchedTerms) ? fetchedTerms : [])
+        .map(function (t) { return (t || '').trim(); })
+        .filter(function (t) { return t.length >= 3 && t.length <= 50; });
+      if (!fetchedTerms.length) return;
+      terms = fetchedTerms;
+      termIndex = 0;
+      charIndex = 0;
+      deleting = false;
+      if (!userInteracted) {
+        inputEl.value = '';
+        if (ticker) window.clearTimeout(ticker);
+        tick();
+      }
+    }
+
+    // Cache de sesión para evitar request en cada navegación.
+    try {
+      var cachedPrompts = window.sessionStorage.getItem('centinelaSearchPromptsV1');
+      if (cachedPrompts) {
+        applyFetchedTerms(JSON.parse(cachedPrompts));
+      }
+    } catch (e) {}
+
+    var promptsUrl = (typeof centinelaTheme !== 'undefined' && centinelaTheme.searchPromptsUrl)
+      ? centinelaTheme.searchPromptsUrl
+      : (window.location.origin + '/wp-json/centinela/v1/search-prompts');
+    var fetchPrompts = function () {
+      fetch(promptsUrl + (promptsUrl.indexOf('?') !== -1 ? '&' : '?') + 'limit=10')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var fetchedTerms = data && Array.isArray(data.terms) ? data.terms : [];
+          applyFetchedTerms(fetchedTerms);
+          try {
+            if (fetchedTerms && fetchedTerms.length) {
+              window.sessionStorage.setItem('centinelaSearchPromptsV1', JSON.stringify(fetchedTerms));
+            }
+          } catch (e) {}
+        })
+        .catch(function () {});
+    };
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(fetchPrompts, { timeout: 1200 });
+    } else {
+      window.setTimeout(fetchPrompts, 350);
+    }
+  })();
+
   // Búsqueda en vivo (sugerencias desde REST API: contenido + productos Syscom)
-  var searchSuggestions = document.getElementById('centinela-search-suggestions');
-  var searchSuggestionsTimer = null;
-  if (searchField && searchSuggestions) {
-    function hideSuggestions() {
-      searchSuggestions.setAttribute('hidden', '');
-      searchSuggestions.innerHTML = '';
+  function initLiveSearch(inputEl, suggestionsEl) {
+    if (!inputEl || !suggestionsEl) return;
+
+    var searchSuggestionsTimer = null;
+    var searchAbortController = null;
+    var searchResultsCache = {};
+    var searchResultsCacheOrder = [];
+    var searchCacheMaxEntries = 20;
+    var searchLoadingLabel = 'Buscando…';
+    var syscomNoImage = 'https://ftp3.syscom.mx/usuarios/fotos/imagen_no_disponible.jpg';
+    var isDesktopInline = inputEl.id === 'centinela-desktop-search-field';
+    var isMobileInline = inputEl.id === 'centinela-mobile-search-field';
+    var isInlineSearch = isDesktopInline || isMobileInline;
+    var desktopSuggestionsPortaled = false;
+    /** Evita reabrir el panel si la respuesta REST llega después de cerrar con clic fuera. */
+    var userDismissedSuggestions = false;
+    var desktopPositionRaf = null;
+    var desktopScrollRepositionBound = false;
+
+    function ensureDesktopSuggestionsPortal() {
+      if (!isDesktopInline || desktopSuggestionsPortaled) return;
+      if (!window.matchMedia || !window.matchMedia('(min-width: 1025px)').matches) return;
+      if (suggestionsEl.parentNode !== document.body) {
+        document.body.appendChild(suggestionsEl);
+      }
+      desktopSuggestionsPortaled = true;
     }
-    function showSuggestions(html) {
-      searchSuggestions.innerHTML = html;
-      searchSuggestions.removeAttribute('hidden');
+
+    function bindDesktopScrollReposition() {
+      if (!isDesktopInline || desktopScrollRepositionBound) return;
+      desktopScrollRepositionBound = true;
+      var onScroll = function () {
+        if (desktopPositionRaf !== null) return;
+        desktopPositionRaf = window.requestAnimationFrame(function () {
+          desktopPositionRaf = null;
+          positionDesktopSuggestions();
+        });
+      };
+      window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+      window.addEventListener('resize', onScroll, { passive: true });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('scroll', onScroll, { passive: true });
+        window.visualViewport.addEventListener('resize', onScroll, { passive: true });
+      }
+      var p = inputEl.parentElement;
+      while (p && p !== document.body && p !== document.documentElement) {
+        var st = window.getComputedStyle(p);
+        var ox = st.overflowX;
+        var oy = st.overflowY;
+        if (/(auto|scroll|overlay)/.test(ox) || /(auto|scroll|overlay)/.test(oy)) {
+          p.addEventListener('scroll', onScroll, { passive: true });
+        }
+        p = p.parentElement;
+      }
     }
-    function fetchSuggestions(q) {
-      if (!q || q.length < 2) {
-        hideSuggestions();
+
+    function positionDesktopSuggestions() {
+      if (!isDesktopInline) return;
+      if (!window.matchMedia || !window.matchMedia('(min-width: 1025px)').matches) {
+        suggestionsEl.style.top = '';
+        suggestionsEl.style.left = '';
+        suggestionsEl.style.width = '';
+        suggestionsEl.style.minWidth = '';
+        suggestionsEl.style.maxWidth = '';
+        suggestionsEl.style.boxSizing = '';
+        suggestionsEl.style.transform = '';
+        suggestionsEl.style.right = '';
         return;
       }
-      fetch(window.location.origin + '/wp-json/centinela/v1/search?q=' + encodeURIComponent(q) + '&limit_content=5&limit_productos=8')
+      ensureDesktopSuggestionsPortal();
+      bindDesktopScrollReposition();
+      var rect = inputEl.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var margin = 16;
+      var maxW = vw - margin * 2;
+      var width = Math.min(980, Math.max(760, maxW));
+      // Centrado horizontal en el viewport; vertical bajo el input (sigue el scroll).
+      suggestionsEl.style.boxSizing = 'border-box';
+      suggestionsEl.style.minWidth = '0';
+      suggestionsEl.style.maxWidth = maxW + 'px';
+      suggestionsEl.style.width = Math.round(width) + 'px';
+      suggestionsEl.style.left = '50%';
+      suggestionsEl.style.right = 'auto';
+      suggestionsEl.style.top = Math.round(rect.bottom + 8) + 'px';
+      suggestionsEl.style.transform = 'translateX(-50%)';
+    }
+
+    // Permite clic en la etiqueta de marca (sin crear anidamiento de <a> dentro del <a> del producto).
+    suggestionsEl.addEventListener('click', function (e) {
+      var target = e.target;
+      if (!target || !target.closest) return;
+      var marcaEl = target.closest('[data-marca-href]');
+      if (!marcaEl) return;
+      var href = marcaEl.getAttribute('data-marca-href');
+      if (!href) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = href;
+    });
+    var storageKey = 'centinelaSearchSuggestionsV3';
+    var storageTtlMs = 15 * 60 * 1000; // 15 min
+    var persistentStore = null;
+
+    function nowTs() {
+      return Date.now();
+    }
+    function loadPersistentStore() {
+      if (persistentStore) return persistentStore;
+      try {
+        var raw = window.sessionStorage.getItem(storageKey);
+        var parsed = raw ? JSON.parse(raw) : null;
+        if (!parsed || typeof parsed !== 'object' || !parsed.entries || typeof parsed.entries !== 'object') {
+          persistentStore = { entries: {} };
+        } else {
+          persistentStore = parsed;
+        }
+      } catch (e) {
+        persistentStore = { entries: {} };
+      }
+      return persistentStore;
+    }
+    function persistStore() {
+      try {
+        window.sessionStorage.setItem(storageKey, JSON.stringify(loadPersistentStore()));
+      } catch (e) {}
+    }
+    function persistentGet(key) {
+      var store = loadPersistentStore();
+      var item = store.entries[key];
+      if (!item || !item.ts || !item.html) return null;
+      if ((nowTs() - item.ts) > storageTtlMs) {
+        delete store.entries[key];
+        persistStore();
+        return null;
+      }
+      return item.html;
+    }
+    function persistentSet(key, html) {
+      var store = loadPersistentStore();
+      store.entries[key] = { ts: nowTs(), html: html };
+      // Limpieza simple de entradas vencidas para no crecer infinito.
+      Object.keys(store.entries).forEach(function (k) {
+        var item = store.entries[k];
+        if (!item || !item.ts || (nowTs() - item.ts) > storageTtlMs) {
+          delete store.entries[k];
+        }
+      });
+      persistStore();
+    }
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function escapeRegExp(value) {
+      return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    function normalizeCacheKey(value) {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/[\s\-_]+/g, '');
+    }
+    function highlightText(text, query) {
+      var safeText = escapeHtml(text);
+      var safeQuery = escapeHtml(query);
+      if (!safeQuery) return safeText;
+      var pattern = new RegExp('(' + escapeRegExp(safeQuery) + ')', 'ig');
+      return safeText.replace(pattern, '<span class="centinela-search-overlay__suggestions-highlight">$1</span>');
+    }
+
+    function hideSuggestions() {
+      suggestionsEl.setAttribute('hidden', '');
+      suggestionsEl.innerHTML = '';
+      suggestionsEl.classList.remove('centinela-search-overlay__suggestions--loading');
+    }
+    function showLoading() {
+      suggestionsEl.innerHTML = '<p class="centinela-search-overlay__suggestions-loading" aria-live="polite">' + searchLoadingLabel + '</p>';
+      suggestionsEl.classList.add('centinela-search-overlay__suggestions--loading');
+      suggestionsEl.removeAttribute('hidden');
+      positionDesktopSuggestions();
+    }
+    function showSuggestions(html) {
+      suggestionsEl.classList.remove('centinela-search-overlay__suggestions--loading');
+      suggestionsEl.innerHTML = html;
+      suggestionsEl.removeAttribute('hidden');
+      positionDesktopSuggestions();
+      bindProductThumbFallbacks();
+    }
+    function cacheGet(key) {
+      if (Object.prototype.hasOwnProperty.call(searchResultsCache, key)) {
+        return searchResultsCache[key];
+      }
+      return persistentGet(key);
+    }
+    function cacheSet(key, value) {
+      if (!Object.prototype.hasOwnProperty.call(searchResultsCache, key)) {
+        searchResultsCacheOrder.push(key);
+      }
+      searchResultsCache[key] = value;
+      while (searchResultsCacheOrder.length > searchCacheMaxEntries) {
+        var oldest = searchResultsCacheOrder.shift();
+        if (oldest) delete searchResultsCache[oldest];
+      }
+      persistentSet(key, value);
+    }
+    function bindProductThumbFallbacks() {
+      suggestionsEl.querySelectorAll('img[data-fallbacks]').forEach(function (img) {
+        if (img.dataset.boundError === '1') return;
+        img.dataset.boundError = '1';
+        img.addEventListener('error', function () {
+          var queue = (img.dataset.fallbacks || '')
+            .split('|')
+            .map(function (u) { return (u || '').trim(); })
+            .filter(Boolean);
+          var next = queue.shift();
+          if (!next) {
+            var thumbWrap = img.closest('.centinela-search-overlay__product-thumb');
+            if (thumbWrap) thumbWrap.classList.add('centinela-search-overlay__product-thumb--empty');
+            if (img.src !== syscomNoImage) {
+              img.src = syscomNoImage;
+            }
+            return;
+          }
+          img.dataset.fallbacks = queue.join('|');
+          if (img.src !== next) img.src = next;
+        });
+      });
+    }
+    function fetchSuggestions(q, options) {
+      options = options || {};
+      var silent = !!options.silent;
+      if (!silent) {
+        userDismissedSuggestions = false;
+      }
+      if (!q || q.length < 2) {
+        if (!silent) hideSuggestions();
+        return;
+      }
+      var cacheKey = normalizeCacheKey(q);
+      var cachedHtml = cacheGet(cacheKey);
+      if (cachedHtml) {
+        if (!silent) showSuggestions(cachedHtml);
+        return;
+      }
+      // UX rápida: mostrar inmediatamente el mejor prefijo cacheado mientras llega respuesta real.
+      var bestPrefixKey = null;
+      searchResultsCacheOrder.forEach(function (k) {
+        if (cacheKey.indexOf(k) === 0 && (!bestPrefixKey || k.length > bestPrefixKey.length)) {
+          bestPrefixKey = k;
+        }
+      });
+      if (!silent && bestPrefixKey && cacheGet(bestPrefixKey)) {
+        showSuggestions(cacheGet(bestPrefixKey));
+      }
+      if (searchAbortController) {
+        searchAbortController.abort();
+      }
+      searchAbortController = new AbortController();
+      if (!silent && !bestPrefixKey) {
+        showLoading();
+      }
+
+      var apiUrl = (typeof centinelaTheme !== 'undefined' && centinelaTheme.searchApiUrl) ? centinelaTheme.searchApiUrl : (window.location.origin + '/wp-json/centinela/v1/search');
+      var likelyBrandQuery = /^[a-zA-Z\s]+$/.test(q) && q.trim().length >= 4;
+      // Desktop conserva más amplitud; mobile mantiene carga controlada.
+      var inlineBrandLimit = isDesktopInline ? 240 : 80;
+      var inlineRefLimit = isDesktopInline ? 60 : 40;
+      var limitProductos = isInlineSearch ? (likelyBrandQuery ? inlineBrandLimit : inlineRefLimit) : 8;
+      var limitContent = isInlineSearch ? 0 : 5;
+      var params = 'q=' + encodeURIComponent(q) + '&limit_content=' + limitContent + '&limit_productos=' + limitProductos + '&suggestions=1';
+      var url = apiUrl + (apiUrl.indexOf('?') !== -1 ? '&' : '?') + params;
+
+      fetch(url, { signal: searchAbortController.signal })
         .then(function (r) { return r.json(); })
         .then(function (data) {
           var contenido = (data && data.contenido) ? data.contenido : [];
@@ -192,38 +575,187 @@
           if (contenido.length > 0) {
             parts.push('<p class="centinela-search-overlay__suggestions-title">Contenido</p><ul class="centinela-search-overlay__suggestions-list">');
             contenido.forEach(function (c) {
-              parts.push('<li><a href="' + (c.url || '#') + '" class="centinela-search-overlay__suggestions-link">' + (c.title ? c.title.replace(/</g, '&lt;') : '') + '</a></li>');
+              parts.push('<li><a href="' + (c.url || '#') + '" class="centinela-search-overlay__suggestions-link">' + highlightText(c.title || '', q) + '</a></li>');
             });
             parts.push('</ul>');
           }
           if (productos.length > 0) {
             parts.push('<p class="centinela-search-overlay__suggestions-title">Productos</p><ul class="centinela-search-overlay__suggestions-list">');
             productos.forEach(function (p) {
-              parts.push('<li><a href="' + (p.url || '#') + '" class="centinela-search-overlay__suggestions-link">' + (p.titulo ? p.titulo.replace(/</g, '&lt;') : '') + (p.modelo ? ' <span class="centinela-search-overlay__suggestions-modelo">(' + p.modelo.replace(/</g, '&lt;') + ')</span>' : '') + '</a></li>');
+              var imageSrc = (p && p.imagen) ? String(p.imagen).trim() : '';
+              var fallbackQueue = Array.isArray(p.imagen_fallbacks) ? p.imagen_fallbacks.slice() : [];
+              fallbackQueue.push(syscomNoImage);
+              fallbackQueue = fallbackQueue
+                .map(function (u) { return String(u || '').trim(); })
+                .filter(Boolean)
+                .filter(function (u, idx, arr) { return arr.indexOf(u) === idx; });
+              if (imageSrc) {
+                fallbackQueue = fallbackQueue.filter(function (u) { return String(u || '').trim() !== imageSrc; });
+              }
+              if (!imageSrc && fallbackQueue.length) {
+                imageSrc = fallbackQueue.shift();
+              }
+              var fallbackAttr = escapeHtml(fallbackQueue.join('|'));
+              var imageHtml = imageSrc
+                ? '<span class="centinela-search-overlay__product-thumb"><img src="' + escapeHtml(imageSrc) + '" alt="' + escapeHtml(p.titulo || '') + '" loading="lazy" decoding="async" data-fallbacks="' + fallbackAttr + '" /></span>'
+                : '<span class="centinela-search-overlay__product-thumb centinela-search-overlay__product-thumb--empty" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5.5" width="17" height="13" rx="1.8"></rect><circle cx="9" cy="10" r="1.5"></circle><path d="M5.5 16l4.2-3.8a1 1 0 0 1 1.37.03L14 14.8l1.8-1.6a1 1 0 0 1 1.33.03L19 15"></path></svg></span>';
+              var marcaRaw = (p && p.marca) ? String(p.marca).trim() : '';
+              var marcaHref = marcaRaw
+                ? (window.location.origin + '/tienda/?marca=' + encodeURIComponent(marcaRaw))
+                : '';
+              var marcaHrefSafe = marcaHref ? escapeHtml(marcaHref) : '';
+              parts.push(
+                '<li><a href="' + (p.url || '#') + '" class="centinela-search-overlay__suggestions-link centinela-search-overlay__suggestions-link--product">' +
+                imageHtml +
+                '<span class="centinela-search-overlay__product-meta">' +
+                '<span class="centinela-search-overlay__product-title">' + highlightText(p.titulo || '', q) + '</span>' +
+                '<span class="centinela-search-overlay__suggestions-modelo">' + (p.modelo ? highlightText(p.modelo, q) : '') + '</span>' +
+                (marcaHref
+                  ? '<span class="centinela-search-overlay__suggestions-marca centinela-search-overlay__suggestions-marca-link" data-marca-href="' + marcaHrefSafe + '" data-marca="' + escapeHtml(marcaRaw) + '">' + highlightText(p.marca || '', q) + '</span>'
+                  : '<span class="centinela-search-overlay__suggestions-marca">' + (p.marca ? highlightText(p.marca, q) : '') + '</span>') +
+                '</span>' +
+                '</span>' +
+                '</a></li>'
+              );
             });
             parts.push('</ul>');
           }
-          showSuggestions(parts.join(''));
+          var htmlOut = parts.join('');
+          cacheSet(cacheKey, htmlOut);
+          if (!silent) {
+            if (userDismissedSuggestions) {
+              return;
+            }
+            showSuggestions(htmlOut);
+          }
         })
-        .catch(function () { hideSuggestions(); });
+        .catch(function (err) {
+          if (err && err.name === 'AbortError') return;
+          if (!silent) hideSuggestions();
+        });
     }
-    searchField.addEventListener('input', function () {
-      var q = (searchField.value || '').trim();
+
+    inputEl.addEventListener('input', function () {
+      var q = (inputEl.value || '').trim();
       clearTimeout(searchSuggestionsTimer);
       if (q.length < 2) {
         hideSuggestions();
         return;
       }
-      searchSuggestionsTimer = setTimeout(function () { fetchSuggestions(q); }, 280);
+      userDismissedSuggestions = false;
+      // Desktop: dispara un poco antes; mobile: un poco más de debounce para menos peticiones.
+      var debounceMs = isMobileInline ? 135 : 85;
+      searchSuggestionsTimer = setTimeout(function () { fetchSuggestions(q); }, debounceMs);
     });
-    searchField.addEventListener('blur', function () {
-      setTimeout(hideSuggestions, 180);
+    inputEl.addEventListener('focus', function () {
+      userDismissedSuggestions = false;
+      var q = (inputEl.value || '').trim();
+      if (q.length < 2) {
+        return;
+      }
+      var k = normalizeCacheKey(q);
+      var cached = cacheGet(k);
+      if (cached) {
+        showSuggestions(cached);
+        return;
+      }
+      fetchSuggestions(q);
     });
-    searchField.addEventListener('focus', function () {
-      var q = (searchField.value || '').trim();
-      if (q.length >= 2 && searchSuggestions.innerHTML) searchSuggestions.removeAttribute('hidden');
+    // No cerrar al mover cursor dentro de sugerencias; solo cerrar cuando se hace click fuera.
+    document.addEventListener('click', function (e) {
+      var target = e.target;
+      var insideInput = inputEl.contains(target);
+      var insideSuggestions = suggestionsEl.contains(target);
+      if (!insideInput && !insideSuggestions) {
+        userDismissedSuggestions = true;
+        if (searchAbortController) {
+          searchAbortController.abort();
+        }
+        hideSuggestions();
+      }
+    });
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        userDismissedSuggestions = true;
+        if (searchAbortController) {
+          searchAbortController.abort();
+        }
+        hideSuggestions();
+      }
+    });
+
+    // Prefetch solo en desktop: en móvil evita ~11 peticiones REST en home (mejor Lighthouse móvil).
+    if (isDesktopInline) {
+      var isHomePath = window.location.pathname === '/' || window.location.pathname === '';
+      if (!isHomePath) return;
+      var warmupSessionKey = 'centinelaSearchWarmupDoneV1';
+      try {
+        if (window.sessionStorage.getItem(warmupSessionKey) === '1') return;
+      } catch (e) {}
+      var prefetchTerms = [
+        // Marcas frecuentes
+        'ACCESSPRO', 'HIKVISION', 'EPCOM', 'DAHUA',
+        // Referencias/modelos populares
+        'AP1000', 'AP 1000', 'AP-1000',
+        'AP2000', 'AP 2000', 'AP-2000',
+        'AP2000HD', 'AP1000HD'
+      ];
+      var prefetchIdx = 0;
+      var prefetchRun = function () {
+        if (prefetchIdx >= prefetchTerms.length) return;
+        var term = prefetchTerms[prefetchIdx++];
+        var key = term.toLowerCase();
+        if (cacheGet(key)) {
+          prefetchRun();
+          return;
+        }
+        fetchSuggestions(term, { silent: true });
+        // Espaciado corto para calentar caché sin bloquear UI.
+        window.setTimeout(prefetchRun, 240);
+      };
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(prefetchRun, { timeout: 1800 });
+      } else {
+        window.setTimeout(prefetchRun, 500);
+      }
+      try {
+        window.sessionStorage.setItem(warmupSessionKey, '1');
+      } catch (e) {}
+    }
+  }
+
+  initLiveSearch(
+    document.getElementById('centinela-search-field'),
+    document.getElementById('centinela-search-suggestions')
+  );
+  initLiveSearch(
+    document.getElementById('centinela-mobile-search-field'),
+    document.getElementById('centinela-mobile-search-suggestions')
+  );
+  initLiveSearch(
+    document.getElementById('centinela-desktop-search-field'),
+    document.getElementById('centinela-desktop-search-suggestions')
+  );
+
+  // Enter manual en buscador: dirigir a /tienda/?marca=<query>.
+  // No afecta clic en sugerencias (esas ya navegan con su propio href).
+  function bindSearchSubmitToMarca(formSelector, inputSelector) {
+    var formEl = document.querySelector(formSelector);
+    if (!formEl) return;
+    var inputEl = formEl.querySelector(inputSelector);
+    if (!inputEl) return;
+    formEl.addEventListener('submit', function (e) {
+      var q = (inputEl.value || '').trim();
+      if (!q) return; // deja comportamiento normal para búsquedas vacías.
+      e.preventDefault();
+      var target = window.location.origin + '/tienda/?marca=' + encodeURIComponent(q);
+      window.location.href = target;
     });
   }
+
+  bindSearchSubmitToMarca('.centinela-header__search-inline-form', '#centinela-desktop-search-field');
+  bindSearchSubmitToMarca('.centinela-mobile-search-form', '#centinela-mobile-search-field');
+  bindSearchSubmitToMarca('#centinela-search-form', '#centinela-search-field');
 
   // Submenú de categorías: toggle de subcategorías en móvil (acordeón)
   var submenuToggles = document.querySelectorAll('.centinela-submenu__toggle');

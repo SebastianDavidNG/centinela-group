@@ -41,6 +41,43 @@
   }
 }
 
+.centinela-tienda__mobile-filters-bar {
+  display: none;
+}
+
+.centinela-tienda__mobile-filters-toggle {
+  border: 1px solid #d9dee7;
+  background: $white-color;
+  color: $blue-color;
+  height: 2.625rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: $font-weight-bold;
+  letter-spacing: 0.01em;
+}
+
+.centinela-tienda__mobile-filters-backdrop {
+  display: none;
+}
+
+.centinela-tienda__mobile-filters-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.centinela-tienda__mobile-filters-close {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: $blue-color;
+  font-size: 1.75rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+
 .centinela-tienda__filters {
   background: $white-color;
   border: 1px solid #e5e7eb;
@@ -67,6 +104,10 @@
   color: $blue-color;
 }
 
+.centinela-no-scroll {
+  overflow: hidden;
+}
+
 // Bloques de filtro (Marcas, Filtrar por precio) – estilo WiseGuard con colores Centinela
 .centinela-tienda__filter-block {
   margin-top: 1.5rem;
@@ -86,60 +127,82 @@
   color: $blue-color;
 }
 
-.centinela-tienda__marcas-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+// Filtro marca: <select> único (desktop + móvil), envoltorio con flecha personalizada
+.centinela-tienda__brand-select-shell {
+  position: relative;
+  margin-top: 0.125rem;
 
-  .centinela-tienda__marcas-loading,
-  .centinela-tienda__marcas-empty {
-    font-size: 0.8125rem;
-    color: #6b7280;
+  &::after {
+    content: '';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-top: -0.28rem;
+    border-right: 2px solid $blue-color;
+    border-bottom: 2px solid $blue-color;
+    transform: rotate(45deg);
+    pointer-events: none;
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+  }
+
+  &:focus-within::after {
+    opacity: 0.9;
+    border-color: $green-color;
   }
 }
 
-// Enlaces de marca: estilo checkbox (estilo CozyCorner)
-.centinela-tienda__marca-link {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0;
+.centinela-tienda__brand-select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.7rem 2.65rem 0.7rem 1rem;
+  font-family: $font-family-base;
   font-size: 0.875rem;
-  color: $blue-color-2;
-  text-decoration: none;
-  transition: color 0.2s, background-color 0.2s;
-
-  &::before {
-    content: '';
-    flex-shrink: 0;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid #d1d5db;
-    border-radius: 2px;
-    background: $white-color;
-    transition: border-color 0.2s, background-color 0.2s;
-  }
+  font-weight: $font-weight-medium;
+  line-height: 1.4;
+  color: $blue-color;
+  background-color: $white-color;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(2, 28, 55, 0.05);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 
   &:hover {
-    color: $green-color;
-
-    &::before {
-      border-color: $green-color;
-    }
+    border-color: color.adjust($grey-color, $lightness: 22%);
+    box-shadow: 0 2px 10px rgba(2, 28, 55, 0.07);
   }
 
-  &.centinela-tienda__marca-link--active {
-    font-weight: $font-weight-bold;
-    color: $green-color;
+  &:focus {
+    outline: none;
+    border-color: $green-color;
+    box-shadow: 0 0 0 3px rgba(34, 147, 121, 0.22);
+  }
 
-    &::before {
-      border-color: $green-color;
-      background-color: $green-color;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 6l3 3 5-6'/%3E%3C/svg%3E");
-      background-size: 0.75rem;
-      background-repeat: no-repeat;
-      background-position: center;
-    }
+  &:disabled {
+    opacity: 0.72;
+    cursor: wait;
+    pointer-events: none;
+    background-color: #f9fafb;
+  }
+}
+
+.centinela-tienda__brand-select option {
+  font-weight: $font-weight-regular;
+  padding: 0.35rem 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .centinela-tienda__brand-select {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    font-size: 0.9375rem;
   }
 }
 
@@ -413,6 +476,23 @@ $centinela-expand-duration: 0.35s;
     background: #f8f9fa;
     border-radius: 8px;
   }
+
+  &--hint {
+    margin: 0.75rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: color.adjust($grey-color, $lightness: 8%);
+    text-align: center;
+
+    a {
+      color: $blue-color-2;
+      text-decoration: underline;
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
 }
 
 // Main content – grid
@@ -420,11 +500,58 @@ $centinela-expand-duration: 0.35s;
   min-width: 0;
 }
 
-// Estado de carga: feedback inmediato al filtrar (evita sensación de lentitud)
-.centinela-tienda__content--loading {
-  opacity: 0.65;
+// Área de productos (AJAX): overlay de “buscando” durante filtros
+.centinela-tienda__content {
+  position: relative;
+}
+
+.centinela-tienda__filter-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem 3rem;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(3px);
   pointer-events: none;
-  transition: opacity 0.2s ease;
+}
+
+.centinela-tienda__filter-loading-text {
+  margin: 0;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.9375rem;
+  font-weight: $font-weight-bold;
+  color: $blue-color;
+  background: $white-color;
+  border: 1px solid rgba($black-color, 0.08);
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  animation: centinela-tienda-filter-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes centinela-tienda-filter-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.88;
+    transform: scale(0.99);
+  }
+}
+
+// Estado de carga: atenúa solo el grid/paginación, no el mensaje encima
+.centinela-tienda__content--loading {
+  pointer-events: none;
+
+  > *:not(.centinela-tienda__filter-loading-overlay) {
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+  }
 }
 
 .centinela-tienda__main-title {
@@ -760,6 +887,74 @@ $centinela-expand-duration: 0.35s;
   justify-content: center;
   gap: 0.5rem;
   margin-top: 2.5rem;
+}
+
+@media (max-width: 767px) {
+  .centinela-tienda__inner {
+    gap: 1rem;
+  }
+
+  .centinela-tienda__mobile-filters-bar {
+    position: sticky;
+    top: 4.75rem;
+    z-index: 12;
+    display: flex;
+    justify-content: flex-start;
+    padding: 0.25rem 0 0.5rem;
+    background: transparent;
+  }
+
+  .centinela-tienda__mobile-filters-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(8, 14, 24, 0.45);
+
+    &:not([hidden]) {
+      display: block;
+    }
+  }
+
+  .centinela-tienda__sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(88vw, 22rem);
+    max-width: 22rem;
+    z-index: 50;
+    transform: translateX(-102%);
+    transition: transform 0.24s ease;
+    pointer-events: none;
+
+    &.is-mobile-open {
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+  }
+
+  .centinela-tienda__filters {
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+    position: relative;
+    top: 0;
+    overflow-y: auto;
+    padding: 1rem 1rem 1.5rem;
+  }
+
+  .centinela-tienda__mobile-filters-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .centinela-tienda__sidebar-title {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
 }
 
 .centinela-tienda__page-link {

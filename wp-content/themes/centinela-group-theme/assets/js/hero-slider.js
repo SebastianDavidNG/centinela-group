@@ -23,6 +23,7 @@
       loop: true,
       speed: 600,
       effect: 'slide',
+      preloadImages: false,
       a11y: {
         prevSlideMessage: 'Slide anterior',
         nextSlideMessage: 'Slide siguiente',

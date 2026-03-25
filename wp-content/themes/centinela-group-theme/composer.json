@@ -1,0 +1,14 @@
+{
+    "name": "centinela-group/centinela-group-theme",
+    "description": "Tema WordPress Centinela Group - dependencias para generación de PDF",
+    "require": {
+        "php": ">=7.4",
+        "dompdf/dompdf": "^2.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true
+        },
+        "optimize-autoloader": true
+    }
+}

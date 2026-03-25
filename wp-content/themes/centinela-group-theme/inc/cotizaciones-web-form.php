@@ -326,9 +326,14 @@ function centinela_cotizaciones_web_form_ajax_submit() {
 		$emails = preg_split( '/[\s,;]+/', $email_recipients, -1, PREG_SPLIT_NO_EMPTY );
 		$emails = array_unique( array_filter( array_map( 'sanitize_email', $emails ) ) );
 		if ( ! empty( $emails ) ) {
-			$subject = sprintf( __( '[%s] Nueva solicitud de cotización', 'centinela-group-theme' ), get_bloginfo( 'name' ) );
-			$body = centinela_cotizaciones_web_form_build_email_body( $sanitized );
-			$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+			$subject = __( 'Cotización Web de Centinela Group', 'centinela-group-theme' );
+			$body    = centinela_cotizaciones_web_form_build_email_body( $sanitized );
+			$from_email = apply_filters( 'centinela_cotizacion_web_from_email', 'noreply@centinelagroup.com' );
+			$from_name  = apply_filters( 'centinela_cotizacion_web_from_name', 'Centinela Group' );
+			$headers = array(
+				'Content-Type: text/html; charset=UTF-8',
+				'From: ' . $from_name . ' <' . $from_email . '>',
+			);
 			foreach ( $emails as $to ) {
 				if ( is_email( $to ) ) {
 					$sent = wp_mail( $to, $subject, $body, $headers ) || $sent;

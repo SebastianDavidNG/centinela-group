@@ -25,12 +25,28 @@ function centinela_theme_default_header() {
 						<span class="site-description"><?php bloginfo( 'description' ); ?></span>
 					<?php endif; ?>
 				<?php endif; ?>
+				<form role="search" method="get" class="centinela-header__search-inline-form" action="<?php echo esc_url( home_url( '/' ) ); ?>" autocomplete="off">
+					<label for="centinela-desktop-search-field" class="screen-reader-text"><?php esc_html_e( 'Buscar', 'centinela-group-theme' ); ?></label>
+					<div class="centinela-header__search-inline">
+						<input
+							type="search"
+							id="centinela-desktop-search-field"
+							class="centinela-header__search-inline-input"
+							name="s"
+							placeholder="<?php esc_attr_e( 'Buscar por referencia, modelo o marca...', 'centinela-group-theme' ); ?>"
+							autocomplete="off"
+						/>
+						<svg class="centinela-header__search-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+						<div
+							id="centinela-desktop-search-suggestions"
+							class="centinela-search-overlay__suggestions centinela-header__search-inline-suggestions"
+							aria-live="polite"
+							hidden
+						></div>
+					</div>
+				</form>
 			</div>
 			<nav id="site-navigation" class="centinela-header__nav site-navigation" aria-label="<?php esc_attr_e( 'Menú principal', 'centinela-group-theme' ); ?>">
-				<?php // En móvil: lupa a la izquierda del hamburguesa (orden visual con CSS) ?>
-				<button type="button" class="centinela-header__search centinela-header__search--mobile" aria-label="<?php esc_attr_e( 'Buscar', 'centinela-group-theme' ); ?>" aria-expanded="false" aria-controls="centinela-search-form" id="centinela-search-toggle-mobile">
-					<svg class="centinela-header__search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-				</button>
 				<button type="button" class="centinela-header__toggle" aria-expanded="false" aria-controls="primary-menu-mobile" id="menu-toggle">
 					<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
 				</button>
@@ -45,6 +61,18 @@ function centinela_theme_default_header() {
 				) );
 				?>
 			</nav>
+			<div class="centinela-header__mobile-search">
+				<form role="search" method="get" class="centinela-mobile-search-form" action="<?php echo esc_url( home_url( '/' ) ); ?>">
+					<label for="centinela-mobile-search-field" class="screen-reader-text"><?php esc_html_e( 'Buscar', 'centinela-group-theme' ); ?></label>
+					<div class="centinela-mobile-search-form__inner">
+						<input type="search" id="centinela-mobile-search-field" class="centinela-mobile-search-form__input" placeholder="<?php esc_attr_e( 'Buscar productos o marcas...', 'centinela-group-theme' ); ?>" name="s" autocomplete="off" />
+						<button type="submit" class="centinela-mobile-search-form__submit" aria-label="<?php esc_attr_e( 'Enviar búsqueda', 'centinela-group-theme' ); ?>">
+							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+						</button>
+					</div>
+					<div id="centinela-mobile-search-suggestions" class="centinela-search-overlay__suggestions centinela-mobile-search-form__suggestions" hidden></div>
+				</form>
+			</div>
 			<?php
 			$centinela_cart_page    = get_page_by_path( 'carrito', OBJECT, 'page' );
 			$centinela_cart_url     = $centinela_cart_page ? get_permalink( $centinela_cart_page ) : home_url( '/carrito/' );
@@ -57,10 +85,12 @@ function centinela_theme_default_header() {
 				$centinela_checkout_url = wc_get_checkout_url();
 			}
 			$centinela_tienda_url = home_url( '/tienda/' );
+			$centinela_cotizacion_url = home_url( '/#pedir-cotizacion' );
 			// Forzar HTTP en localhost para evitar redirección a https (Docker/local sin SSL).
 			$centinela_cart_url     = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_cart_url ) : $centinela_cart_url;
 			$centinela_checkout_url = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_checkout_url ) : $centinela_checkout_url;
 			$centinela_tienda_url   = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_tienda_url ) : $centinela_tienda_url;
+			$centinela_cotizacion_url = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_cotizacion_url ) : $centinela_cotizacion_url;
 			?>
 			<div class="centinela-header__actions">
 				<div class="centinela-header__action-wrap centinela-header__cart-wrap">
@@ -107,25 +137,34 @@ function centinela_theme_default_header() {
 						</div>
 					</div>
 				</div>
-				<a href="#pedir-cotizacion" class="centinela-header__cta centinela-header__cta--desktop">
+				<a href="<?php echo esc_url( $centinela_cotizacion_url ); ?>" class="centinela-header__cta centinela-header__cta--desktop">
 					<span class="centinela-header__cta-text"><?php esc_html_e( 'Pedir cotización', 'centinela-group-theme' ); ?></span>
 					<svg class="centinela-header__cta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
 				</a>
-				<button type="button" class="centinela-header__search centinela-header__search--desktop" aria-label="<?php esc_attr_e( 'Buscar', 'centinela-group-theme' ); ?>" aria-expanded="false" aria-controls="centinela-search-form" id="centinela-search-toggle">
-					<svg class="centinela-header__search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-				</button>
 			</div>
 		</div>
 		<?php get_template_part( 'template-parts/header', 'search-overlay' ); ?>
-		<div id="primary-menu-mobile" class="centinela-header__menu-mobile centinela-mobile-overlay" aria-hidden="true">
-			<div class="centinela-mobile-overlay__backdrop" aria-hidden="true"></div>
-			<div class="centinela-mobile-overlay__panel">
-				<header class="centinela-mobile-overlay__header">
-					<span class="centinela-mobile-overlay__title"><?php esc_html_e( 'Menú', 'centinela-group-theme' ); ?></span>
-					<button type="button" class="centinela-mobile-overlay__close" id="centinela-mobile-close" aria-label="<?php esc_attr_e( 'Cerrar menú', 'centinela-group-theme' ); ?>">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
-					</button>
-				</header>
+	</header>
+	<?php
+}
+
+/**
+ * Overlay del menú móvil (fuera del header-bar para que position:fixed cubra siempre el viewport).
+ * Se imprime después de .centinela-header-bar en header.php.
+ */
+function centinela_theme_mobile_menu_overlay() {
+	$centinela_mobile_cotizacion_url = home_url( '/#pedir-cotizacion' );
+	$centinela_mobile_cotizacion_url = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_mobile_cotizacion_url ) : $centinela_mobile_cotizacion_url;
+	?>
+	<div id="primary-menu-mobile" class="centinela-header__menu-mobile centinela-mobile-overlay" aria-hidden="true">
+		<div class="centinela-mobile-overlay__backdrop" aria-hidden="true"></div>
+		<div class="centinela-mobile-overlay__panel">
+			<header class="centinela-mobile-overlay__header">
+				<span class="centinela-mobile-overlay__title"><?php esc_html_e( 'Menú', 'centinela-group-theme' ); ?></span>
+				<button type="button" class="centinela-mobile-overlay__close" id="centinela-mobile-close" aria-label="<?php esc_attr_e( 'Cerrar menú', 'centinela-group-theme' ); ?>">
+					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+				</button>
+			</header>
 			<ul id="primary-menu-mobile-list" class="centinela-header__menu centinela-mobile-menu">
 				<?php
 				wp_nav_menu( array(
@@ -138,7 +177,6 @@ function centinela_theme_default_header() {
 				) );
 				?>
 				<?php
-				// Categorías de productos (API Syscom) dentro del menú hamburguesa – solo móvil, estilo Hotlock
 				$arbol_mobile = class_exists( 'Centinela_Syscom_API' ) ? Centinela_Syscom_API::get_categorias_arbol() : array();
 				if ( ! is_wp_error( $arbol_mobile ) && ! empty( $arbol_mobile ) ) :
 					?>
@@ -195,14 +233,13 @@ function centinela_theme_default_header() {
 				<?php endif; ?>
 			</ul>
 			<div class="centinela-mobile-overlay__footer">
-				<a href="#pedir-cotizacion" class="centinela-mobile-overlay__cta centinela-mobile-menu-cta" id="centinela-mobile-cta">
+				<a href="<?php echo esc_url( $centinela_mobile_cotizacion_url ); ?>" class="centinela-mobile-overlay__cta centinela-mobile-menu-cta" id="centinela-mobile-cta">
 					<span><?php esc_html_e( 'Pedir cotización', 'centinela-group-theme' ); ?></span>
 					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
 				</a>
 			</div>
-			</div>
 		</div>
-	</header>
+	</div>
 	<?php
 }
 

@@ -19,6 +19,7 @@ class Centinela_Syscom_API {
 	const TRANSIENT_TOKEN           = 'centinela_syscom_token';
 	const TRANSIENT_CATEGORIAS      = 'centinela_syscom_categorias';
 	const TRANSIENT_CATEGORIAS_ARBOL = 'centinela_syscom_categorias_arbol';
+	const TRANSIENT_MARCAS_NOMBRES   = 'centinela_syscom_marcas_nombres_v1';
 	const CACHE_CATEGORIAS_HOURS    = 6;
 
 	/**
@@ -610,8 +611,8 @@ class Centinela_Syscom_API {
 		if ( ! is_array( $data ) ) {
 			return new WP_Error( 'centinela_syscom', __( 'Respuesta inválida de producto.', 'centinela-group-theme' ) );
 		}
-		// Algunas APIs envuelven el producto en "data"
-		if ( isset( $data['data'] ) && is_array( $data['data'] ) ) {
+		// Algunas APIs envuelven el producto en "data" (puede haber más de un nivel).
+		while ( isset( $data['data'] ) && is_array( $data['data'] ) && count( $data ) === 1 ) {
 			$data = $data['data'];
 		}
 		return $data;
@@ -678,6 +679,115 @@ class Centinela_Syscom_API {
 	}
 
 	/**
+	 * Lista de nombres de marcas según la API Syscom (GET /marcas u homólogos).
+	 * Documentación: recurso "Marcas" en developers.syscomcolombia.com/docs
+	 *
+	 * @return array Lista de strings (nombres), orden alfabético, sin duplicados.
+	 */
+	public static function get_marcas_nombres() {
+		$cached = get_transient( self::TRANSIENT_MARCAS_NOMBRES );
+		if ( is_array( $cached ) && ! empty( $cached ) ) {
+			return $cached;
+		}
+
+		$token = self::get_token();
+		if ( is_wp_error( $token ) ) {
+			return array();
+		}
+
+		$headers = array(
+			'Authorization' => 'Bearer ' . $token,
+			'Accept'        => 'application/json',
+		);
+
+		// Rutas probadas según guía pública de la API (puede variar; el parser admite varias formas).
+		$urls = array(
+			self::API_BASE . 'marcas',
+			self::API_BASE . 'productos/marcas',
+		);
+
+		foreach ( $urls as $url ) {
+			$response = wp_remote_get(
+				$url,
+				array(
+					'timeout' => 25,
+					'headers' => $headers,
+				)
+			);
+			if ( is_wp_error( $response ) ) {
+				continue;
+			}
+			$code = wp_remote_retrieve_response_code( $response );
+			if ( (int) $code !== 200 ) {
+				continue;
+			}
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+			$list = self::parse_marcas_api_payload( $data );
+			if ( ! empty( $list ) ) {
+				$list = array_values( array_unique( array_map( 'trim', $list ) ) );
+				sort( $list );
+				set_transient( self::TRANSIENT_MARCAS_NOMBRES, $list, 12 * HOUR_IN_SECONDS );
+				return $list;
+			}
+		}
+
+		return array();
+	}
+
+	/**
+	 * Normaliza la respuesta JSON de marcas a una lista de nombres.
+	 *
+	 * @param mixed $data Decodificado JSON.
+	 * @return array
+	 */
+	private static function parse_marcas_api_payload( $data ) {
+		if ( ! is_array( $data ) ) {
+			return array();
+		}
+		$items = array();
+		if ( isset( $data['data'] ) && is_array( $data['data'] ) ) {
+			$items = $data['data'];
+		} elseif ( isset( $data['marcas'] ) && is_array( $data['marcas'] ) ) {
+			$items = $data['marcas'];
+		} elseif ( array_values( $data ) === $data ) {
+			$items = $data;
+		}
+		$out = array();
+		foreach ( $items as $item ) {
+			if ( is_string( $item ) ) {
+				$t = trim( $item );
+				if ( $t !== '' ) {
+					$out[] = $t;
+				}
+				continue;
+			}
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$n = '';
+			if ( isset( $item['nombre'] ) ) {
+				$n = (string) $item['nombre'];
+			} elseif ( isset( $item['name'] ) ) {
+				$n = (string) $item['name'];
+			} elseif ( isset( $item['marca'] ) ) {
+				if ( is_array( $item['marca'] ) && isset( $item['marca']['nombre'] ) ) {
+					$n = (string) $item['marca']['nombre'];
+				} else {
+					$n = (string) $item['marca'];
+				}
+			} elseif ( isset( $item['titulo'] ) ) {
+				$n = (string) $item['titulo'];
+			}
+			$n = trim( $n );
+			if ( $n !== '' ) {
+				$out[] = $n;
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Obtener productos relacionados a un producto.
 	 *
 	 * @param string|int $producto_id ID del producto.
@@ -722,8 +832,12 @@ class Centinela_Syscom_API {
 		delete_transient( self::TRANSIENT_TOKEN );
 		delete_transient( self::TRANSIENT_CATEGORIAS );
 		delete_transient( self::TRANSIENT_CATEGORIAS_ARBOL );
+		delete_transient( self::TRANSIENT_MARCAS_NOMBRES );
 		global $wpdb;
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_syscom_hijos_%' OR option_name LIKE '_transient_timeout_centinela_syscom_hijos_%'" );
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_ps_%' OR option_name LIKE '_transient_timeout_centinela_ps_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_precios_detalle_%' OR option_name LIKE '_transient_timeout_centinela_precios_detalle_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_sidebar_marcas_%' OR option_name LIKE '_transient_timeout_centinela_sidebar_marcas_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_tienda_marcas_%' OR option_name LIKE '_transient_timeout_centinela_tienda_marcas_%'" );
 	}
 }

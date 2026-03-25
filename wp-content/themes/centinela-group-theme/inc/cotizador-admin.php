@@ -43,6 +43,147 @@ function centinela_cotizador_register_cpt() {
 add_action( 'init', 'centinela_cotizador_register_cpt' );
 
 /**
+ * Asegura rol y capacidades para usuarios del Cotizador.
+ * - centinela_manage_cotizador: acceso total al módulo (sin borrar cotizaciones).
+ * - La eliminación queda reservada al administrador (manage_options).
+ */
+function centinela_cotizador_setup_role_caps() {
+	$cap = 'centinela_manage_cotizador';
+
+	$admin_role = get_role( 'administrator' );
+	if ( $admin_role && ! $admin_role->has_cap( $cap ) ) {
+		$admin_role->add_cap( $cap );
+	}
+
+	$cotizador_role = get_role( 'centinela_cotizador' );
+	if ( ! $cotizador_role ) {
+		$cotizador_role = add_role(
+			'centinela_cotizador',
+			__( 'Cotizador Centinela', 'centinela-group-theme' ),
+			array(
+				'read'                    => true,
+				$cap                      => true,
+			)
+		);
+	} elseif ( ! $cotizador_role->has_cap( $cap ) ) {
+		$cotizador_role->add_cap( $cap );
+	}
+}
+add_action( 'init', 'centinela_cotizador_setup_role_caps', 20 );
+
+/**
+ * Asegura que el usuario operativo del cotizador tenga el rol/cap correctos.
+ * Fallback defensivo para instalaciones donde el usuario se crea manualmente con otro rol.
+ */
+function centinela_cotizador_ensure_operator_user_caps() {
+	$user = get_user_by( 'login', 'CotizadorCentinelaG' );
+	if ( ! $user || ! $user instanceof WP_User ) {
+		// Compatibilidad por si el login fue creado en minúsculas.
+		$user = get_user_by( 'login', 'cotizadorcentinelag' );
+	}
+	if ( ! $user || ! $user instanceof WP_User ) {
+		return;
+	}
+	$needs_role = ! in_array( 'centinela_cotizador', (array) $user->roles, true );
+	if ( $needs_role ) {
+		$user->set_role( 'centinela_cotizador' );
+	}
+	if ( ! $user->has_cap( 'centinela_manage_cotizador' ) ) {
+		$user->add_cap( 'centinela_manage_cotizador', true );
+	}
+}
+add_action( 'init', 'centinela_cotizador_ensure_operator_user_caps', 25 );
+
+/**
+ * Permiso central del módulo cotizador.
+ *
+ * @return bool
+ */
+function centinela_cotizador_can_manage() {
+	return current_user_can( 'centinela_manage_cotizador' );
+}
+
+/**
+ * Obtiene el logo por defecto del cotizador.
+ * Prioridad:
+ * 1) Imagen con texto alternativo exacto: "Logo Centinela Group"
+ * 2) Imagen con título exacto: "Logo Cotizador"
+ * 3) Fallback al logo principal del tema.
+ *
+ * @return array{ id:int, src_full:string, src_medium:string }
+ */
+function centinela_cotizador_get_default_logo_data() {
+	static $cached = null;
+	if ( is_array( $cached ) ) {
+		return $cached;
+	}
+
+	$logo_id = 0;
+
+	// 1) Buscar por texto alternativo (meta de adjunto).
+	$ids_by_alt = get_posts(
+		array(
+			'post_type'              => 'attachment',
+			'post_status'            => 'inherit',
+			'post_mime_type'         => 'image',
+			'posts_per_page'         => 1,
+			'fields'                 => 'ids',
+			'orderby'                => 'date',
+			'order'                  => 'DESC',
+			'meta_key'               => '_wp_attachment_image_alt',
+			'meta_value'             => 'Logo Centinela Group',
+			'update_post_meta_cache' => false,
+			'update_post_term_cache' => false,
+		)
+	);
+	if ( ! empty( $ids_by_alt ) ) {
+		$logo_id = (int) $ids_by_alt[0];
+	}
+
+	// 2) Si no existe por alt, buscar por título de adjunto.
+	if ( $logo_id <= 0 ) {
+		$ids_by_title = get_posts(
+			array(
+				'post_type'              => 'attachment',
+				'post_status'            => 'inherit',
+				'post_mime_type'         => 'image',
+				'posts_per_page'         => 1,
+				'fields'                 => 'ids',
+				'orderby'                => 'date',
+				'order'                  => 'DESC',
+				'title'                  => 'Logo Cotizador',
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+			)
+		);
+		if ( ! empty( $ids_by_title ) ) {
+			$logo_id = (int) $ids_by_title[0];
+		}
+	}
+
+	// 3) Fallback final: logo principal del tema.
+	if ( $logo_id <= 0 && has_custom_logo() ) {
+		$theme_logo_id = (int) get_theme_mod( 'custom_logo' );
+		if ( $theme_logo_id > 0 ) {
+			$logo_id = $theme_logo_id;
+		}
+	}
+
+	$src_full   = $logo_id > 0 ? (string) wp_get_attachment_image_url( $logo_id, 'full' ) : '';
+	$src_medium = $logo_id > 0 ? (string) wp_get_attachment_image_url( $logo_id, 'medium' ) : '';
+	if ( $src_medium === '' ) {
+		$src_medium = $src_full;
+	}
+
+	$cached = array(
+		'id'         => $logo_id,
+		'src_full'   => $src_full,
+		'src_medium' => $src_medium,
+	);
+	return $cached;
+}
+
+/**
  * Formatea una fecha Y-m-d a texto legible en español: "Febrero 28 del 2026".
  *
  * @param string $fecha_ymd Fecha en formato Y-m-d (ej. 2026-02-28).
@@ -270,7 +411,7 @@ function centinela_cotizador_register_menu() {
 	add_menu_page(
 		__( 'Cotizador', 'centinela-group-theme' ),
 		__( 'Cotizador', 'centinela-group-theme' ),
-		'manage_options',
+		'centinela_manage_cotizador',
 		'centinela-cotizador',
 		'centinela_cotizador_render_page',
 		'dashicons-calculator',
@@ -280,12 +421,85 @@ function centinela_cotizador_register_menu() {
 		'centinela-cotizador',
 		__( 'Mis Cotizaciones', 'centinela-group-theme' ),
 		__( 'Mis Cotizaciones', 'centinela-group-theme' ),
-		'manage_options',
+		'centinela_manage_cotizador',
 		'centinela-cotizador-mis-cotizaciones',
 		'centinela_cotizador_render_mis_cotizaciones'
 	);
 }
 add_action( 'admin_menu', 'centinela_cotizador_register_menu' );
+
+/**
+ * Restringe el admin para el rol de cotizador: solo páginas del módulo.
+ */
+function centinela_cotizador_restrict_admin_access() {
+	if ( ! is_admin() || ! is_user_logged_in() ) {
+		return;
+	}
+	if ( wp_doing_ajax() ) {
+		return;
+	}
+	if ( ! centinela_cotizador_can_manage() || current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+	$allowed_pages = array( 'centinela-cotizador', 'centinela-cotizador-mis-cotizaciones' );
+	if ( in_array( $page, $allowed_pages, true ) ) {
+		return;
+	}
+	wp_safe_redirect( admin_url( 'admin.php?page=centinela-cotizador' ) );
+	exit;
+}
+add_action( 'admin_init', 'centinela_cotizador_restrict_admin_access', 1 );
+
+/**
+ * Oculta menús no permitidos para el rol cotizador.
+ */
+function centinela_cotizador_limit_admin_menu() {
+	if ( ! centinela_cotizador_can_manage() || current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	global $menu;
+	$allowed_top = array( 'centinela-cotizador' );
+	foreach ( (array) $menu as $item ) {
+		$slug = isset( $item[2] ) ? (string) $item[2] : '';
+		if ( $slug === '' ) {
+			continue;
+		}
+		if ( ! in_array( $slug, $allowed_top, true ) ) {
+			remove_menu_page( $slug );
+		}
+	}
+}
+add_action( 'admin_menu', 'centinela_cotizador_limit_admin_menu', 999 );
+
+/**
+ * WooCommerce puede bloquear /wp-admin para usuarios "no admin" y redirigir a My Account.
+ * Permitir explícitamente acceso al rol/cap del cotizador.
+ *
+ * @param bool $prevent Valor actual de WooCommerce.
+ * @return bool
+ */
+function centinela_cotizador_allow_wp_admin_woocommerce( $prevent ) {
+	if ( is_user_logged_in() && centinela_cotizador_can_manage() ) {
+		return false;
+	}
+	return $prevent;
+}
+add_filter( 'woocommerce_prevent_admin_access', 'centinela_cotizador_allow_wp_admin_woocommerce', 20 );
+
+/**
+ * Mostrar admin bar para usuario cotizador en admin (evita comportamientos de plugins que la ocultan por rol).
+ *
+ * @param bool $disable Valor actual de WooCommerce.
+ * @return bool
+ */
+function centinela_cotizador_keep_admin_bar_woocommerce( $disable ) {
+	if ( is_user_logged_in() && centinela_cotizador_can_manage() ) {
+		return false;
+	}
+	return $disable;
+}
+add_filter( 'woocommerce_disable_admin_bar', 'centinela_cotizador_keep_admin_bar_woocommerce', 20 );
 
 /**
  * Encolar estilos y script solo en la página del Cotizador
@@ -315,13 +529,8 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 		defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0',
 		true
 	);
-	$logo_default_url = '';
-	if ( has_custom_logo() ) {
-		$logo_id = get_theme_mod( 'custom_logo' );
-		if ( $logo_id ) {
-			$logo_default_url = wp_get_attachment_image_url( $logo_id, 'full' );
-		}
-	}
+	$logo_default_data = function_exists( 'centinela_cotizador_get_default_logo_data' ) ? centinela_cotizador_get_default_logo_data() : array();
+	$logo_default_url  = isset( $logo_default_data['src_full'] ) ? (string) $logo_default_data['src_full'] : '';
 	$cotizacion_editar = null;
 	$editar_id = isset( $_GET['editar'] ) ? absint( $_GET['editar'] ) : 0;
 	if ( $editar_id > 0 ) {
@@ -371,7 +580,7 @@ add_action( 'admin_enqueue_scripts', 'centinela_cotizador_enqueue_assets' );
  */
 function centinela_cotizador_ajax_buscar_productos() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$busqueda = isset( $_REQUEST['busqueda'] ) ? trim( sanitize_text_field( wp_unslash( $_REQUEST['busqueda'] ) ) ) : '';
@@ -507,7 +716,7 @@ add_action( 'wp_ajax_centinela_cotizador_buscar_productos', 'centinela_cotizador
  */
 function centinela_cotizador_ajax_tipo_cambio() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$tipo_cambio = 0;
@@ -543,7 +752,7 @@ add_action( 'wp_ajax_centinela_cotizador_tipo_cambio', 'centinela_cotizador_ajax
  */
 function centinela_cotizador_ajax_guardar() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$raw = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
@@ -569,7 +778,7 @@ add_action( 'wp_ajax_centinela_cotizador_guardar', 'centinela_cotizador_ajax_gua
  */
 function centinela_cotizador_ajax_preview_email() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$raw  = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
@@ -587,7 +796,7 @@ add_action( 'wp_ajax_centinela_cotizador_preview_email', 'centinela_cotizador_aj
  */
 function centinela_cotizador_ajax_enviar_guardar() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$raw   = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
@@ -615,33 +824,62 @@ function centinela_cotizador_ajax_enviar_guardar() {
 	}
 
 	$datos['numero'] = get_post_meta( $post_id, '_cotizacion_numero', true );
-	$asunto = sprintf( __( 'Cotización: %s', 'centinela-group-theme' ), isset( $datos['titulo'] ) ? $datos['titulo'] : '' );
+	$titulo_cot = isset( $datos['titulo'] ) && $datos['titulo'] !== '' ? $datos['titulo'] : '';
+	$asunto     = $titulo_cot !== ''
+		? sprintf( __( 'Cotización Web de Centinela Group - %s', 'centinela-group-theme' ), $titulo_cot )
+		: __( 'Cotización Web de Centinela Group', 'centinela-group-theme' );
 	$cuerpo_html = centinela_cotizador_build_email_html( $datos );
 
 	$attachments = array();
 	if ( $formato_adjunto === 'pdf' ) {
 		$pdf_path = apply_filters( 'centinela_cotizador_generar_pdf', '', $post_id, 'default', $datos );
-		if ( $pdf_path !== '' && file_exists( $pdf_path ) ) {
-			$attachments[] = $pdf_path;
+		if ( $pdf_path !== '' ) {
+			$abs = realpath( $pdf_path );
+			if ( $abs && is_readable( $abs ) ) {
+				$attachments[] = $abs;
+			} elseif ( file_exists( $pdf_path ) ) {
+				@unlink( $pdf_path );
+			}
+		}
+		if ( empty( $attachments ) ) {
+			// Fallback: adjuntar HTML si Dompdf no está disponible para que el cliente reciba la cotización.
+			$html_path = centinela_cotizador_adjunto_html_fallback( $post_id, $datos );
+			if ( $html_path !== '' ) {
+				$abs = realpath( $html_path );
+				if ( $abs && is_readable( $abs ) ) {
+					$attachments[] = $abs;
+				} else {
+					@unlink( $html_path );
+				}
+			}
 		}
 	} elseif ( $formato_adjunto === 'excel' ) {
-		$excel_path = apply_filters( 'centinela_cotizador_generar_excel', '', $post_id, $datos );
+		$excel_path   = apply_filters( 'centinela_cotizador_generar_excel', '', $post_id, $datos );
+		$from_fallback = false;
 		if ( $excel_path === '' ) {
-			$excel_path = centinela_cotizador_generar_excel_fallback( $post_id, $datos );
+			$excel_path    = centinela_cotizador_generar_excel_fallback( $post_id, $datos );
+			$from_fallback = true;
 		}
-		if ( $excel_path !== '' && file_exists( $excel_path ) ) {
-			$attachments[] = $excel_path;
+		if ( $excel_path !== '' ) {
+			$abs = realpath( $excel_path );
+			if ( $abs && is_readable( $abs ) ) {
+				$attachments[] = $abs;
+			} elseif ( $from_fallback && file_exists( $excel_path ) ) {
+				@unlink( $excel_path );
+			}
 		}
 	}
 
-	$headers = array( 'Content-Type: text/html; charset=UTF-8' );
-	$envio   = wp_mail( $email_cliente, $asunto, $cuerpo_html, $headers, $attachments );
+	$from_email = apply_filters( 'centinela_cotizador_from_email', 'noreply@centinelagroup.com' );
+	$from_name  = apply_filters( 'centinela_cotizador_from_name', 'Centinela Group' );
+	$headers    = array(
+		'Content-Type: text/html; charset=UTF-8',
+		'From: ' . $from_name . ' <' . $from_email . '>',
+	);
+	$envio = wp_mail( $email_cliente, $asunto, $cuerpo_html, $headers, $attachments );
 
-	foreach ( $attachments as $path ) {
-		if ( file_exists( $path ) ) {
-			@unlink( $path );
-		}
-	}
+	// Borrar adjuntos al final del request para no eliminarlos antes de que SMTP los lea.
+	centinela_cotizador_schedule_attachment_cleanup( $attachments );
 
 	wp_send_json_success( array(
 		'id'      => $post_id,
@@ -656,7 +894,7 @@ add_action( 'wp_ajax_centinela_cotizador_enviar_guardar', 'centinela_cotizador_a
  */
 function centinela_cotizador_ajax_preview_envio() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$raw   = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
@@ -813,6 +1051,11 @@ function centinela_cotizador_generar_pdf_fallback( $path, $post_id, $plantilla, 
 	if ( $path !== '' ) {
 		return $path;
 	}
+	// Cargar Dompdf desde el tema si existe vendor (composer install en el tema).
+	$autoload = get_template_directory() . '/vendor/autoload.php';
+	if ( ! class_exists( '\Dompdf\Dompdf' ) && file_exists( $autoload ) ) {
+		require_once $autoload;
+	}
 	if ( ! class_exists( '\Dompdf\Dompdf' ) ) {
 		return '';
 	}
@@ -841,11 +1084,57 @@ function centinela_cotizador_generar_pdf_fallback( $path, $post_id, $plantilla, 
 add_filter( 'centinela_cotizador_generar_pdf', 'centinela_cotizador_generar_pdf_fallback', 999, 4 );
 
 /**
+ * Programa la eliminación de archivos adjuntos al final del request (shutdown).
+ * Así el SMTP puede leer los archivos aunque envíe en un hook posterior.
+ *
+ * @param array $paths Lista de rutas absolutas a borrar.
+ */
+function centinela_cotizador_schedule_attachment_cleanup( $paths ) {
+	if ( empty( $paths ) || ! is_array( $paths ) ) {
+		return;
+	}
+	$paths = array_filter( array_map( 'realpath', $paths ) );
+	if ( empty( $paths ) ) {
+		return;
+	}
+	register_shutdown_function( function () use ( $paths ) {
+		foreach ( $paths as $path ) {
+			if ( is_string( $path ) && $path !== '' && file_exists( $path ) && is_writable( $path ) ) {
+				@unlink( $path );
+			}
+		}
+	} );
+}
+
+/**
+ * Fallback cuando no hay PDF: genera un archivo HTML con el cuerpo del correo para adjuntar.
+ *
+ * @param int   $post_id ID del post cotización.
+ * @param array $datos   Datos de la cotización.
+ * @return string Ruta al archivo .html temporal o vacío.
+ */
+function centinela_cotizador_adjunto_html_fallback( $post_id, $datos ) {
+	$datos['numero'] = isset( $datos['numero'] ) ? $datos['numero'] : get_post_meta( $post_id, '_cotizacion_numero', true );
+	$html = centinela_cotizador_build_email_html( $datos );
+	$tmp  = wp_tempnam( 'cotizacion-html-' . $post_id );
+	if ( ! $tmp ) {
+		return '';
+	}
+	@unlink( $tmp );
+	$out = $tmp . '.html';
+	$full_html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cotización</title></head><body>' . $html . '</body></html>';
+	if ( file_put_contents( $out, $full_html ) === false ) {
+		return '';
+	}
+	return $out;
+}
+
+/**
  * AJAX: generar link de pago (crear pedido WC y devolver URL Wompi)
  */
 function centinela_cotizador_ajax_enviar_carrito() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 	}
 	$raw = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
@@ -903,7 +1192,7 @@ add_action( 'wp_ajax_centinela_cotizador_enviar_carrito', 'centinela_cotizador_a
  * Renderizar la página del Cotizador
  */
 function centinela_cotizador_render_page() {
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		return;
 	}
 	?>
@@ -1009,21 +1298,21 @@ function centinela_cotizador_render_page() {
 					<h2 id="centinela-cotizador-logo-title" class="centinela-cotizador-logo-title"><?php esc_html_e( 'Logo de la cotización', 'centinela-group-theme' ); ?></h2>
 					<p class="description"><?php esc_html_e( 'Logo que se mostrará en el correo y en el PDF/Excel enviado al cliente.', 'centinela-group-theme' ); ?></p>
 					<?php
-					$logo_default_id   = get_theme_mod( 'custom_logo' );
-					$logo_default_src   = $logo_default_id ? wp_get_attachment_image_url( $logo_default_id, 'medium' ) : '';
-					$logo_default_full  = $logo_default_id ? wp_get_attachment_image_url( $logo_default_id, 'full' ) : '';
+					$logo_default_data = function_exists( 'centinela_cotizador_get_default_logo_data' ) ? centinela_cotizador_get_default_logo_data() : array();
+					$logo_default_src  = isset( $logo_default_data['src_medium'] ) ? (string) $logo_default_data['src_medium'] : '';
+					$logo_default_full = isset( $logo_default_data['src_full'] ) ? (string) $logo_default_data['src_full'] : '';
 					?>
 					<div class="centinela-cotizador-logo-preview-wrap">
 						<div class="centinela-cotizador-logo-preview" id="centinela-cotizador-logo-preview">
 							<img id="centinela-cotizador-logo-img" src="<?php echo esc_url( $logo_default_src ); ?>" alt="" style="max-width:100%;height:auto;<?php echo $logo_default_src ? '' : 'display:none;'; ?>" />
-							<span class="centinela-cotizador-logo-placeholder" id="centinela-cotizador-logo-placeholder" style="<?php echo $logo_default_src ? 'display:none;' : ''; ?>"><?php esc_html_e( 'Logo del tema', 'centinela-group-theme' ); ?></span>
+							<span class="centinela-cotizador-logo-placeholder" id="centinela-cotizador-logo-placeholder" style="<?php echo $logo_default_src ? 'display:none;' : ''; ?>"><?php esc_html_e( 'Logo por defecto', 'centinela-group-theme' ); ?></span>
 						</div>
 						<p class="centinela-cotizador-logo-formats"><?php esc_html_e( 'Formatos aceptados:', 'centinela-group-theme' ); ?> .png, .jpg, .ai</p>
 					</div>
 					<input type="hidden" id="centinela-cotizador-logo-url" value="<?php echo esc_url( $logo_default_full ); ?>" />
 					<div class="centinela-cotizador-logo-actions">
 						<button type="button" class="button" id="centinela-cotizador-logo-select"><?php esc_html_e( 'Subir / Cambiar logo', 'centinela-group-theme' ); ?></button>
-						<button type="button" class="button button-link-delete" id="centinela-cotizador-logo-reset"><?php esc_html_e( 'Usar logo del tema', 'centinela-group-theme' ); ?></button>
+						<button type="button" class="button button-link-delete" id="centinela-cotizador-logo-reset"><?php esc_html_e( 'Usar logo por defecto', 'centinela-group-theme' ); ?></button>
 					</div>
 				</section>
 
@@ -1164,13 +1453,17 @@ function centinela_cotizador_render_page() {
  * Renderizar la página Mis Cotizaciones (listado de cotizaciones guardadas)
  */
 function centinela_cotizador_render_mis_cotizaciones() {
-	if ( ! current_user_can( 'manage_options' ) ) {
+	if ( ! centinela_cotizador_can_manage() ) {
 		return;
 	}
 	// Procesar eliminación (mover a papelera)
 	$eliminar_id = isset( $_GET['eliminar'] ) ? absint( $_GET['eliminar'] ) : 0;
 	if ( $eliminar_id > 0 && isset( $_GET['_wpnonce'] ) ) {
 		$nonce = sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones&permiso_eliminar=0' ) );
+			exit;
+		}
 		if ( wp_verify_nonce( $nonce, 'centinela_eliminar_cotizacion_' . $eliminar_id ) ) {
 			$post = get_post( $eliminar_id );
 			if ( $post && $post->post_type === 'cotizacion' ) {
@@ -1190,6 +1483,9 @@ function centinela_cotizador_render_mis_cotizaciones() {
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Mis Cotizaciones', 'centinela-group-theme' ); ?></h1>
+		<?php if ( isset( $_GET['permiso_eliminar'] ) && $_GET['permiso_eliminar'] === '0' ) : ?>
+			<div class="notice notice-warning is-dismissible"><p><?php esc_html_e( 'No tienes permisos para eliminar cotizaciones. Solicita esta acción al administrador.', 'centinela-group-theme' ); ?></p></div>
+		<?php endif; ?>
 		<?php if ( isset( $_GET['eliminado'] ) && $_GET['eliminado'] === '1' ) : ?>
 			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Cotización eliminada.', 'centinela-group-theme' ); ?></p></div>
 		<?php endif; ?>
@@ -1226,7 +1522,9 @@ function centinela_cotizador_render_mis_cotizaciones() {
 							<td><?php echo esc_html( get_the_date() ); ?></td>
 							<td>
 								<a href="<?php echo esc_url( $editar_url ); ?>" class="button button-small"><?php esc_html_e( 'Editar', 'centinela-group-theme' ); ?></a>
-								<a href="<?php echo esc_url( $eliminar_url ); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php echo esc_js( $eliminar_confirm ); ?>');"><?php esc_html_e( 'Eliminar', 'centinela-group-theme' ); ?></a>
+								<?php if ( current_user_can( 'manage_options' ) ) : ?>
+									<a href="<?php echo esc_url( $eliminar_url ); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php echo esc_js( $eliminar_confirm ); ?>');"><?php esc_html_e( 'Eliminar', 'centinela-group-theme' ); ?></a>
+								<?php endif; ?>
 							</td>
 						</tr>
 					<?php endwhile; ?>

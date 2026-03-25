@@ -27,4 +27,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php centinela_theme_submenu(); ?>
 	</div>
 
+	<?php centinela_theme_mobile_menu_overlay(); ?>
+
 	<main id="content" class="site-main flex-grow">

@@ -1,0 +1,54 @@
+<?php
+/**
+ * Ejemplo de wp-config.php para PRODUCCIÓN (centinelagroup.com)
+ *
+ * INSTRUCCIONES:
+ * 1. Copia este archivo como wp-config.php en el servidor de producción.
+ * 2. Sustituye los valores entre <> por los reales de tu hosting.
+ * 3. Genera nuevas claves en https://api.wordpress.org/secret-key/1.1/salt/
+ *    y reemplaza los valores de AUTH_KEY, SECURE_AUTH_KEY, etc.
+ * 4. No subas el wp-config.php final a repositorios públicos.
+ *
+ * @package WordPress
+ */
+
+// ** Base de datos de producción - datos que te da el hosting ** //
+define( 'DB_NAME', '<nombre_bd_produccion>' );
+define( 'DB_USER', '<usuario_bd>' );
+define( 'DB_PASSWORD', '<contraseña_bd>' );
+define( 'DB_HOST', '<host_mysql>' );  // ej. localhost o mysql.tudominio.com
+define( 'DB_CHARSET', 'utf8mb4' );
+define( 'DB_COLLATE', '' );
+
+/**#@+
+ * Claves y sales: genera nuevas en https://api.wordpress.org/secret-key/1.1/salt/
+ */
+define( 'AUTH_KEY',         '<generar_nueva>' );
+define( 'SECURE_AUTH_KEY',  '<generar_nueva>' );
+define( 'LOGGED_IN_KEY',    '<generar_nueva>' );
+define( 'NONCE_KEY',        '<generar_nueva>' );
+define( 'AUTH_SALT',        '<generar_nueva>' );
+define( 'SECURE_AUTH_SALT', '<generar_nueva>' );
+define( 'LOGGED_IN_SALT',   '<generar_nueva>' );
+define( 'NONCE_SALT',       '<generar_nueva>' );
+/**#@-*/
+
+$table_prefix = 'wp_';
+
+define( 'WP_DEBUG', false );
+@ini_set( 'display_errors', 0 );
+
+// URL del sitio en producción (debe coincidir con el reemplazo hecho en la BD)
+define( 'WP_HOME', 'https://centinelagroup.com' );
+define( 'WP_SITEURL', 'https://centinelagroup.com' );
+
+// Si el hosting pone un proxy/load balancer delante y termina HTTPS
+if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ) {
+	$_SERVER['HTTPS'] = 'on';
+}
+
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', __DIR__ . '/' );
+}
+
+require_once ABSPATH . 'wp-settings.php';

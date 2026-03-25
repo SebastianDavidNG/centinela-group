@@ -391,6 +391,22 @@ class Centinela_Hero_Slider_Widget extends \Elementor\Widget_Base {
 		$has_icons        = ! empty( $icons );
 		$icons_text_color = isset( $settings['icons_text_color'] ) ? $settings['icons_text_color'] : '#FFFFFF';
 
+		// Preload del primer slide (mejorar LCP en mobile).
+		$first_image_preload_url = '';
+		if ( isset( $slides[0]['image'] ) && is_array( $slides[0]['image'] ) ) {
+			$image_id  = isset( $slides[0]['image']['id'] ) ? (int) $slides[0]['image']['id'] : 0;
+			$image_url = isset( $slides[0]['image']['url'] ) ? (string) $slides[0]['image']['url'] : '';
+			if ( $image_id > 0 ) {
+				$resolved = wp_get_attachment_image_url( $image_id, 'full' );
+				if ( $resolved ) {
+					$image_url = $resolved;
+				}
+			}
+			$first_image_preload_url = $image_url;
+		}
+		// Importante: el render del widget ocurre dentro del body, por eso imprimimos
+		// el preload directamente en el markup del slider (no vía `wp_head`).
+
 		// Tamaños de fuente responsivos (título y texto).
 		$title_size_mobile  = $this->get_responsive_font_size( $settings, 'title_font_size', '_mobile' );
 		$title_size_tablet  = $this->get_responsive_font_size( $settings, 'title_font_size', '_tablet' );
@@ -435,14 +451,25 @@ class Centinela_Hero_Slider_Widget extends \Elementor\Widget_Base {
 		$arrow_svg = '<svg class="centinela-hero__cta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
 		$play_svg  = '<svg class="centinela-hero__cta-play-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7L8 5z"/></svg>';
 		?>
+		<?php if ( $first_image_preload_url !== '' ) : ?>
+			<link rel="preload" as="image" href="<?php echo esc_url( $first_image_preload_url ); ?>" />
+		<?php endif; ?>
 		<section class="centinela-hero" aria-label="<?php esc_attr_e( 'Slider principal', 'centinela-group-theme' ); ?>" data-hero-id="<?php echo esc_attr( $widget_id ); ?>" data-autoplay="<?php echo $autoplay ? '1' : '0'; ?>" data-autoplay-delay="<?php echo esc_attr( $autoplay_delay ); ?>" data-arrows="<?php echo $show_arrows ? '1' : '0'; ?>" data-pagination="<?php echo $show_pagination ? '1' : '0'; ?>">
 			<div class="centinela-hero__swiper swiper">
 				<div class="centinela-hero__track swiper-wrapper">
-					<?php foreach ( $slides as $slide ) : ?>
+					<?php foreach ( $slides as $index => $slide ) : ?>
 						<?php
-						$image       = isset( $slide['image']['url'] ) ? $slide['image']['url'] : '';
+						// Resolver URL desde el ID del adjunto si existe; evita que en frontend no se vea la imagen hasta re-guardar en Elementor.
+						$image_id  = isset( $slide['image']['id'] ) ? (int) $slide['image']['id'] : 0;
+						$image_url = isset( $slide['image']['url'] ) ? $slide['image']['url'] : '';
+						if ( $image_id > 0 ) {
+							$resolved = wp_get_attachment_image_url( $image_id, 'full' );
+							if ( $resolved ) {
+								$image_url = $resolved;
+							}
+						}
+						$image       = $image_url;
 						$has_bg_image = $image !== '';
-						$bg_style    = $has_bg_image ? ' background-image: url(' . esc_url( $image ) . ');' : '';
 						$bg_class    = $has_bg_image ? '' : ' centinela-hero__bg--no-image';
 						$title       = isset( $slide['title'] ) ? $slide['title'] : '';
 						$text        = isset( $slide['text'] ) ? $slide['text'] : '';
@@ -453,7 +480,16 @@ class Centinela_Hero_Slider_Widget extends \Elementor\Widget_Base {
 						$cta_sec_is_video = self::is_video_url( $cta_sec_url );
 						?>
 						<div class="centinela-hero__slide swiper-slide">
-							<div class="centinela-hero__bg<?php echo esc_attr( $bg_class ); ?>" style="<?php echo $bg_style; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" role="img" aria-label="<?php echo esc_attr( $title ); ?>"></div>
+							<div class="centinela-hero__bg<?php echo esc_attr( $bg_class ); ?>" role="img" aria-label="<?php echo esc_attr( $title ); ?>">
+								<?php if ( $has_bg_image ) : ?>
+									<?php
+									// Swiper (loop + clones) puede hacer que el LCP caiga en el 2do slide en mobile.
+									// Por eso priorizamos eager/high para los 2 primeros slides y dejamos el resto en lazy/low.
+									$is_hero_eager = $index === 0 || $index === 1;
+									?>
+									<img class="centinela-hero__bg-img" src="<?php echo esc_url( $image ); ?>" alt="" decoding="async" loading="<?php echo $is_hero_eager ? 'eager' : 'lazy'; ?>" fetchpriority="<?php echo $is_hero_eager ? 'high' : 'low'; ?>" />
+								<?php endif; ?>
+							</div>
 							<div class="centinela-hero__overlay"></div>
 							<div class="centinela-hero__inner">
 								<div class="centinela-hero__content-area">

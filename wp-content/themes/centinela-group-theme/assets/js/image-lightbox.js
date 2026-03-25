@@ -8,9 +8,54 @@
   var currentImages = [];
   var currentIndex = 0;
   var listenersBound = false;
+  var fullScreenSupported = false;
 
   function getEl(id) {
     return document.getElementById(id);
+  }
+
+  function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function isFullscreen() {
+    return !!getFullscreenElement();
+  }
+
+  function requestFullscreen(el) {
+    if (!el) return Promise.reject(new Error('No element'));
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+    return Promise.reject(new Error('Fullscreen not supported'));
+  }
+
+  function exitFullscreen() {
+    if (document.exitFullscreen) return document.exitFullscreen();
+    if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+    return Promise.resolve();
+  }
+
+  function updateFullscreenButton() {
+    var btn = getEl('centinela-lightbox-fullscreen');
+    if (!btn) return;
+    if (!fullScreenSupported) {
+      btn.style.display = 'none';
+      return;
+    }
+    var label = isFullscreen() ? 'Salir de pantalla completa' : 'Pantalla completa';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    btn.classList.toggle('is-active', isFullscreen());
+  }
+
+  function toggleFullscreen() {
+    if (!fullScreenSupported) return;
+    if (isFullscreen()) {
+      exitFullscreen().catch(function () {});
+      return;
+    }
+    var box = getEl('centinela-image-lightbox');
+    requestFullscreen(box || document.documentElement).catch(function () {});
   }
 
   function bindListeners() {
@@ -20,6 +65,9 @@
     listenersBound = true;
     var prevBtn = getEl('centinela-lightbox-prev');
     var nextBtn = getEl('centinela-lightbox-next');
+    var fullscreenBtn = getEl('centinela-lightbox-fullscreen');
+    fullScreenSupported = !!(lightbox.requestFullscreen || lightbox.webkitRequestFullscreen || document.exitFullscreen || document.webkitExitFullscreen);
+    updateFullscreenButton();
     document.addEventListener('click', function (e) {
       if (e.target.closest('[data-close-lightbox]')) {
         e.preventDefault();
@@ -28,6 +76,9 @@
     });
     if (prevBtn) prevBtn.addEventListener('click', function (e) { e.preventDefault(); goPrev(); });
     if (nextBtn) nextBtn.addEventListener('click', function (e) { e.preventDefault(); goNext(); });
+    if (fullscreenBtn) fullscreenBtn.addEventListener('click', function (e) { e.preventDefault(); toggleFullscreen(); });
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
     document.addEventListener('keydown', function (e) {
       if (!lightbox || !lightbox.classList.contains('centinela-lightbox--open')) return;
       if (e.key === 'Escape') {
@@ -98,6 +149,9 @@
     if (lightbox) {
       lightbox.setAttribute('aria-hidden', 'true');
       lightbox.classList.remove('centinela-lightbox--open');
+    }
+    if (isFullscreen()) {
+      exitFullscreen().catch(function () {});
     }
     document.body.style.overflow = '';
   }

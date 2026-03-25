@@ -198,10 +198,25 @@ class Centinela_Servicios_Slider_Widget extends \Elementor\Widget_Base {
 					<ul class="centinela-servicios__track swiper-wrapper">
 						<?php foreach ( $items as $item ) : ?>
 							<?php
-							$icon_url   = isset( $item['icon_image']['url'] ) ? $item['icon_image']['url'] : '';
+							// Resolver URL desde el ID si hace falta (evita que en frontend/mobile no se vea hasta re-seleccionar la imagen).
+							$icon_id = isset( $item['icon_image']['id'] ) ? (int) $item['icon_image']['id'] : 0;
+							$icon_url = isset( $item['icon_image']['url'] ) ? $item['icon_image']['url'] : '';
+							if ( $icon_id > 0 ) {
+								$resolved = wp_get_attachment_image_url( $icon_id, 'full' );
+								if ( $resolved ) {
+									$icon_url = $resolved;
+								}
+							}
+							$bottom_id  = isset( $item['image_bottom']['id'] ) ? (int) $item['image_bottom']['id'] : 0;
+							$bottom_url = isset( $item['image_bottom']['url'] ) ? $item['image_bottom']['url'] : '';
+							if ( $bottom_id > 0 ) {
+								$resolved = wp_get_attachment_image_url( $bottom_id, 'full' );
+								if ( $resolved ) {
+									$bottom_url = $resolved;
+								}
+							}
 							$title      = isset( $item['title'] ) ? $item['title'] : '';
 							$desc       = isset( $item['description'] ) ? $item['description'] : '';
-							$bottom_url = isset( $item['image_bottom']['url'] ) ? $item['image_bottom']['url'] : '';
 							?>
 							<li class="centinela-servicios__slide swiper-slide">
 								<div class="centinela-servicios__card">
