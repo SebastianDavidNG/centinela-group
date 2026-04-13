@@ -11,6 +11,413 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Mapa de aliases de marcas (clave normalizada => marca canónica).
+ *
+ * @return array<string,string>
+ */
+function centinela_tienda_brand_alias_map() {
+	return array(
+		'hilook'             => 'HiLook by HIKVISION',
+		'hilookbyhikvision'  => 'HiLook by HIKVISION',
+		// Kenwood / JVC Kenwood.
+		'kenwood'            => 'KENWOOD',
+		'keenon'             => 'KENWOOD',
+		'keenwood'           => 'KENWOOD',
+		'jvckenwood'         => 'KENWOOD',
+		'jvckenwoodinc'      => 'KENWOOD',
+		// MIMOSA.
+		'mimosa'             => 'MIMOSA NETWORKS',
+		'mimosanetworks'     => 'MIMOSA NETWORKS',
+		// ALLIED TELESIS.
+		'alliedtelesis'      => 'ALLIED TELESIS',
+		// ROSSLARE.
+		'rosslare'                  => 'ROSSLARE SECURITY PRODUCTS',
+		'rosslaresecurityproducts'  => 'ROSSLARE SECURITY PRODUCTS',
+		// AXPRO (línea de HIKVISION, pero la mantenemos separada para el usuario).
+		'axpro'              => 'AXPRO',
+		// LINKEDPRO.
+		'linkedpro'                => 'LINKEDPRO',
+		'linkedprobyepcom'         => 'LINKEDPRO',
+		'linkedprobyfiberhome'     => 'LINKEDPRO',
+		// CAMBIUM NETWORKS.
+		'cambiumnetworks'          => 'CAMBIUM NETWORKS',
+		'cambiumnetworksinc'       => 'CAMBIUM NETWORKS',
+		// STI (abreviatura habitual).
+		'sti'                      => 'STI',
+	);
+}
+
+/**
+ * Normaliza texto para comparar marcas.
+ *
+ * @param string $value Texto de marca.
+ * @return string
+ */
+function centinela_tienda_normalize_brand_text( $value ) {
+	$value = trim( (string) $value );
+	if ( $value === '' ) {
+		return '';
+	}
+	if ( function_exists( 'centinela_normalize_for_match' ) ) {
+		return centinela_normalize_for_match( $value );
+	}
+	return strtolower( preg_replace( '/[\s\-_]+/', '', $value ) );
+}
+
+/**
+ * Devuelve marca canónica (aplica aliases conocidos).
+ *
+ * @param string $brand Marca original.
+ * @return string
+ */
+function centinela_tienda_brand_canonical( $brand ) {
+	$brand = trim( (string) $brand );
+	if ( $brand === '' ) {
+		return '';
+	}
+	$norm = centinela_tienda_normalize_brand_text( $brand );
+	$map  = centinela_tienda_brand_alias_map();
+	return isset( $map[ $norm ] ) ? $map[ $norm ] : $brand;
+}
+
+/**
+ * Construye términos de búsqueda por marca para consultar API y cubrir aliases/submarcas.
+ *
+ * @param string $marca Marca solicitada por el usuario.
+ * @return string[]
+ */
+function centinela_tienda_brand_query_terms( $marca ) {
+	$marca      = trim( (string) $marca );
+	$canonical  = centinela_tienda_brand_canonical( $marca );
+	$norm       = centinela_tienda_normalize_brand_text( $canonical );
+	$terms      = array( $marca, $canonical );
+
+	// Aliases de alta prioridad con comportamiento esperado por negocio.
+	if ( $norm === 'kenwood' ) {
+		// Syscom mezcla TXPRO con KENWOOD en radios comerciales (p. ej. Portátiles UHF); la API por categoría a veces no trae TXPRO sin búsqueda explícita.
+		$terms[] = 'TXPRO';
+		$terms[] = 'TX PRO';
+		$terms[] = 'KENWOOD';
+		$terms[] = 'JVC KENWOOD';
+		$terms[] = 'JVC KENWOOD INC';
+		$terms[] = 'JVC KENWOOD CORPORATION';
+		$terms[] = 'para KENWOOD';
+		$terms[] = 'accesorios KENWOOD';
+	} elseif ( $norm === 'hilookbyhikvision' ) {
+		$terms[] = 'HiLook by HIKVISION';
+		$terms[] = 'Hilook';
+		$terms[] = 'HIKVISION';
+	} elseif ( $norm === 'cambiumnetworks' ) {
+		$terms[] = 'CAMBIUM NETWORKS';
+		$terms[] = 'CAMBIUM NETWORKS INC';
+	}
+
+	$terms = array_values( array_unique( array_filter( array_map( 'trim', $terms ) ) ) );
+	return $terms;
+}
+
+/**
+ * Término listo para el parámetro busqueda de Syscom (alineado con centinela-search).
+ *
+ * @param string $term Término crudo o alias de marca.
+ * @return string Vacío si no hay nada útil que enviar.
+ */
+function centinela_tienda_api_busqueda( $term ) {
+	$term = trim( (string) $term );
+	if ( $term === '' ) {
+		return '';
+	}
+	if ( function_exists( 'centinela_normalize_search_term_for_api' ) ) {
+		$n = centinela_normalize_search_term_for_api( $term );
+		return $n !== '' ? $n : strtolower( $term );
+	}
+	return strtolower( $term );
+}
+
+/**
+ * Clave de transient para la lista completa fusionada por marca (misma que get_productos_by_brand).
+ *
+ * @param string $marca        Marca canónica o solicitada.
+ * @param string $categoria_id ID categoría Syscom.
+ * @param string $ordenar      Orden API.
+ * @return string
+ */
+function centinela_tienda_brand_merge_cache_key( $marca, $categoria_id = '', $ordenar = 'relevancia' ) {
+	return 'centinela_brand_merge_v5_' . md5(
+		wp_json_encode(
+			array(
+				'marca'     => (string) centinela_tienda_brand_canonical( $marca ),
+				'categoria' => (string) $categoria_id,
+				'orden'     => (string) sanitize_text_field( $ordenar ),
+				'ken_cat'   => 'subtree_v1',
+			)
+		)
+	);
+}
+
+/**
+ * Vista previa rápida por marca (pocas llamadas a Syscom) para mostrar resultados antes del merge completo.
+ *
+ * @param string $marca        Marca.
+ * @param string $categoria_id Categoría opcional.
+ * @param string $ordenar      Orden API.
+ * @param int    $limit        Máximo de productos a devolver.
+ * @return array{productos: array, paginas: int}
+ */
+function centinela_tienda_get_productos_by_brand_quick( $marca, $categoria_id = '', $ordenar = 'relevancia', $limit = 12 ) {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return array(
+			'productos' => array(),
+			'paginas'   => 0,
+		);
+	}
+	$marca    = trim( (string) $marca );
+	$ordenar  = sanitize_text_field( $ordenar );
+	$limit    = max( 1, min( 24, (int) $limit ) );
+	$terms    = centinela_tienda_brand_query_terms( $marca );
+	$terms    = array_slice( $terms, 0, 2 );
+	if ( empty( $terms ) ) {
+		return array(
+			'productos' => array(),
+			'paginas'   => 0,
+		);
+	}
+	$all_items = array();
+	$seen      = array();
+	$max_calls = 8;
+	$api_calls = 0;
+	foreach ( $terms as $term ) {
+		$busqueda = centinela_tienda_api_busqueda( $term );
+		if ( $busqueda === '' ) {
+			continue;
+		}
+		for ( $page_num = 1; $page_num <= 4; $page_num++ ) {
+			if ( $api_calls >= $max_calls ) {
+				break 2;
+			}
+			$api_calls++;
+			$args = array(
+				'pagina'   => $page_num,
+				'orden'    => $ordenar,
+				'cop'      => true,
+				'busqueda' => $busqueda,
+			);
+			if ( $categoria_id !== '' ) {
+				$args['categoria'] = (string) $categoria_id;
+			}
+			$resp = Centinela_Syscom_API::get_productos( $args );
+			if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+				break;
+			}
+			foreach ( $resp['productos'] as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : '' );
+				$key = $pid !== '' ? (string) $pid : md5( wp_json_encode( $p ) );
+				if ( isset( $seen[ $key ] ) ) {
+					continue;
+				}
+				$seen[ $key ] = true;
+				$all_items[]  = $p;
+			}
+			$api_pages = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+			if ( $api_pages > 0 && $page_num >= $api_pages ) {
+				break;
+			}
+		}
+	}
+	$all_items = centinela_tienda_filter_productos_por_marca( $all_items, $marca, array() );
+	$slice     = array_slice( $all_items, 0, $limit );
+	return array(
+		'productos' => $slice,
+		'paginas'   => 0,
+	);
+}
+
+/**
+ * Consulta productos por marca probando variantes de alias y combinando resultados sin duplicados.
+ *
+ * @param string $marca       Marca a buscar.
+ * @param string $categoria_id Categoría opcional.
+ * @param int    $pagina      Página principal solicitada.
+ * @param string $ordenar     Orden API.
+ * @return array{productos: array, paginas: int}
+ */
+function centinela_tienda_get_productos_by_brand( $marca, $categoria_id = '', $pagina = 1, $ordenar = 'relevancia', $per_page = 12 ) {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return array(
+			'productos' => array(),
+			'paginas'   => 0,
+		);
+	}
+
+	$marca = trim( (string) $marca );
+
+	$pagina   = max( 1, (int) $pagina );
+	$ordenar  = sanitize_text_field( $ordenar );
+	$per_page = max( 1, (int) $per_page );
+	$terms    = centinela_tienda_brand_query_terms( $marca );
+	if ( empty( $terms ) ) {
+		return array(
+			'productos' => array(),
+			'paginas'   => 0,
+		);
+	}
+
+	$canonical_marca = centinela_tienda_brand_canonical( $marca );
+	$norm_marca      = centinela_tienda_normalize_brand_text( $canonical_marca );
+
+	$cache_key  = centinela_tienda_brand_merge_cache_key( $marca, $categoria_id, $ordenar );
+	$cached_all = get_transient( $cache_key );
+	$all_items  = is_array( $cached_all ) ? $cached_all : array();
+
+	// Caché antigua sin orden Kenwood: reordenar al leer.
+	if ( ! empty( $all_items ) && $norm_marca === 'kenwood' && $categoria_id === '' && function_exists( 'centinela_search_kenwood_radio_boost_score' ) ) {
+		usort(
+			$all_items,
+			static function ( $a, $b ) {
+				if ( ! is_array( $a ) || ! is_array( $b ) ) {
+					return 0;
+				}
+				$sa = centinela_search_kenwood_radio_boost_score( $a );
+				$sb = centinela_search_kenwood_radio_boost_score( $b );
+				return $sb <=> $sa;
+			}
+		);
+	}
+
+	if ( empty( $all_items ) ) {
+		$all_items      = array();
+		$seen           = array();
+		$max_api_calls   = ( $norm_marca === 'kenwood' && $categoria_id === '' ) ? 100 : 60;
+		// Reservar llamadas para listados por categoría (subárbol KENWOOD en Syscom).
+		$term_budget     = ( $norm_marca === 'kenwood' && $categoria_id === '' ) ? 55 : $max_api_calls;
+		$api_calls       = 0;
+
+		foreach ( $terms as $term ) {
+			$busqueda = centinela_tienda_api_busqueda( $term );
+			if ( $busqueda === '' ) {
+				continue;
+			}
+			for ( $page_num = 1; $page_num <= 30; $page_num++ ) {
+				if ( $api_calls >= $term_budget ) {
+					break 2;
+				}
+				$api_calls++;
+				$args = array(
+					'pagina'   => $page_num,
+					'orden'    => $ordenar,
+					'cop'      => true,
+					'busqueda' => $busqueda,
+				);
+				if ( $categoria_id !== '' ) {
+					$args['categoria'] = (string) $categoria_id;
+				}
+				$resp = Centinela_Syscom_API::get_productos( $args );
+				if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+					break;
+				}
+				foreach ( $resp['productos'] as $p ) {
+					if ( ! is_array( $p ) ) {
+						continue;
+					}
+					$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : '' );
+					$key = $pid !== '' ? (string) $pid : md5( wp_json_encode( $p ) );
+					if ( isset( $seen[ $key ] ) ) {
+						continue;
+					}
+					$seen[ $key ] = true;
+					$all_items[]  = $p;
+				}
+				$api_pages = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+				if ( $api_pages > 0 && $page_num >= $api_pages ) {
+					break;
+				}
+			}
+		}
+
+		$trusted_kenwood_cat_ids = array();
+		if ( $norm_marca === 'kenwood' && $categoria_id === '' ) {
+			$remaining = $max_api_calls - $api_calls;
+			if ( $remaining > 0 ) {
+				$trusted_kenwood_cat_ids = centinela_tienda_kenwood_category_ids_from_tree();
+				$cat_extra               = centinela_tienda_fetch_productos_by_category_ids(
+					$trusted_kenwood_cat_ids,
+					$ordenar,
+					min( 45, $remaining ),
+					$seen,
+					$api_calls
+				);
+				foreach ( $cat_extra as $p ) {
+					$all_items[] = $p;
+				}
+			}
+		}
+
+		// Quedarnos solo con la marca canónica solicitada (ej. KENWOOD incluye JVC KENWOOD por alias).
+		$all_items = centinela_tienda_filter_productos_por_marca( $all_items, $marca, $trusted_kenwood_cat_ids );
+		// Kenwood: radios / transceptores primero, luego accesoríos y resto (también al reutilizar caché más abajo).
+		if ( $norm_marca === 'kenwood' && $categoria_id === '' && function_exists( 'centinela_search_kenwood_radio_boost_score' ) ) {
+			usort(
+				$all_items,
+				static function ( $a, $b ) {
+					if ( ! is_array( $a ) || ! is_array( $b ) ) {
+						return 0;
+					}
+					$sa = centinela_search_kenwood_radio_boost_score( $a );
+					$sb = centinela_search_kenwood_radio_boost_score( $b );
+					return $sb <=> $sa;
+				}
+			);
+		}
+		// Lista fusionada por marca: reutilizar ~1 h en caliente; filtro `centinela_brand_merge_cache_ttl` para ajustar.
+		$merge_ttl = (int) apply_filters(
+			'centinela_brand_merge_cache_ttl',
+			HOUR_IN_SECONDS,
+			$marca,
+			$categoria_id,
+			$ordenar
+		);
+		$merge_ttl = max( 5 * MINUTE_IN_SECONDS, min( DAY_IN_SECONDS, $merge_ttl ) );
+		if ( ! empty( $all_items ) ) {
+			set_transient( $cache_key, $all_items, $merge_ttl );
+		} else {
+			delete_transient( $cache_key );
+		}
+	}
+
+	$total  = count( $all_items );
+	$pages  = $total > 0 ? (int) ceil( $total / $per_page ) : 0;
+	$offset = ( $pagina - 1 ) * $per_page;
+	$slice  = $total > 0 ? array_slice( $all_items, $offset, $per_page ) : array();
+
+	return array(
+		'productos' => $slice,
+		'paginas'   => $pages,
+	);
+}
+
+/**
+ * Marcas prioritarias para validar en catálogo.
+ *
+ * @return string[]
+ */
+function centinela_tienda_required_marcas() {
+	return array(
+		'HiLook by HIKVISION',
+		'Kenwood',
+		'STI',
+		'MIMOSA',
+		'ALLIED TELESIS',
+		'ROSSLARE',
+		'AXPRO',
+		'LINKEDPRO',
+		'CAMBIUM NETWORKS',
+	);
+}
+
+/**
  * Extrae marcas únicas de una lista de productos (claves: marca, brand, fabricante).
  *
  * @param array $productos Lista de productos de la API.
@@ -24,6 +431,7 @@ function centinela_tienda_extract_marcas( $productos ) {
 			continue;
 		}
 		$m = function_exists( 'centinela_tienda_producto_marca' ) ? centinela_tienda_producto_marca( $p ) : '';
+		$m = centinela_tienda_brand_canonical( $m );
 		if ( $m === '' || isset( $seen[ $m ] ) ) {
 			continue;
 		}
@@ -138,8 +546,10 @@ function centinela_tienda_collect_marcas_for_categoria( $categoria_id, $max_page
 }
 
 /**
- * Bundle: marcas con al menos un producto en catálogo (según muestreo de get_productos).
- * No usa GET /marcas (lista maestra puede incluir marcas sin productos visibles en búsqueda).
+ * Bundle de marcas para la tienda.
+ *
+ * - En /tienda global: usa primero listado oficial de marcas de Syscom (GET /marcas).
+ * - En categoría: mantiene muestreo por productos de esa categoría.
  *
  * @param string $categoria_id ID categoría Syscom (vacío = todas / raíz).
  * @param string $cat_path     Ruta amigable (se resuelve a ID si hace falta).
@@ -154,7 +564,7 @@ function centinela_tienda_get_marcas_bundle( $categoria_id = '', $cat_path = '' 
 	}
 
 	if ( $categoria_id !== '' ) {
-		$cache_key = 'centinela_sidebar_marcas_v3_cat_' . md5( (string) $categoria_id );
+		$cache_key = 'centinela_sidebar_marcas_v5_cat_' . md5( (string) $categoria_id . '|' . ( centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path ) ? 'km4' : '0' ) );
 		$cached    = get_transient( $cache_key );
 		if ( is_array( $cached ) && isset( $cached['marcas'] ) && is_array( $cached['marcas'] ) ) {
 			return array(
@@ -163,17 +573,25 @@ function centinela_tienda_get_marcas_bundle( $categoria_id = '', $cat_path = '' 
 				'total'  => isset( $cached['total'] ) ? (int) $cached['total'] : count( $cached['marcas'] ),
 			);
 		}
-		$list = centinela_tienda_collect_marcas_for_categoria( $categoria_id );
+		if ( centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path )
+			&& (bool) apply_filters( 'centinela_tienda_kenwood_marcas_from_merged_list', true, $categoria_id, $cat_path ) ) {
+			$merged = centinela_tienda_get_kenwood_merged_category_list_cached( (string) $categoria_id, 'relevancia', (string) $cat_path );
+			$list   = function_exists( 'centinela_tienda_extract_marcas' ) ? centinela_tienda_extract_marcas( $merged ) : array();
+			$source = 'productos_categoria_kenwood_merge';
+		} else {
+			$list   = centinela_tienda_collect_marcas_for_categoria( $categoria_id );
+			$source = 'productos_categoria';
+		}
 		$bundle = array(
 			'marcas' => $list,
-			'source' => 'productos_categoria',
+			'source' => $source,
 			'total'  => count( $list ),
 		);
 		set_transient( $cache_key, $bundle, 6 * HOUR_IN_SECONDS );
 		return $bundle;
 	}
 
-	$cache_key = 'centinela_sidebar_marcas_v3_global_productos';
+	$cache_key = 'centinela_sidebar_marcas_v7_global_api';
 	$cached    = get_transient( $cache_key );
 	if ( is_array( $cached ) && isset( $cached['marcas'] ) && is_array( $cached['marcas'] ) ) {
 		return array(
@@ -183,13 +601,37 @@ function centinela_tienda_get_marcas_bundle( $categoria_id = '', $cat_path = '' 
 		);
 	}
 
-	$list   = centinela_tienda_collect_marcas_fallback();
+	$list   = array();
+	$source = 'empty';
+	if ( class_exists( 'Centinela_Syscom_API' ) && method_exists( 'Centinela_Syscom_API', 'get_marcas_nombres' ) ) {
+		$list = Centinela_Syscom_API::get_marcas_nombres();
+		if ( is_array( $list ) && ! empty( $list ) ) {
+			// Consolidar aliases (ej. CAMBIUM NETWORKS INC -> CAMBIUM NETWORKS)
+			// para evitar marcas duplicadas en el filtro de /tienda.
+			$list = array_map( 'centinela_tienda_brand_canonical', $list );
+			$list = array_values( array_unique( array_filter( array_map( 'trim', $list ) ) ) );
+			sort( $list );
+			$source = 'api_marcas';
+		}
+	}
+	if ( empty( $list ) ) {
+		$list   = centinela_tienda_collect_marcas_fallback();
+		$source = ! empty( $list ) ? 'productos_raiz' : 'empty';
+	}
+	// Si la API no devolvió marcas (token, red, endpoint), mostrar al menos las marcas prioritarias del sitio.
+	if ( empty( $list ) && function_exists( 'centinela_tienda_required_marcas' ) ) {
+		$list   = array_map( 'centinela_tienda_brand_canonical', centinela_tienda_required_marcas() );
+		$list   = array_values( array_unique( array_filter( array_map( 'trim', $list ) ) ) );
+		sort( $list );
+		$source = 'required_defaults';
+	}
 	$bundle = array(
 		'marcas' => $list,
-		'source' => ! empty( $list ) ? 'productos_raiz' : 'empty',
+		'source' => $source,
 		'total'  => count( $list ),
 	);
-	set_transient( $cache_key, $bundle, 12 * HOUR_IN_SECONDS );
+	$ttl = ( $source === 'required_defaults' ) ? 5 * MINUTE_IN_SECONDS : 12 * HOUR_IN_SECONDS;
+	set_transient( $cache_key, $bundle, $ttl );
 	return $bundle;
 }
 
@@ -324,10 +766,10 @@ function centinela_tienda_producto_marca( $prod ) {
 		if ( isset( $prod[ $key ] ) ) {
 			$val = $prod[ $key ];
 			if ( is_array( $val ) && isset( $val['nombre'] ) ) {
-				return trim( (string) $val['nombre'] );
+				return centinela_tienda_brand_canonical( (string) $val['nombre'] );
 			}
 			if ( trim( (string) $val ) !== '' ) {
-				return trim( (string) $val );
+				return centinela_tienda_brand_canonical( (string) $val );
 			}
 		}
 	}
@@ -398,30 +840,487 @@ function centinela_syscom_producto_inventario( $prod ) {
 }
 
 /**
- * Filtra una lista de productos por marca (nombre exacto, sin depender de la API).
+ * Texto crudo de marca/fabricante para coincidencias (sin solo canónico).
  *
- * @param array  $productos Lista de productos de la API.
- * @param string $marca     Nombre de la marca a filtrar (vacío = no filtrar).
- * @return array Lista filtrada.
+ * @param array $prod Producto API.
+ * @return string
  */
-function centinela_tienda_filter_productos_por_marca( $productos, $marca = '' ) {
-	if ( $marca === '' || empty( $productos ) ) {
-		return $productos;
+function centinela_tienda_producto_marca_raw_for_haystack( $prod ) {
+	if ( ! is_array( $prod ) ) {
+		return '';
 	}
-	// Normalización para evitar que el filtro falle por mayúsculas/espacios.
-	$marca_trim = trim( $marca );
-	$marca_norm = function_exists( 'centinela_normalize_for_match' ) ? centinela_normalize_for_match( $marca_trim ) : strtolower( preg_replace( '/[\s\-_]+/', '', $marca_trim ) );
-	$out        = array();
-	foreach ( $productos as $p ) {
-		$prod_marca = centinela_tienda_producto_marca( $p );
-		if ( $prod_marca !== '' ) {
-			$prod_norm = function_exists( 'centinela_normalize_for_match' ) ? centinela_normalize_for_match( $prod_marca ) : strtolower( preg_replace( '/[\s\-_]+/', '', $prod_marca ) );
-			if ( $prod_norm === $marca_norm ) {
-				$out[] = $p;
+	$parts = array();
+	foreach ( array( 'marca', 'brand', 'fabricante' ) as $key ) {
+		if ( ! isset( $prod[ $key ] ) ) {
+			continue;
+		}
+		$val = $prod[ $key ];
+		if ( is_array( $val ) && isset( $val['nombre'] ) ) {
+			$parts[] = (string) $val['nombre'];
+		} elseif ( is_string( $val ) && trim( $val ) !== '' ) {
+			$parts[] = $val;
+		}
+	}
+	return trim( implode( ' ', $parts ) );
+}
+
+/**
+ * ¿El nombre de categoría (Syscom) pertenece al árbol KENWOOD / JVC KENWOOD?
+ *
+ * @param string $nombre Nombre visible de la categoría.
+ * @return bool
+ */
+function centinela_tienda_categoria_nombre_matches_kenwood( $nombre ) {
+	$n = centinela_tienda_normalize_brand_text( (string) $nombre );
+	if ( $n === '' ) {
+		return false;
+	}
+	if ( strpos( $n, 'kenwood' ) !== false ) {
+		return true;
+	}
+	if ( strpos( $n, 'jvckenwood' ) !== false ) {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * IDs de categoría en un subárbol (nodo + descendientes).
+ *
+ * @param array $nodo Nodo del árbol de categorías.
+ * @return string[]
+ */
+function centinela_tienda_collect_subtree_ids_from_node( $nodo ) {
+	$out   = array();
+	$stack = array( $nodo );
+	while ( ! empty( $stack ) ) {
+		$n = array_pop( $stack );
+		if ( ! is_array( $n ) ) {
+			continue;
+		}
+		if ( isset( $n['id'] ) && (string) $n['id'] !== '' ) {
+			$out[] = (string) $n['id'];
+		}
+		if ( ! empty( $n['hijos'] ) && is_array( $n['hijos'] ) ) {
+			foreach ( $n['hijos'] as $h ) {
+				$stack[] = $h;
 			}
 		}
 	}
 	return $out;
+}
+
+/**
+ * IDs de categoría bajo nodos cuyo nombre indica KENWOOD (como listadopormarca en Syscom).
+ *
+ * @return string[]
+ */
+function centinela_tienda_kenwood_category_ids_from_tree() {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) || ! method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+		return array();
+	}
+	$arbol = Centinela_Syscom_API::get_categorias_arbol();
+	if ( is_wp_error( $arbol ) || ! is_array( $arbol ) ) {
+		return array();
+	}
+	$ids = array();
+	$walk = function( $nodo ) use ( &$ids, &$walk ) {
+		if ( ! is_array( $nodo ) ) {
+			return;
+		}
+		$nombre = isset( $nodo['nombre'] ) ? (string) $nodo['nombre'] : '';
+		if ( $nombre !== '' && centinela_tienda_categoria_nombre_matches_kenwood( $nombre ) ) {
+			$ids = array_merge( $ids, centinela_tienda_collect_subtree_ids_from_node( $nodo ) );
+			return;
+		}
+		if ( ! empty( $nodo['hijos'] ) && is_array( $nodo['hijos'] ) ) {
+			foreach ( $nodo['hijos'] as $h ) {
+				$walk( $h );
+			}
+		}
+	};
+	foreach ( $arbol as $root ) {
+		$walk( $root );
+	}
+	return array_values( array_unique( array_filter( array_map( 'strval', $ids ) ) ) );
+}
+
+/**
+ * Productos paginados por lista de categorías (dedupe con $seen).
+ *
+ * @param string[] $ids        IDs Syscom.
+ * @param string   $ordenar    Orden API.
+ * @param int      $max_calls  Límite de llamadas get_productos.
+ * @param array    $seen       Mapa producto_id => true (por referencia).
+ * @param int      $api_calls  Contador (por referencia).
+ * @return array
+ */
+function centinela_tienda_fetch_productos_by_category_ids( $ids, $ordenar, $max_calls, array &$seen, &$api_calls ) {
+	$out = array();
+	if ( empty( $ids ) || ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return $out;
+	}
+	$ordenar = sanitize_text_field( (string) $ordenar );
+	foreach ( $ids as $cat_id ) {
+		if ( $api_calls >= $max_calls ) {
+			break;
+		}
+		$cat_id = trim( (string) $cat_id );
+		if ( $cat_id === '' ) {
+			continue;
+		}
+		for ( $page_num = 1; $page_num <= 30; $page_num++ ) {
+			if ( $api_calls >= $max_calls ) {
+				break 2;
+			}
+			$api_calls++;
+			$resp = Centinela_Syscom_API::get_productos(
+				array(
+					'categoria' => $cat_id,
+					'pagina'    => $page_num,
+					'orden'     => $ordenar,
+					'cop'       => true,
+				)
+			);
+			if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+				break;
+			}
+			foreach ( $resp['productos'] as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : '' );
+				$key = $pid !== '' ? (string) $pid : md5( wp_json_encode( $p ) );
+				if ( isset( $seen[ $key ] ) ) {
+					continue;
+				}
+				$seen[ $key ] = true;
+				$out[]        = $p;
+			}
+			$api_pages = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+			if ( $api_pages > 0 && $page_num >= $api_pages ) {
+				break;
+			}
+		}
+	}
+	return $out;
+}
+
+/**
+ * ¿El producto pertenece a alguna de las categorías Syscom dadas?
+ *
+ * @param array    $p    Producto API.
+ * @param string[] $ids IDs de categoría.
+ * @return bool
+ */
+function centinela_tienda_producto_in_category_ids( $p, $ids ) {
+	if ( ! is_array( $p ) || empty( $ids ) ) {
+		return false;
+	}
+	$set = array_flip( array_map( 'strval', $ids ) );
+	foreach ( array( 'categoria_id', 'id_categoria', 'categoria', 'id_categoria_principal' ) as $key ) {
+		if ( ! isset( $p[ $key ] ) ) {
+			continue;
+		}
+		$v = $p[ $key ];
+		if ( is_array( $v ) && isset( $v['id'] ) ) {
+			$v = $v['id'];
+		}
+		$id = (string) $v;
+		if ( $id !== '' && isset( $set[ $id ] ) ) {
+			return true;
+		}
+	}
+	foreach ( array( 'categorias', 'categorías' ) as $ck ) {
+		if ( empty( $p[ $ck ] ) || ! is_array( $p[ $ck ] ) ) {
+			continue;
+		}
+		foreach ( $p[ $ck ] as $c ) {
+			if ( is_array( $c ) && isset( $c['id'] ) ) {
+				$id = (string) $c['id'];
+				if ( $id !== '' && isset( $set[ $id ] ) ) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ * Coincidencia de respaldo cuando el listado /marcas y el campo marca del producto no alinean,
+ * pero la API ya devolvió el ítem por búsqueda (título, modelo, fabricante, descripción).
+ *
+ * @param array  $p          Producto API.
+ * @param string $marca_trim Marca canónica.
+ * @param string $marca_norm Marca normalizada para strpos.
+ * @return bool
+ */
+function centinela_tienda_producto_matches_brand_search_fallback( $p, $marca_trim, $marca_norm ) {
+	if ( ! is_array( $p ) || $marca_norm === '' ) {
+		return false;
+	}
+	$raw    = centinela_tienda_producto_marca_raw_for_haystack( $p );
+	$pm     = centinela_tienda_producto_marca( $p );
+	$titulo = isset( $p['titulo'] ) ? (string) $p['titulo'] : ( isset( $p['nombre'] ) ? (string) $p['nombre'] : '' );
+	$modelo = isset( $p['modelo'] ) ? (string) $p['modelo'] : '';
+	$desc   = isset( $p['descripcion'] ) ? (string) $p['descripcion'] : ( isset( $p['description'] ) ? (string) $p['description'] : '' );
+	$haystack = centinela_tienda_normalize_brand_text( $titulo . ' ' . $modelo . ' ' . $desc . ' ' . $raw . ' ' . $pm );
+	if ( $haystack === '' ) {
+		return false;
+	}
+	// Marcas de 3 caracteres (p. ej. STI): solo si están en la lista permitida (evita ruido en texto).
+	$short_norms = (array) apply_filters( 'centinela_tienda_brand_short_norms_for_fallback', array( 'sti' ) );
+	$short_norms = array_map( 'centinela_tienda_normalize_brand_text', $short_norms );
+	if ( strlen( $marca_norm ) === 3 && in_array( $marca_norm, $short_norms, true ) && strpos( $haystack, $marca_norm ) !== false ) {
+		return true;
+	}
+	if ( strlen( $marca_norm ) >= 4 && strpos( $haystack, $marca_norm ) !== false ) {
+		return true;
+	}
+	// Marcas compuestas (ej. "HiLook by HIKVISION"): fragmentos ≥5 caracteres para limitar falsos positivos.
+	foreach ( preg_split( '/[\s,&\/]+/', $marca_trim, -1, PREG_SPLIT_NO_EMPTY ) as $tok ) {
+		$tn = centinela_tienda_normalize_brand_text( $tok );
+		if ( strlen( $tn ) < 5 ) {
+			continue;
+		}
+		if ( strpos( $haystack, $tn ) !== false ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Filtra una lista de productos por marca (nombre exacto, sin depender de la API).
+ *
+ * @param array    $productos             Lista de productos de la API.
+ * @param string   $marca                 Nombre de la marca a filtrar (vacío = no filtrar).
+ * @param string[] $trusted_category_ids  IDs de categoría Syscom donde confiamos el listado (ej. subárbol KENWOOD).
+ * @return array Lista filtrada.
+ */
+function centinela_tienda_filter_productos_por_marca( $productos, $marca = '', $trusted_category_ids = array() ) {
+	if ( $marca === '' || empty( $productos ) ) {
+		return $productos;
+	}
+	// Normalización para evitar que el filtro falle por mayúsculas/espacios.
+	$marca_trim = centinela_tienda_brand_canonical( trim( (string) $marca ) );
+	$marca_norm = centinela_tienda_normalize_brand_text( $marca_trim );
+	$out        = array();
+	foreach ( $productos as $p ) {
+		$prod_marca = centinela_tienda_brand_canonical( centinela_tienda_producto_marca( $p ) );
+		if ( $prod_marca !== '' ) {
+			$prod_norm = centinela_tienda_normalize_brand_text( $prod_marca );
+			if ( $prod_norm === $marca_norm ) {
+				$out[] = $p;
+				continue;
+			}
+		}
+		if ( $marca_norm === 'kenwood' && is_array( $p ) ) {
+			if ( centinela_tienda_producto_matches_brand_family( $p, $marca ) ) {
+				$out[] = $p;
+				continue;
+			}
+			if ( ! empty( $trusted_category_ids ) && centinela_tienda_producto_in_category_ids( $p, $trusted_category_ids ) ) {
+				$out[] = $p;
+				continue;
+			}
+		}
+		if ( is_array( $p ) && centinela_tienda_producto_matches_brand_search_fallback( $p, $marca_trim, $marca_norm ) ) {
+			$out[] = $p;
+			continue;
+		}
+		// Referencia de modelo en ?marca= (p. ej. TK-3000-KV2): el producto es KENWOOD, no una “marca” con ese nombre.
+		if ( is_array( $p ) && function_exists( 'centinela_search_query_looks_like_product_reference' ) && centinela_search_query_looks_like_product_reference( $marca )
+			&& function_exists( 'centinela_producto_matches_search' ) && centinela_producto_matches_search( $marca, $p ) ) {
+			$out[] = $p;
+		}
+	}
+	return $out;
+}
+
+/**
+ * Coincidencia extendida por familia de marca (Kenwood/JVC Kenwood).
+ *
+ * @param array  $producto Producto API.
+ * @param string $marca    Marca objetivo.
+ * @return bool
+ */
+function centinela_tienda_producto_matches_brand_family( $producto, $marca ) {
+	if ( ! is_array( $producto ) || trim( (string) $marca ) === '' ) {
+		return false;
+	}
+	$target_canonical = centinela_tienda_brand_canonical( (string) $marca );
+	$target_norm      = centinela_tienda_normalize_brand_text( $target_canonical );
+	$prod_marca       = centinela_tienda_producto_marca( $producto );
+	$prod_norm        = centinela_tienda_normalize_brand_text( $prod_marca );
+	if ( $prod_norm !== '' && $prod_norm === $target_norm ) {
+		return true;
+	}
+	if ( $target_norm !== 'kenwood' ) {
+		return false;
+	}
+	$titulo = isset( $producto['titulo'] ) ? (string) $producto['titulo'] : ( isset( $producto['nombre'] ) ? (string) $producto['nombre'] : '' );
+	$modelo = isset( $producto['modelo'] ) ? (string) $producto['modelo'] : ( isset( $producto['sku'] ) ? (string) $producto['sku'] : '' );
+	$desc   = isset( $producto['descripcion'] ) ? (string) $producto['descripcion'] : ( isset( $producto['description'] ) ? (string) $producto['description'] : '' );
+	$cat_text = '';
+	if ( isset( $producto['categorías'] ) && is_array( $producto['categorías'] ) ) {
+		foreach ( $producto['categorías'] as $c ) {
+			if ( is_array( $c ) && isset( $c['nombre'] ) ) {
+				$cat_text .= ' ' . (string) $c['nombre'];
+			} elseif ( is_string( $c ) ) {
+				$cat_text .= ' ' . $c;
+			}
+		}
+	}
+	if ( isset( $producto['categorias'] ) && is_array( $producto['categorias'] ) ) {
+		foreach ( $producto['categorias'] as $c ) {
+			if ( is_array( $c ) && isset( $c['nombre'] ) ) {
+				$cat_text .= ' ' . (string) $c['nombre'];
+			} elseif ( is_string( $c ) ) {
+				$cat_text .= ' ' . $c;
+			}
+		}
+	}
+	$raw_marca = centinela_tienda_producto_marca_raw_for_haystack( $producto );
+	$haystack  = centinela_tienda_normalize_brand_text( $titulo . ' ' . $modelo . ' ' . $desc . ' ' . $cat_text . ' ' . $prod_marca . ' ' . $raw_marca );
+	if ( $haystack === '' ) {
+		return false;
+	}
+	if ( strpos( $haystack, 'kenwood' ) !== false ) {
+		return true;
+	}
+	// Línea TXPRO listada bajo radios comerciales KENWOOD en Syscom.
+	return strpos( $haystack, 'txpro' ) !== false;
+}
+
+/**
+ * Barrido de categorías para completar familia de marca cuando busqueda API no devuelve todo.
+ *
+ * @param string $marca       Marca objetivo.
+ * @param string $categoria_id Categoría opcional.
+ * @return array
+ */
+function centinela_tienda_collect_productos_brand_family( $marca, $categoria_id = '' ) {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return array();
+	}
+	$targets = array();
+	if ( $categoria_id !== '' ) {
+		$targets[] = (string) $categoria_id;
+	} else {
+		$arbol = Centinela_Syscom_API::get_categorias_arbol();
+		if ( ! is_wp_error( $arbol ) && is_array( $arbol ) ) {
+			foreach ( $arbol as $root ) {
+				if ( isset( $root['id'] ) && (string) $root['id'] !== '' ) {
+					$targets[] = (string) $root['id'];
+				}
+			}
+		}
+	}
+	$targets = array_values( array_unique( array_filter( array_map( 'trim', $targets ) ) ) );
+	if ( empty( $targets ) ) {
+		return array();
+	}
+	// Control de costo: limitar categorías raíz a un subconjunto para mantener respuesta del filtro ágil.
+	if ( $categoria_id === '' && count( $targets ) > 10 ) {
+		$targets = array_slice( $targets, 0, 10 );
+	}
+	$out       = array();
+	$seen      = array();
+	$calls     = 0;
+	$max_calls = 24;
+	foreach ( $targets as $cat_id ) {
+		for ( $page = 1; $page <= 3; $page++ ) {
+			if ( $calls >= $max_calls ) {
+				break 2;
+			}
+			$calls++;
+			$resp = Centinela_Syscom_API::get_productos(
+				array(
+					'categoria' => (string) $cat_id,
+					'pagina'    => $page,
+					'orden'     => 'relevancia',
+					'cop'       => true,
+				)
+			);
+			if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+				break;
+			}
+			foreach ( $resp['productos'] as $p ) {
+				if ( ! is_array( $p ) || ! centinela_tienda_producto_matches_brand_family( $p, $marca ) ) {
+					continue;
+				}
+				$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : '' );
+				$key = $pid !== '' ? (string) $pid : md5( wp_json_encode( $p ) );
+				if ( isset( $seen[ $key ] ) ) {
+					continue;
+				}
+				$seen[ $key ] = true;
+				$out[]        = $p;
+			}
+			if ( count( $out ) >= 120 ) {
+				break 2;
+			}
+			$api_pages = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+			if ( $api_pages > 0 && $page >= $api_pages ) {
+				break;
+			}
+		}
+	}
+	return $out;
+}
+
+/**
+ * Verifica si una marca tiene productos visibles (global o por categoría).
+ *
+ * @param string $marca        Marca objetivo.
+ * @param string $categoria_id Categoría Syscom opcional.
+ * @return bool
+ */
+function centinela_tienda_marca_has_productos( $marca, $categoria_id = '' ) {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return false;
+	}
+	$marca = centinela_tienda_brand_canonical( $marca );
+	if ( $marca === '' ) {
+		return false;
+	}
+	$queries = array( $marca );
+	$norm    = centinela_tienda_normalize_brand_text( $marca );
+	if ( $norm === 'hilookbyhikvision' ) {
+		$queries[] = 'Hilook';
+		$queries[] = 'HiLook';
+		$queries[] = 'HIKVISION';
+	} elseif ( $norm === 'kenwood' ) {
+		$queries[] = 'JVC KENWOOD';
+		$queries[] = 'JVC KENWOOD INC';
+	}
+	$queries = array_values( array_unique( array_filter( array_map( 'trim', $queries ) ) ) );
+	foreach ( $queries as $query ) {
+		$bq = centinela_tienda_api_busqueda( $query );
+		if ( $bq === '' ) {
+			continue;
+		}
+		$args = array(
+			'busqueda' => $bq,
+			'pagina'   => 1,
+			'orden'    => 'relevancia',
+			'cop'      => true,
+		);
+		if ( $categoria_id !== '' ) {
+			$args['categoria'] = (string) $categoria_id;
+		}
+		$resp = Centinela_Syscom_API::get_productos( $args );
+		if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+			continue;
+		}
+		$matches = centinela_tienda_filter_productos_por_marca( $resp['productos'], $marca );
+		if ( ! empty( $matches ) ) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /**
@@ -444,6 +1343,11 @@ function centinela_tienda_filter_productos_por_precio( $productos, $min_price = 
 	$out = array();
 	foreach ( $productos as $p ) {
 		$precio = centinela_tienda_producto_precio_num( $p );
+		// El listado API a veces no trae precio COP (0); el detalle/quickview sí. No ocultar esos ítems por rango.
+		if ( (bool) apply_filters( 'centinela_tienda_price_filter_include_unknown', true, $min_num, $max_num, $p ) && $precio <= 0 ) {
+			$out[] = $p;
+			continue;
+		}
 		if ( $min_num !== null && $precio < $min_num ) {
 			continue;
 		}
@@ -453,6 +1357,50 @@ function centinela_tienda_filter_productos_por_precio( $productos, $min_price = 
 		$out[] = $p;
 	}
 	return $out;
+}
+
+/**
+ * HTML de “esqueleto” mientras el navegador pide el listado por marca (SSR diferido).
+ *
+ * @return string
+ */
+function centinela_tienda_render_brand_loading_shell() {
+	ob_start();
+	?>
+	<div class="centinela-tienda__grid centinela-tienda__grid--skeleton" aria-busy="true" role="status">
+		<?php
+		for ( $i = 0; $i < 8; $i++ ) :
+			?>
+			<div class="centinela-tienda__card centinela-tienda__card--skeleton" aria-hidden="true"></div>
+			<?php
+		endfor;
+		?>
+	</div>
+	<p class="centinela-tienda__defer-brand-hint"><?php esc_html_e( 'Cargando productos de la marca…', 'centinela-group-theme' ); ?></p>
+	<?php
+	return trim( ob_get_clean() );
+}
+
+/**
+ * ¿Servir HTML ligero en /tienda/?marca=… (pág. 1) y rellenar grid vía REST con vista previa rápida?
+ * Mejora TTFB; desactivar con: add_filter( 'centinela_tienda_defer_brand_ssr', '__return_false' ); si priorizas SEO del HTML inicial.
+ *
+ * @param string $marca        Marca (query).
+ * @param string $categoria_id ID categoría Syscom.
+ * @param int    $pagina       Página 1-based.
+ * @param string $min_price    Filtro precio.
+ * @param string $max_price    Filtro precio.
+ * @return bool
+ */
+function centinela_tienda_should_defer_brand_ssr( $marca, $categoria_id, $pagina, $min_price, $max_price ) {
+	$marca = trim( (string) $marca );
+	if ( $marca === '' || (int) $pagina !== 1 ) {
+		return false;
+	}
+	if ( trim( (string) $min_price ) !== '' || trim( (string) $max_price ) !== '' ) {
+		return false;
+	}
+	return (bool) apply_filters( 'centinela_tienda_defer_brand_ssr', true, $marca, $categoria_id, $pagina, $min_price, $max_price );
 }
 
 /**
@@ -531,6 +1479,336 @@ function centinela_tienda_print_empty_grid_message( $marca = '', $cat_path = '',
 }
 
 /**
+ * Si get_productos sin categoría devuelve vacío, prueba varias raíces del árbol Syscom (la primera puede no tener listado).
+ *
+ * @param array $args_base pagina, orden, cop (sin categoria).
+ * @return array{productos: array, paginas: int}|null
+ */
+function centinela_tienda_fallback_productos_by_arbol_roots( $args_base ) {
+	if ( ! class_exists( 'Centinela_Syscom_API' ) || ! method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+		return null;
+	}
+	$arbol = Centinela_Syscom_API::get_categorias_arbol();
+	if ( is_wp_error( $arbol ) || empty( $arbol ) || ! is_array( $arbol ) ) {
+		return null;
+	}
+	foreach ( array_slice( $arbol, 0, 15 ) as $root ) {
+		if ( empty( $root['id'] ) ) {
+			continue;
+		}
+		$args              = $args_base;
+		$args['categoria'] = (string) $root['id'];
+		$resp              = Centinela_Syscom_API::get_productos( $args );
+		if ( ! is_wp_error( $resp ) && ! empty( $resp['productos'] ) && is_array( $resp['productos'] ) ) {
+			return array(
+				'productos' => $resp['productos'],
+				'paginas'   => isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0,
+			);
+		}
+	}
+	return null;
+}
+
+/**
+ * Adapta una fila del buscador unificado (centinela_search_productos_syscom) al shape que espera el grid de /tienda/.
+ *
+ * @param array $row Ítem con id, titulo, modelo, marca, imagen, etc.
+ * @return array Producto tipo listado API.
+ */
+function centinela_tienda_map_search_row_to_listado_prod( $row ) {
+	if ( ! is_array( $row ) ) {
+		return array();
+	}
+	$id = isset( $row['id'] ) ? trim( (string) $row['id'] ) : '';
+	return array(
+		'producto_id' => $id,
+		'id'          => $id,
+		'titulo'      => isset( $row['titulo'] ) ? (string) $row['titulo'] : '',
+		'modelo'      => isset( $row['modelo'] ) ? (string) $row['modelo'] : '',
+		'img_portada' => isset( $row['imagen'] ) ? (string) $row['imagen'] : '',
+		'marca'       => isset( $row['marca'] ) ? (string) $row['marca'] : '',
+	);
+}
+
+/**
+ * ¿La ruta de tienda está bajo "Radios comerciales KENWOOD" en Syscom?
+ *
+ * En la API, GET /productos?categoria= a veces no mezcla TXPRO y KENWOOD como en la web pública;
+ * fusionamos con búsqueda por marca en la misma categoría.
+ *
+ * @param string $cat_path Ruta slug (ej. radiocomunicacion/radios-comerciales-kenwood/portatiles-uhf).
+ * @return bool
+ */
+function centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path ) {
+	$cat_path = trim( (string) $cat_path, '/' );
+	if ( $cat_path === '' ) {
+		return false;
+	}
+	return (bool) preg_match( '#(^|/)radios-comerciales-kenwood(/|$)#i', $cat_path );
+}
+
+/**
+ * Ruta tipo …/radios-comerciales-kenwood/…/portatiles-uhf (último segmento).
+ *
+ * @param string $cat_path Ruta slug.
+ * @return bool
+ */
+function centinela_tienda_cat_path_is_kenwood_portatiles_uhf( $cat_path ) {
+	return (bool) preg_match( '#/portatiles-uhf$#i', trim( (string) $cat_path, '/' ) );
+}
+
+/**
+ * Filas de búsqueda global a incluir en el merge portátiles UHF: excluye cables/programadores obvios.
+ *
+ * @param array $p Producto API (listado).
+ * @return bool
+ */
+function centinela_tienda_portatiles_uhf_global_busqueda_row_keep( $p ) {
+	if ( ! is_array( $p ) ) {
+		return false;
+	}
+	$t = isset( $p['titulo'] ) ? (string) $p['titulo'] : '';
+	$m = isset( $p['modelo'] ) ? (string) $p['modelo'] : '';
+	$tl = strtolower( remove_accents( $t . ' ' . $m ) );
+	if ( $tl === '' ) {
+		return false;
+	}
+	$cable_hints = array(
+		'programador',
+		'programacion',
+		'programación',
+		'cable de program',
+		'cable program',
+		'software de program',
+		'software de programación',
+	);
+	foreach ( $cable_hints as $h ) {
+		if ( strpos( $tl, $h ) !== false ) {
+			return false;
+		}
+	}
+	if ( ! function_exists( 'centinela_normalize_for_match' ) ) {
+		return true;
+	}
+	$blob = centinela_normalize_for_match( $t . ' ' . $m );
+	if ( $blob === '' ) {
+		return false;
+	}
+	$hints = array(
+		'radio', 'portatil', 'uhf', 'vhf', 'transceptor', 'walkie', 'talkie', 'handheld',
+		'watts', 'mhz', 'kenwood', 'icom', 'nexedge', 'dmr', 'digital', 'analog',
+		'nx', 'pkt', 'tk',
+	);
+	foreach ( $hints as $h ) {
+		$nh = centinela_normalize_for_match( $h );
+		if ( $nh !== '' && strpos( $blob, $nh ) !== false ) {
+			return (bool) apply_filters( 'centinela_tienda_portatiles_uhf_global_busqueda_row_keep', true, $p, $tl );
+		}
+	}
+	return (bool) apply_filters( 'centinela_tienda_portatiles_uhf_global_busqueda_row_keep', false, $p, $tl );
+}
+
+/**
+ * Une varias listas de productos API sin duplicar por producto_id / id.
+ *
+ * @param array $lists Lista de arrays de productos.
+ * @return array
+ */
+function centinela_tienda_merge_productos_unique( $lists ) {
+	$seen = array();
+	$out  = array();
+	if ( ! is_array( $lists ) ) {
+		return $out;
+	}
+	foreach ( $lists as $list ) {
+		if ( ! is_array( $list ) ) {
+			continue;
+		}
+		foreach ( $list as $p ) {
+			if ( ! is_array( $p ) ) {
+				continue;
+			}
+			$pid = isset( $p['producto_id'] ) ? (string) $p['producto_id'] : ( isset( $p['id'] ) ? (string) $p['id'] : '' );
+			$key = $pid !== '' ? $pid : md5( wp_json_encode( $p ) );
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$out[]        = $p;
+		}
+	}
+	return $out;
+}
+
+/**
+ * Listado fusionado: categoría + búsqueda por marca (TXPRO, KENWOOD / JVC KENWOOD, etc.) en la misma categoría.
+ *
+ * @param string $categoria_id ID categoría Syscom.
+ * @param string $ordenar      Orden API.
+ * @param string $cat_path     Ruta tienda (para merge extra portátiles UHF vía busqueda global).
+ * @return array Productos sin paginar.
+ */
+function centinela_tienda_fetch_kenwood_comercial_category_merged( $categoria_id, $ordenar = 'relevancia', $cat_path = '' ) {
+	$categoria_id = trim( (string) $categoria_id );
+	if ( $categoria_id === '' || ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return array();
+	}
+	$ordenar         = sanitize_text_field( $ordenar );
+	$blocks          = array();
+	$max_cat_pages   = max( 1, min( 40, (int) apply_filters( 'centinela_tienda_kenwood_merge_max_cat_pages', 20, $categoria_id ) ) );
+	$max_brand_pages = max( 1, min( 15, (int) apply_filters( 'centinela_tienda_kenwood_merge_max_brand_pages', 6, $categoria_id ) ) );
+	$max_terms       = max( 1, min( 8, (int) apply_filters( 'centinela_tienda_kenwood_merge_brand_terms_max', 6, $categoria_id ) ) );
+
+	for ( $p = 1; $p <= $max_cat_pages; $p++ ) {
+		$resp = Centinela_Syscom_API::get_productos(
+			array(
+				'categoria' => $categoria_id,
+				'pagina'    => $p,
+				'orden'     => $ordenar,
+				'cop'       => true,
+			)
+		);
+		if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+			break;
+		}
+		$blocks[] = $resp['productos'];
+		$paginas  = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+		if ( $paginas > 0 && $p >= $paginas ) {
+			break;
+		}
+	}
+
+	$terms = function_exists( 'centinela_tienda_brand_query_terms' ) ? centinela_tienda_brand_query_terms( 'KENWOOD' ) : array( 'KENWOOD' );
+	$terms = array_slice( array_values( array_unique( array_filter( array_map( 'trim', $terms ) ) ) ), 0, $max_terms );
+	foreach ( $terms as $term ) {
+		$bq = function_exists( 'centinela_tienda_api_busqueda' ) ? centinela_tienda_api_busqueda( $term ) : $term;
+		if ( $bq === '' ) {
+			continue;
+		}
+		for ( $p = 1; $p <= $max_brand_pages; $p++ ) {
+			$resp = Centinela_Syscom_API::get_productos(
+				array(
+					'categoria' => $categoria_id,
+					'busqueda'  => $bq,
+					'pagina'    => $p,
+					'orden'     => $ordenar,
+					'cop'       => true,
+				)
+			);
+			if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+				break;
+			}
+			$blocks[] = $resp['productos'];
+			$paginas  = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+			if ( $paginas > 0 && $p >= $paginas ) {
+				break;
+			}
+		}
+	}
+
+	$merge_global_uhf =
+		trim( (string) $cat_path ) !== ''
+		&& centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path )
+		&& centinela_tienda_cat_path_is_kenwood_portatiles_uhf( $cat_path )
+		&& (bool) apply_filters( 'centinela_tienda_kenwood_portatiles_uhf_merge_global_busqueda', true, $categoria_id, $cat_path );
+
+	if ( $merge_global_uhf ) {
+		$g_terms = apply_filters(
+			'centinela_tienda_kenwood_portatiles_uhf_global_busqueda_terms',
+			array( 'NX+1300', 'PKT+300', 'KENWOOD+NX-1300' ),
+			$categoria_id,
+			$cat_path
+		);
+		$g_terms     = array_slice( array_values( array_unique( array_filter( array_map( 'trim', $g_terms ) ) ) ), 0, 8 );
+		$max_g_pages = max( 1, min( 4, (int) apply_filters( 'centinela_tienda_kenwood_portatiles_uhf_global_max_pages', 2, $categoria_id, $cat_path ) ) );
+		foreach ( $g_terms as $gterm ) {
+			if ( $gterm === '' ) {
+				continue;
+			}
+			for ( $gp = 1; $gp <= $max_g_pages; $gp++ ) {
+				$resp = Centinela_Syscom_API::get_productos(
+					array(
+						'busqueda' => $gterm,
+						'pagina'   => $gp,
+						'orden'    => $ordenar,
+						'cop'      => true,
+					)
+				);
+				if ( is_wp_error( $resp ) || empty( $resp['productos'] ) || ! is_array( $resp['productos'] ) ) {
+					break;
+				}
+				$keep_rows = array();
+				foreach ( $resp['productos'] as $row ) {
+					if ( centinela_tienda_portatiles_uhf_global_busqueda_row_keep( $row ) ) {
+						$keep_rows[] = $row;
+					}
+				}
+				if ( ! empty( $keep_rows ) ) {
+					$blocks[] = $keep_rows;
+				}
+				$gpags = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+				if ( $gpags > 0 && $gp >= $gpags ) {
+					break;
+				}
+			}
+		}
+	}
+
+	$merged = centinela_tienda_merge_productos_unique( $blocks );
+	if ( function_exists( 'centinela_search_kenwood_radio_boost_score' ) ) {
+		usort(
+			$merged,
+			static function ( $a, $b ) {
+				if ( ! is_array( $a ) || ! is_array( $b ) ) {
+					return 0;
+				}
+				$sa = centinela_search_kenwood_radio_boost_score( $a );
+				$sb = centinela_search_kenwood_radio_boost_score( $b );
+				if ( $sb !== $sa ) {
+					return $sb <=> $sa;
+				}
+				$ta = isset( $a['titulo'] ) ? (string) $a['titulo'] : '';
+				$tb = isset( $b['titulo'] ) ? (string) $b['titulo'] : '';
+				return strcasecmp( $ta, $tb );
+			}
+		);
+	}
+	return $merged;
+}
+
+/**
+ * Lista fusionada KENWOOD (categoría + búsqueda) con transient corto para compartir entre grid y sidebar.
+ *
+ * @param string $categoria_id ID categoría.
+ * @param string $ordenar      Orden API.
+ * @param string $cat_path     Ruta tienda (merge global portátiles UHF).
+ * @return array
+ */
+function centinela_tienda_get_kenwood_merged_category_list_cached( $categoria_id, $ordenar = 'relevancia', $cat_path = '' ) {
+	$categoria_id = trim( (string) $categoria_id );
+	if ( $categoria_id === '' ) {
+		return array();
+	}
+	$ordenar = sanitize_text_field( $ordenar );
+	$guf     = '';
+	if ( centinela_tienda_cat_path_is_kenwood_portatiles_uhf( $cat_path )
+		&& centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path )
+		&& (bool) apply_filters( 'centinela_tienda_kenwood_portatiles_uhf_merge_global_busqueda', true, $categoria_id, $cat_path ) ) {
+		$guf = '|guf1';
+	}
+	$cache_key = 'centinela_kmcat_v4_' . md5( $categoria_id . '|' . $ordenar . $guf );
+	$cached   = get_transient( $cache_key );
+	if ( is_array( $cached ) ) {
+		return $cached;
+	}
+	$list = centinela_tienda_fetch_kenwood_comercial_category_merged( $categoria_id, $ordenar, $cat_path );
+	$ttl  = (int) apply_filters( 'centinela_tienda_kenwood_merged_list_ttl', 3 * MINUTE_IN_SECONDS, $categoria_id, $ordenar );
+	$ttl  = max( 60, min( HOUR_IN_SECONDS, $ttl ) );
+	set_transient( $cache_key, $list, $ttl );
+	return $list;
+}
+
+/**
  * Obtiene productos de la API (misma lógica que render), filtra por precio y extrae marcas.
  * Usado en la carga inicial de la tienda para rellenar el sidebar de marcas sin depender de JS.
  *
@@ -546,23 +1824,31 @@ function centinela_tienda_print_empty_grid_message( $marca = '', $cat_path = '',
 function centinela_tienda_get_productos_data( $categoria_id = '', $pagina = 1, $ordenar = 'relevancia', $cat_path = '', $marca = '', $min_price = '', $max_price = '' ) {
 	$productos_api     = array();
 	$productos_paginas = 0;
+	$marca             = trim( (string) $marca );
+	$tienda_marcas_prefill = null;
 
 	// Cache de resultados de productos para reducir llamadas a la API Syscom y mejorar TTFB.
-	$cache_key = 'centinela_tienda_data_v2_' . md5( wp_json_encode( array(
+	$cache_key = 'centinela_tienda_data_v9_' . md5( wp_json_encode( array(
 		'cat'   => (string) $categoria_id,
 		'page'  => (int) $pagina,
 		'order' => (string) $ordenar,
 		'marca' => (string) $marca,
 		'min'   => (string) $min_price,
 		'max'   => (string) $max_price,
+		// Bump cuando cambie la lógica de fusión KENWOOD (radios-comerciales-kenwood).
+		'kbr'   => ( $marca === '' && $categoria_id !== '' && centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path ) ) ? 'km4' : '',
 	) ) );
 
-	// Búsqueda por marca: TTL mayor (cambia poco y mejora respuesta repetida / navegación rápida).
-	$cache_ttl = ( trim( (string) $marca ) !== '' ) ? 300 : 90;
+	// Por marca: TTL alto (el merge Syscom es costoso). Sin marca: listado general, un poco más vivo.
+	$cache_ttl = ( trim( (string) $marca ) !== '' ) ? 30 * MINUTE_IN_SECONDS : 3 * MINUTE_IN_SECONDS;
 	$cache_ttl = (int) apply_filters( 'centinela_tienda_productos_cache_ttl', $cache_ttl, $marca, $categoria_id, $pagina, $ordenar, $min_price, $max_price );
 	$cached    = get_transient( $cache_key );
 	if ( is_array( $cached ) && isset( $cached['productos'], $cached['paginas'], $cached['marcas'] ) ) {
-		return $cached;
+		$cp = (int) $cached['paginas'];
+		// No reutilizar transients de listados “fallidos” (vacío + 0 páginas) que bloqueaban la tienda horas.
+		if ( ! empty( $cached['productos'] ) || $cp > 0 ) {
+			return $cached;
+		}
 	}
 
 	if ( class_exists( 'Centinela_Syscom_API' ) ) {
@@ -575,27 +1861,69 @@ function centinela_tienda_get_productos_data( $categoria_id = '', $pagina = 1, $
 			$args['categoria'] = $categoria_id;
 		}
 
-		// Si hay filtro por marca, pedir directamente por busqueda.
-		// Esto evita que el filtro en PHP quede vacío si la marca no aparece en la "página 1" general.
-		if ( $marca !== '' ) {
-			$args['busqueda'] = (string) $marca;
-			$args['orden'] = 'relevancia';
-		}
+		$is_ref_marca = $marca !== ''
+			&& function_exists( 'centinela_search_query_looks_like_product_reference' )
+			&& centinela_search_query_looks_like_product_reference( $marca );
 
-		$resp = Centinela_Syscom_API::get_productos( $args );
-		if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
-			$productos_api     = $resp['productos'];
-			$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
-		}
-		if ( $categoria_id === '' && empty( $productos_api ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
-			$arbol = Centinela_Syscom_API::get_categorias_arbol();
-			if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
-				$args['categoria'] = (string) $arbol[0]['id'];
+		if ( $is_ref_marca && function_exists( 'centinela_search_productos_syscom' ) ) {
+			$per_page  = max( 1, min( 48, (int) apply_filters( 'centinela_tienda_per_page', 12 ) ) );
+			$max_fetch = max( $per_page, (int) apply_filters( 'centinela_tienda_search_reference_max', 180 ) );
+			$all_rows  = centinela_search_productos_syscom( $marca, $max_fetch, false );
+			$mapped_all = array();
+			foreach ( $all_rows as $row ) {
+				if ( is_array( $row ) ) {
+					$mapped = centinela_tienda_map_search_row_to_listado_prod( $row );
+					if ( ( isset( $mapped['producto_id'] ) && $mapped['producto_id'] !== '' ) || ( isset( $mapped['titulo'] ) && trim( (string) $mapped['titulo'] ) !== '' ) ) {
+						$mapped_all[] = $mapped;
+					}
+				}
+			}
+			$mapped_for_marcas = $mapped_all;
+			if ( function_exists( 'centinela_tienda_filter_productos_por_precio' ) ) {
+				$mapped_for_marcas = centinela_tienda_filter_productos_por_precio( $mapped_all, $min_price, $max_price );
+			}
+			$tienda_marcas_prefill = function_exists( 'centinela_tienda_extract_marcas' ) ? centinela_tienda_extract_marcas( $mapped_for_marcas ) : array();
+			$total                 = count( $mapped_for_marcas );
+			$productos_paginas     = $total > 0 ? max( 1, (int) ceil( $total / $per_page ) ) : 0;
+			$offset                = ( max( 1, (int) $pagina ) - 1 ) * $per_page;
+			$productos_api         = $total > 0 ? array_slice( $mapped_for_marcas, $offset, $per_page ) : array();
+			if ( $total === 0 ) {
+				$productos_paginas = 0;
+			}
+		} elseif ( $marca !== '' && function_exists( 'centinela_tienda_get_productos_by_brand' ) ) {
+			$brand_data        = centinela_tienda_get_productos_by_brand( (string) $marca, (string) $categoria_id, (int) $pagina, 'relevancia' );
+			$productos_api     = isset( $brand_data['productos'] ) && is_array( $brand_data['productos'] ) ? $brand_data['productos'] : array();
+			$productos_paginas = isset( $brand_data['paginas'] ) ? (int) $brand_data['paginas'] : 0;
+		} else {
+			$use_kenwood_merge =
+				$categoria_id !== ''
+				&& $marca === ''
+				&& centinela_tienda_cat_path_is_kenwood_commercial_branch( $cat_path )
+				&& (bool) apply_filters( 'centinela_tienda_kenwood_category_search_merge', true, $categoria_id, $cat_path );
+
+			if ( $use_kenwood_merge ) {
+				$per_page          = max( 1, min( 48, (int) apply_filters( 'centinela_tienda_per_page', 12 ) ) );
+				$full_list         = centinela_tienda_get_kenwood_merged_category_list_cached( (string) $categoria_id, (string) $ordenar, (string) $cat_path );
+				$total             = count( $full_list );
+				$productos_paginas = $total > 0 ? max( 1, (int) ceil( $total / $per_page ) ) : 0;
+				$offset            = ( max( 1, (int) $pagina ) - 1 ) * $per_page;
+				$productos_api     = $total > 0 ? array_slice( $full_list, $offset, $per_page ) : array();
+				if ( $total === 0 ) {
+					$productos_paginas = 0;
+				}
+			} else {
 				$resp = Centinela_Syscom_API::get_productos( $args );
-				if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) && ! empty( $resp['productos'] ) ) {
+				if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
 					$productos_api     = $resp['productos'];
 					$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
 				}
+			}
+		}
+		if ( $categoria_id === '' && empty( $productos_api ) && $marca === '' ) {
+			$fb = centinela_tienda_fallback_productos_by_arbol_roots( $args );
+			if ( is_array( $fb ) ) {
+				$productos_api     = $fb['productos'];
+				$productos_paginas = $fb['paginas'];
 			}
 		}
 	}
@@ -606,13 +1934,20 @@ function centinela_tienda_get_productos_data( $categoria_id = '', $pagina = 1, $
 		$productos_tras_precio = centinela_tienda_filter_productos_por_precio( $productos_api, $min_price, $max_price );
 	}
 
-	// Marcas del sidebar = las que tienen productos en el rango de precio actual (o todas si el rango está vacío).
-	$marcas = function_exists( 'centinela_tienda_extract_marcas' ) ? centinela_tienda_extract_marcas( ! empty( $productos_tras_precio ) ? $productos_tras_precio : $productos_api ) : array();
-
-	// Filtrar por marca en PHP.
-	if ( $marca !== '' && ! empty( $productos_tras_precio ) && function_exists( 'centinela_tienda_filter_productos_por_marca' ) ) {
-		$productos_tras_precio = centinela_tienda_filter_productos_por_marca( $productos_tras_precio, $marca );
+	// Marcas: en categoría sin filtro de marca, usar muestreo de la categoría (varias páginas), no solo la página actual.
+	if ( $tienda_marcas_prefill !== null ) {
+		$marcas = $tienda_marcas_prefill;
+	} elseif ( $marca === '' && $categoria_id !== '' && function_exists( 'centinela_tienda_get_marcas_for_sidebar' ) ) {
+		$marcas = centinela_tienda_get_marcas_for_sidebar( (string) $categoria_id, (string) $cat_path );
+		if ( empty( $marcas ) ) {
+			$marcas = function_exists( 'centinela_tienda_extract_marcas' ) ? centinela_tienda_extract_marcas( ! empty( $productos_tras_precio ) ? $productos_tras_precio : $productos_api ) : array();
+		}
+	} else {
+		$marcas = function_exists( 'centinela_tienda_extract_marcas' ) ? centinela_tienda_extract_marcas( ! empty( $productos_tras_precio ) ? $productos_tras_precio : $productos_api ) : array();
 	}
+
+	// No volver a filtrar por marca aquí: con marca activa los productos ya vienen filtrados de centinela_tienda_get_productos_by_brand()
+	// (incl. Kenwood con categorías de confianza). Un segundo filtro sin $trusted_category_ids vaciaba el listado.
 
 	$productos_api = $productos_tras_precio;
 
@@ -622,7 +1957,9 @@ function centinela_tienda_get_productos_data( $categoria_id = '', $pagina = 1, $
 		'marcas'    => $marcas,
 	);
 
-	set_transient( $cache_key, $result, $cache_ttl );
+	if ( ! empty( $result['productos'] ) || (int) $result['paginas'] > 0 ) {
+		set_transient( $cache_key, $result, $cache_ttl );
+	}
 
 	return $result;
 }
@@ -657,25 +1994,30 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 		if ( $categoria_id !== '' ) {
 			$args['categoria'] = $categoria_id;
 		}
-		// Misma lógica que centinela_tienda_get_productos_data: la API no filtra bien solo por marca.
-		if ( $marca !== '' ) {
-			$args['busqueda'] = (string) $marca;
-			$args['orden']    = 'relevancia';
+		$is_ref_marca_render = trim( (string) $marca ) !== ''
+			&& function_exists( 'centinela_search_query_looks_like_product_reference' )
+			&& centinela_search_query_looks_like_product_reference( $marca );
+
+		if ( $is_ref_marca_render && function_exists( 'centinela_tienda_get_productos_data' ) ) {
+			$data              = centinela_tienda_get_productos_data( $categoria_id, $pagina, $ordenar, $cat_path, $marca, $min_price, $max_price );
+			$productos_api     = isset( $data['productos'] ) && is_array( $data['productos'] ) ? $data['productos'] : array();
+			$productos_paginas = isset( $data['paginas'] ) ? (int) $data['paginas'] : 0;
+		} elseif ( $marca !== '' && function_exists( 'centinela_tienda_get_productos_by_brand' ) ) {
+			$brand_data        = centinela_tienda_get_productos_by_brand( (string) $marca, (string) $categoria_id, (int) $pagina, 'relevancia' );
+			$productos_api     = isset( $brand_data['productos'] ) && is_array( $brand_data['productos'] ) ? $brand_data['productos'] : array();
+			$productos_paginas = isset( $brand_data['paginas'] ) ? (int) $brand_data['paginas'] : 0;
+		} else {
+			$resp = Centinela_Syscom_API::get_productos( $args );
+			if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
+				$productos_api    = $resp['productos'];
+				$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
+			}
 		}
-		$resp = Centinela_Syscom_API::get_productos( $args );
-		if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) ) {
-			$productos_api    = $resp['productos'];
-			$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
-		}
-		if ( $categoria_id === '' && empty( $productos_api ) && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
-			$arbol = Centinela_Syscom_API::get_categorias_arbol();
-			if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
-				$args['categoria'] = (string) $arbol[0]['id'];
-				$resp = Centinela_Syscom_API::get_productos( $args );
-				if ( ! is_wp_error( $resp ) && isset( $resp['productos'] ) && ! empty( $resp['productos'] ) ) {
-					$productos_api    = $resp['productos'];
-					$productos_paginas = isset( $resp['paginas'] ) ? (int) $resp['paginas'] : 0;
-				}
+		if ( $categoria_id === '' && empty( $productos_api ) && trim( (string) $marca ) === '' ) {
+			$fb = centinela_tienda_fallback_productos_by_arbol_roots( $args );
+			if ( is_array( $fb ) ) {
+				$productos_api     = $fb['productos'];
+				$productos_paginas = $fb['paginas'];
 			}
 		}
 	}
@@ -685,10 +2027,7 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 		$productos_api = centinela_tienda_filter_productos_por_precio( $productos_api, $min_price, $max_price );
 	}
 
-	// Filtrar por marca en PHP.
-	if ( $marca !== '' && ! empty( $productos_api ) && function_exists( 'centinela_tienda_filter_productos_por_marca' ) ) {
-		$productos_api = centinela_tienda_filter_productos_por_marca( $productos_api, $marca );
-	}
+	// Con marca activa el listado ya pasó por get_productos_by_brand (no duplicar filter_productos_por_marca).
 
 	ob_start();
 
@@ -711,7 +2050,10 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 				}
 				$seen_pids[ $pid ] = true;
 				$titulo    = isset( $prod['titulo'] ) ? $prod['titulo'] : '';
-				$img       = isset( $prod['img_portada'] ) ? $prod['img_portada'] : '';
+				$img       = isset( $prod['img_portada'] ) ? trim( (string) $prod['img_portada'] ) : '';
+				if ( $img === '' && function_exists( 'centinela_syscom_imagen_no_disponible_url' ) ) {
+					$img = centinela_syscom_imagen_no_disponible_url();
+				}
 				$modelo    = isset( $prod['modelo'] ) ? trim( (string) $prod['modelo'] ) : '';
 				$prod_marca = function_exists( 'centinela_tienda_producto_marca' ) ? centinela_tienda_producto_marca( $prod ) : ( isset( $prod['marca'] ) ? trim( (string) $prod['marca'] ) : '' );
 				$precio_data = function_exists( 'centinela_tienda_precio_para_listado' ) ? centinela_tienda_precio_para_listado( $prod, $pid ) : array( 'precio' => '', 'precio_especial' => '', 'tiene_precio_especial' => false );
@@ -727,7 +2069,7 @@ function centinela_tienda_render_productos_html( $categoria_id = '', $pagina = 1
 				<article class="centinela-tienda__card" data-product-id="<?php echo esc_attr( $pid ); ?>">
 					<div class="centinela-tienda__card-image-wrap">
 						<a href="<?php echo esc_url( $url ); ?>" class="centinela-tienda__card-link centinela-tienda__card-image" aria-label="<?php echo esc_attr( $titulo ); ?>">
-							<?php if ( $img ) : ?>
+							<?php if ( $img !== '' ) : ?>
 								<img src="<?php echo esc_url( $img ); ?>" alt="<?php echo esc_attr( $titulo ); ?>" loading="lazy" />
 							<?php else : ?>
 								<span class="centinela-tienda__card-placeholder"><?php esc_html_e( 'Sin imagen', 'centinela-group-theme' ); ?></span>
@@ -846,21 +2188,49 @@ function centinela_tienda_rest_routes() {
 				'default'           => '',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
+			'quick' => array(
+				'type'    => 'boolean',
+				'default' => false,
+			),
 		),
 		'callback' => function ( $request ) {
 			$categoria  = $request->get_param( 'categoria' );
 			$cat_path   = $request->get_param( 'cat_path' );
 			$pagina     = $request->get_param( 'pagina' );
 			$ordenar    = $request->get_param( 'ordenar' );
-			$marca      = $request->get_param( 'marca' );
+			$marca      = trim( (string) $request->get_param( 'marca' ) );
 			$min_price  = $request->get_param( 'min_price' );
 			$max_price  = $request->get_param( 'max_price' );
+			$quick      = (bool) $request->get_param( 'quick' );
 			if ( $cat_path !== '' && function_exists( 'centinela_resolve_cat_path_to_syscom_id' ) ) {
 				$resolved = centinela_resolve_cat_path_to_syscom_id( trim( $cat_path ) );
 				if ( $resolved !== null ) {
 					$categoria = $resolved;
 				}
 			}
+			$no_precio = trim( (string) $min_price ) === '' && trim( (string) $max_price ) === '';
+
+			// Vista previa rápida (solo marca, página 1, sin filtro de precio): pocas llamadas Syscom.
+			if ( $quick && $marca !== '' && (int) $pagina === 1 && $no_precio && function_exists( 'centinela_tienda_get_productos_by_brand_quick' ) ) {
+				$quick_data = centinela_tienda_get_productos_by_brand_quick( $marca, (string) $categoria, (string) $ordenar, 12 );
+				$html       = centinela_tienda_render_productos_html( $categoria, 1, $ordenar, $cat_path, $marca, $min_price, $max_price, $quick_data );
+				return new WP_REST_Response(
+					array(
+						'html'       => $html,
+						'pagina'     => 1,
+						'paginas'    => 0,
+						'partial'    => true,
+						'categoria'  => $categoria,
+						'cat_path'   => $cat_path,
+						'marca'      => $marca,
+						'min_price'  => $min_price,
+						'max_price'  => $max_price,
+						'marcas'     => array(),
+					),
+					200
+				);
+			}
+
 			// Misma lógica y caché transitoria que la carga inicial (get_productos_data): evita doble llamada a Syscom en cada petición AJAX.
 			$productos_data = null;
 			$marcas           = array();
@@ -881,16 +2251,21 @@ function centinela_tienda_rest_routes() {
 				$marcas = ( isset( $full['marcas'] ) && is_array( $full['marcas'] ) ) ? $full['marcas'] : array();
 			}
 			$html = centinela_tienda_render_productos_html( $categoria, $pagina, $ordenar, $cat_path, $marca, $min_price, $max_price, $productos_data );
-			return new WP_REST_Response( array(
-				'html'       => $html,
-				'pagina'     => (int) $pagina,
-				'categoria'  => $categoria,
-				'cat_path'   => $cat_path,
-				'marca'      => $marca,
-				'min_price'  => $min_price,
-				'max_price'  => $max_price,
-				'marcas'     => $marcas,
-			), 200 );
+			return new WP_REST_Response(
+				array(
+					'html'       => $html,
+					'pagina'     => (int) $pagina,
+					'paginas'    => isset( $productos_data['paginas'] ) ? (int) $productos_data['paginas'] : 0,
+					'partial'    => false,
+					'categoria'  => $categoria,
+					'cat_path'   => $cat_path,
+					'marca'      => $marca,
+					'min_price'  => $min_price,
+					'max_price'  => $max_price,
+					'marcas'     => $marcas,
+				),
+				200
+			);
 		},
 	) );
 
@@ -924,9 +2299,26 @@ function centinela_tienda_rest_routes() {
 			}
 			if ( function_exists( 'centinela_tienda_get_marcas_bundle' ) ) {
 				$bundle = centinela_tienda_get_marcas_bundle( (string) $categoria, (string) $cat_path );
+				$marcas = isset( $bundle['marcas'] ) ? $bundle['marcas'] : array();
+				// Fallback defensivo: si la fuente global/categoría vino vacía por caché o respuesta parcial,
+				// reconstruir marcas desde el primer bloque de productos para no dejar el select vacío.
+				if ( empty( $marcas ) && function_exists( 'centinela_tienda_get_productos_data' ) ) {
+					$fallback_data = centinela_tienda_get_productos_data(
+						(string) $categoria,
+						1,
+						'relevancia',
+						(string) $cat_path,
+						'',
+						'',
+						''
+					);
+					if ( isset( $fallback_data['marcas'] ) && is_array( $fallback_data['marcas'] ) && ! empty( $fallback_data['marcas'] ) ) {
+						$marcas = $fallback_data['marcas'];
+					}
+				}
 				return new WP_REST_Response(
 					array(
-						'marcas' => isset( $bundle['marcas'] ) ? $bundle['marcas'] : array(),
+						'marcas' => $marcas,
 						'total'  => isset( $bundle['total'] ) ? (int) $bundle['total'] : 0,
 						'source' => isset( $bundle['source'] ) ? $bundle['source'] : 'unknown',
 					),

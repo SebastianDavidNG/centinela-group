@@ -414,12 +414,27 @@ function centinela_get_cat_path_from_id( $cat_id, $arbol = null ) {
 
 /**
  * Resolver ruta de categoría (ej. videovigilancia/proteccion-contra-descargas) al ID de categoría Syscom.
- * Usa el árbol de categorías de la API.
+ * Usa el árbol de categorías de la API y, para rutas conocidas, overrides (filtro
+ * `centinela_tienda_cat_path_syscom_id_overrides`) si Syscom confirma un ID distinto al del árbol.
+ * (El sufijo …-3075.html en la web no implica el mismo catálogo en GET /productos?categoria=3075.)
  *
  * @param string $path Ruta con slugs separados por /.
  * @return string|null ID de categoría o null.
  */
 function centinela_resolve_cat_path_to_syscom_id( $path ) {
+	$segments = array_filter( array_map( 'trim', explode( '/', (string) $path ) ) );
+	$path_key   = implode( '/', $segments );
+	$path_overrides = apply_filters(
+		'centinela_tienda_cat_path_syscom_id_overrides',
+		array()
+	);
+	if ( $path_key !== '' && is_array( $path_overrides ) && isset( $path_overrides[ $path_key ] ) ) {
+		$forced = trim( (string) $path_overrides[ $path_key ] );
+		if ( $forced !== '' ) {
+			return $forced;
+		}
+	}
+
 	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
 		return null;
 	}
@@ -427,7 +442,6 @@ function centinela_resolve_cat_path_to_syscom_id( $path ) {
 	if ( is_wp_error( $arbol ) || empty( $arbol ) ) {
 		return null;
 	}
-	$segments = array_filter( array_map( 'trim', explode( '/', $path ) ) );
 	if ( empty( $segments ) ) {
 		return null;
 	}

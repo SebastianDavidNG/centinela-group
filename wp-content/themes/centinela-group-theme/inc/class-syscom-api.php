@@ -615,6 +615,13 @@ class Centinela_Syscom_API {
 		while ( isset( $data['data'] ) && is_array( $data['data'] ) && count( $data ) === 1 ) {
 			$data = $data['data'];
 		}
+		// HTTP 200 con {"error":"product_not_available"}: producto no expuesto a esta app OAuth / catálogo.
+		if ( isset( $data['error'] ) && is_string( $data['error'] ) && trim( $data['error'] ) !== '' ) {
+			$code_err = trim( $data['error'] );
+			$detail   = isset( $data['message'] ) && is_string( $data['message'] ) ? trim( $data['message'] ) : '';
+			$msg      = $detail !== '' ? $code_err . ' — ' . $detail : $code_err;
+			return new WP_Error( 'centinela_syscom_product_unavailable', sprintf( __( 'Producto no disponible en la API Syscom: %s', 'centinela-group-theme' ), $msg ) );
+		}
 		return $data;
 	}
 
@@ -826,18 +833,29 @@ class Centinela_Syscom_API {
 	}
 
 	/**
-	 * Invalidar caché (útil al guardar credenciales).
+	 * Invalidar caché Syscom y derivados de tienda/búsqueda (transients en wp_options).
+	 *
+	 * Incluye listados `centinela_tienda_data_*`, merge por marca, sugerencias de búsqueda y el árbol
+	 * duplicado de page-tienda; sin esto, “Vaciar caché” en Apariencia no refrescaba grids ni el buscador.
 	 */
 	public static function flush_cache() {
 		delete_transient( self::TRANSIENT_TOKEN );
 		delete_transient( self::TRANSIENT_CATEGORIAS );
 		delete_transient( self::TRANSIENT_CATEGORIAS_ARBOL );
 		delete_transient( self::TRANSIENT_MARCAS_NOMBRES );
+		delete_transient( 'centinela_tienda_categorias_arbol' );
+
 		global $wpdb;
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_syscom_hijos_%' OR option_name LIKE '_transient_timeout_centinela_syscom_hijos_%'" );
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_ps_%' OR option_name LIKE '_transient_timeout_centinela_ps_%'" );
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_precios_detalle_%' OR option_name LIKE '_transient_timeout_centinela_precios_detalle_%'" );
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_sidebar_marcas_%' OR option_name LIKE '_transient_timeout_centinela_sidebar_marcas_%'" );
 		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_tienda_marcas_%' OR option_name LIKE '_transient_timeout_centinela_tienda_marcas_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_tienda_data_%' OR option_name LIKE '_transient_timeout_centinela_tienda_data_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_brand_merge_%' OR option_name LIKE '_transient_timeout_centinela_brand_merge_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_search_fast_%' OR option_name LIKE '_transient_timeout_centinela_search_fast_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_search_prompts_%' OR option_name LIKE '_transient_timeout_centinela_search_prompts_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_rel_precio_%' OR option_name LIKE '_transient_timeout_centinela_rel_precio_%'" );
+		$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_centinela_kmcat_%' OR option_name LIKE '_transient_timeout_centinela_kmcat_%'" );
 	}
 }

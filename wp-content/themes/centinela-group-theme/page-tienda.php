@@ -50,12 +50,16 @@ if ( $es_tienda_wc ) {
 		$cache_key_arbol = 'centinela_tienda_categorias_arbol';
 		$arbol           = get_transient( $cache_key_arbol );
 		if ( ! is_array( $arbol ) ) {
-			$arbol = Centinela_Syscom_API::get_categorias_arbol();
-			if ( is_wp_error( $arbol ) ) {
+			$raw_arbol = Centinela_Syscom_API::get_categorias_arbol();
+			if ( is_wp_error( $raw_arbol ) ) {
 				$arbol = array();
+			} else {
+				$arbol = is_array( $raw_arbol ) ? $raw_arbol : array();
+				// No fijar 6 h un árbol vacío por fallo transitorio de red/API.
+				if ( ! empty( $arbol ) ) {
+					set_transient( $cache_key_arbol, $arbol, 6 * HOUR_IN_SECONDS );
+				}
 			}
-			// Cache por 6 horas: árbol de categorías casi estático.
-			set_transient( $cache_key_arbol, $arbol, 6 * HOUR_IN_SECONDS );
 		}
 	}
 $syscom_ok = class_exists( 'Centinela_Syscom_API' ) && Centinela_Syscom_API::has_credentials();
@@ -79,7 +83,7 @@ if ( $categoria_id === '' && isset( $_GET['categoria'] ) ) {
 }
 $pagina_actual = max( 1, (int) ( isset( $_GET['pag'] ) ? $_GET['pag'] : 1 ) );
 $ordenar       = isset( $_GET['ordenar'] ) ? sanitize_text_field( $_GET['ordenar'] ) : 'relevancia';
-$marca_actual   = isset( $_GET['marca'] ) ? sanitize_text_field( $_GET['marca'] ) : '';
+$marca_actual   = isset( $_GET['marca'] ) ? trim( sanitize_text_field( wp_unslash( $_GET['marca'] ) ) ) : '';
 $min_price_actual = isset( $_GET['min_price'] ) ? sanitize_text_field( $_GET['min_price'] ) : '';
 $max_price_actual = isset( $_GET['max_price'] ) ? sanitize_text_field( $_GET['max_price'] ) : '';
 $tienda_base    = home_url( '/tienda/' );

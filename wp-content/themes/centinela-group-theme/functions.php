@@ -73,6 +73,18 @@ function centinela_parse_precio_api( $precio ) {
 }
 
 /**
+ * URL de imagen “no disponible” de Syscom cuando la API no envía portada (listados, búsqueda, tienda).
+ *
+ * @return string
+ */
+function centinela_syscom_imagen_no_disponible_url() {
+	return (string) apply_filters(
+		'centinela_syscom_imagen_no_disponible_url',
+		'https://ftp3.syscom.mx/usuarios/fotos/imagen_no_disponible.jpg'
+	);
+}
+
+/**
  * Valor numérico de un precio (alias de centinela_parse_precio_api para compatibilidad).
  *
  * @param string|float|int $precio Precio tal como viene de la API.
@@ -121,6 +133,10 @@ function centinela_get_precio_lista_con_iva( $precios ) {
 		'precio_cop',
 		'lista_iva',
 		'precio_iva_cop',
+		'precio_neto_cop',
+		'precio_publico_cop',
+		'precio_mayoreo_cop',
+		'precio_distribuidor_cop',
 	);
 	foreach ( $candidatos as $key ) {
 		if ( isset( $precios[ $key ] ) && $precios[ $key ] !== '' && $precios[ $key ] !== null ) {
@@ -141,7 +157,20 @@ function centinela_find_precio_lista_iva_in_array( $arr ) {
 	if ( ! is_array( $arr ) ) {
 		return '';
 	}
-	$candidatos = array( 'precio_lista_iva', 'precio_lista_con_iva', 'precio_con_iva', 'precio_iva', 'precio_lista_cop', 'precio_cop', 'lista_iva', 'precio_iva_cop' );
+	$candidatos = array(
+		'precio_lista_iva',
+		'precio_lista_con_iva',
+		'precio_con_iva',
+		'precio_iva',
+		'precio_lista_cop',
+		'precio_cop',
+		'lista_iva',
+		'precio_iva_cop',
+		'precio_neto_cop',
+		'precio_publico_cop',
+		'precio_mayoreo_cop',
+		'precio_distribuidor_cop',
+	);
 	foreach ( $candidatos as $key ) {
 		if ( isset( $arr[ $key ] ) && $arr[ $key ] !== '' && $arr[ $key ] !== null ) {
 			return $arr[ $key ];
@@ -157,6 +186,267 @@ function centinela_find_precio_lista_iva_in_array( $arr ) {
 		}
 	}
 	return '';
+}
+
+/**
+ * Une claves de precio en la raíz del producto API con el subarray precios[] (el listado a veces trae precios vacíos y el valor en la raíz).
+ *
+ * @param array $producto Respuesta ítem listado o detalle Syscom.
+ * @return array Array tipo precios para centinela_get_precio_lista_con_iva.
+ */
+function centinela_syscom_merge_precios_array( $producto ) {
+	if ( ! is_array( $producto ) ) {
+		return array();
+	}
+	$precios = isset( $producto['precios'] ) && is_array( $producto['precios'] ) ? $producto['precios'] : array();
+	$root_keys = array(
+		'precio_lista_iva',
+		'precio_lista_con_iva',
+		'precio_con_iva',
+		'precio_iva',
+		'precio_lista_cop',
+		'precio_cop',
+		'precio_lista',
+		'precio_especial',
+		'precio_descuento',
+		'precio_lista_sin_iva',
+		'precio_especial_sin_iva',
+		'precio_descuento_sin_iva',
+		'precio_neto_cop',
+		'precio_publico_cop',
+		'precio_mayoreo_cop',
+		'precio_distribuidor_cop',
+	);
+	foreach ( $root_keys as $key ) {
+		if ( isset( $producto[ $key ] ) && $producto[ $key ] !== '' && $producto[ $key ] !== null && ! isset( $precios[ $key ] ) ) {
+			$precios[ $key ] = $producto[ $key ];
+		}
+	}
+	return $precios;
+}
+
+/**
+ * Aplana ramas típicas (cop, colombia) dentro de precios[] para leer los mismos campos que en la raíz.
+ *
+ * @param array $precios Subarray precios del producto.
+ * @return array
+ */
+function centinela_syscom_flatten_precios_branches( array $precios ) {
+	$branches = array( 'cop', 'COP', 'colombia', 'Colombia', 'moneda_nacional' );
+	foreach ( $branches as $b ) {
+		if ( ! isset( $precios[ $b ] ) || ! is_array( $precios[ $b ] ) ) {
+			continue;
+		}
+		foreach ( $precios[ $b ] as $k => $v ) {
+			if ( ! isset( $precios[ $k ] ) || $precios[ $k ] === '' || $precios[ $k ] === null ) {
+				$precios[ $k ] = $v;
+			}
+		}
+	}
+	return $precios;
+}
+
+/**
+ * Si solo viene precio sin IVA, estimar lista con IVA (filtro para ajustar el factor, por defecto 19%).
+ *
+ * @param array $precios Precios ya mergeados y aplanados.
+ * @param float $current Lista ya resuelta (>0 se respeta).
+ * @return float
+ */
+function centinela_syscom_apply_sin_iva_lista_fallback( array $precios, $current ) {
+	if ( $current > 0 ) {
+		return (float) $current;
+	}
+	$keys = array( 'precio_lista_sin_iva', 'lista_sin_iva', 'precio_sin_iva' );
+	$mult = (float) apply_filters( 'centinela_syscom_precio_sin_iva_iva_multiplier', 1.19 );
+	if ( $mult <= 0 ) {
+		$mult = 1.19;
+	}
+	foreach ( $keys as $key ) {
+		if ( ! isset( $precios[ $key ] ) || $precios[ $key ] === '' || $precios[ $key ] === null ) {
+			continue;
+		}
+		$sin = centinela_parse_precio_api( $precios[ $key ] );
+		if ( $sin > 0 ) {
+			return round( $sin * $mult, 2 );
+		}
+	}
+	return 0.0;
+}
+
+/**
+ * Último recurso: mayor valor numérico bajo claves que parecen precio dentro del árbol precios (API anidada).
+ *
+ * @param mixed $node             precios[] o subárbol.
+ * @param int   $depth            Profundidad.
+ * @param float $min_cop_sensible Mínimo para considerar COP (evita porcentajes o basura).
+ * @return float
+ */
+function centinela_syscom_scrape_max_precio_from_precios_tree( $node, $depth = 0, $min_cop_sensible = 500.0 ) {
+	if ( $depth > 12 || ! is_array( $node ) ) {
+		return 0.0;
+	}
+	$best = 0.0;
+	foreach ( $node as $k => $v ) {
+		$lk = strtolower( (string) $k );
+		if ( is_array( $v ) ) {
+			$sub = centinela_syscom_scrape_max_precio_from_precios_tree( $v, $depth + 1, $min_cop_sensible );
+			if ( $sub > $best ) {
+				$best = $sub;
+			}
+			continue;
+		}
+		if ( ! is_scalar( $v ) ) {
+			continue;
+		}
+		if ( ! preg_match( '/precio|lista|especial|descuen|ofert|valor|total|cop|neto|mayoreo|distrib/i', $lk ) ) {
+			continue;
+		}
+		if ( preg_match( '/porcent|percent|_pct|sku|id$/i', $lk ) ) {
+			continue;
+		}
+		$n = centinela_parse_precio_api( $v );
+		if ( $n >= $min_cop_sensible && $n > $best ) {
+			$best = $n;
+		}
+	}
+	return $best;
+}
+
+/**
+ * Calcula lista/oferta en COP desde una respuesta producto (listado o detalle), sin llamadas HTTP extra.
+ *
+ * @param array $p Producto API.
+ * @return array{ precio_lista: float, precio_oferta: float, tiene_oferta: bool }
+ */
+function centinela_syscom_compute_precios_lista_oferta_internal( $p ) {
+	if ( ! is_array( $p ) ) {
+		return array(
+			'precio_lista'  => 0.0,
+			'precio_oferta' => 0.0,
+			'tiene_oferta'  => false,
+		);
+	}
+	$precios = centinela_syscom_flatten_precios_branches( centinela_syscom_merge_precios_array( $p ) );
+
+	$precio_lista_raw = '';
+	if ( function_exists( 'centinela_find_precio_lista_iva_in_array' ) ) {
+		$precio_lista_raw = centinela_find_precio_lista_iva_in_array( $p );
+	}
+	if ( $precio_lista_raw === '' ) {
+		$precio_lista_raw = function_exists( 'centinela_get_precio_lista_con_iva' ) ? centinela_get_precio_lista_con_iva( $precios ) : '';
+	}
+	if ( $precio_lista_raw === '' && isset( $precios['precio_lista'] ) ) {
+		$precio_lista_raw = $precios['precio_lista'];
+	}
+	$precio_lista = function_exists( 'centinela_parse_precio_api' ) ? centinela_parse_precio_api( $precio_lista_raw ) : 0.0;
+	$precio_lista = centinela_syscom_apply_sin_iva_lista_fallback( $precios, $precio_lista );
+
+	if ( $precio_lista <= 0 && ! empty( $p['precios'] ) && is_array( $p['precios'] ) ) {
+		$scraped = centinela_syscom_scrape_max_precio_from_precios_tree( $p['precios'], 0, 500.0 );
+		if ( $scraped > 0 ) {
+			$precio_lista = $scraped;
+		}
+	}
+
+	$precio_oferta_raw = isset( $precios['precio_especial'] ) ? $precios['precio_especial'] : ( isset( $precios['precio_descuento'] ) ? $precios['precio_descuento'] : '' );
+	$precio_oferta     = 0.0;
+	if ( $precio_oferta_raw !== '' && $precio_oferta_raw !== null ) {
+		$precio_oferta = function_exists( 'centinela_parse_precio_api' ) ? centinela_parse_precio_api( $precio_oferta_raw ) : 0.0;
+		if ( $precio_oferta <= 0 || ( $precio_lista > 0 && $precio_oferta >= $precio_lista ) ) {
+			$precio_oferta = 0.0;
+		}
+	}
+	if ( $precio_oferta <= 0 && $precio_lista > 0 ) {
+		$mult = (float) apply_filters( 'centinela_syscom_precio_sin_iva_iva_multiplier', 1.19 );
+		if ( $mult <= 0 ) {
+			$mult = 1.19;
+		}
+		foreach ( array( 'precio_especial_sin_iva', 'precio_descuento_sin_iva' ) as $ek ) {
+			if ( ! isset( $precios[ $ek ] ) || $precios[ $ek ] === '' || $precios[ $ek ] === null ) {
+				continue;
+			}
+			$e = centinela_parse_precio_api( $precios[ $ek ] );
+			if ( $e <= 0 ) {
+				continue;
+			}
+			$e_con = round( $e * $mult, 2 );
+			if ( $e_con < $precio_lista ) {
+				$precio_oferta = $e_con;
+				break;
+			}
+		}
+	}
+
+	return array(
+		'precio_lista'  => $precio_lista,
+		'precio_oferta' => $precio_oferta,
+		'tiene_oferta'  => $precio_oferta > 0,
+	);
+}
+
+/**
+ * Si la respuesta parece USD (montos bajos), convertir a COP con TRM Syscom.
+ *
+ * @param string $pid ID producto.
+ * @return array{ precio_lista: float, precio_oferta: float, tiene_oferta: bool }|null
+ */
+function centinela_syscom_try_usd_response_to_cop_prices( $pid ) {
+	$pid = trim( (string) $pid );
+	if ( $pid === '' || ! class_exists( 'Centinela_Syscom_API' ) ) {
+		return null;
+	}
+	$usd = Centinela_Syscom_API::get_producto( $pid, false );
+	if ( is_wp_error( $usd ) || ! is_array( $usd ) ) {
+		return null;
+	}
+	$tc = Centinela_Syscom_API::get_tipo_cambio_usd_cop();
+	if ( is_wp_error( $tc ) || $tc <= 0 ) {
+		return null;
+	}
+	$out = centinela_syscom_compute_precios_lista_oferta_internal( $usd );
+	if ( $out['precio_lista'] <= 0 ) {
+		return null;
+	}
+	if ( $out['precio_lista'] > 25000 ) {
+		return $out;
+	}
+	$lista_cop  = round( $out['precio_lista'] * $tc, 2 );
+	$oferta_cop = $out['precio_oferta'] > 0 ? round( $out['precio_oferta'] * $tc, 2 ) : 0.0;
+	$oferta_ok  = ( $oferta_cop > 0 && $oferta_cop < $lista_cop ) ? $oferta_cop : 0.0;
+	return array(
+		'precio_lista'  => $lista_cop,
+		'precio_oferta' => $oferta_ok,
+		'tiene_oferta'  => $oferta_ok > 0,
+	);
+}
+
+/**
+ * Precio lista y oferta (numéricos COP) desde un ítem API; si lista queda en 0 y hay ID, consulta detalle GET productos/{id}.
+ *
+ * @param array $producto Ítem de listado o detalle.
+ * @param bool  $fetch_detail Si true y lista es 0, intentar get_producto por ID.
+ * @return array{ precio_lista: float, precio_oferta: float, tiene_oferta: bool }
+ */
+function centinela_syscom_producto_precios_lista_oferta( $producto, $fetch_detail = true ) {
+	$out = centinela_syscom_compute_precios_lista_oferta_internal( $producto );
+	$pid = '';
+	if ( is_array( $producto ) ) {
+		$pid = isset( $producto['producto_id'] ) ? trim( (string) $producto['producto_id'] ) : ( isset( $producto['id'] ) ? trim( (string) $producto['id'] ) : '' );
+	}
+	if ( $fetch_detail && $out['precio_lista'] <= 0 && $pid !== '' && class_exists( 'Centinela_Syscom_API' ) ) {
+		$full = Centinela_Syscom_API::get_producto( $pid, true );
+		if ( ! is_wp_error( $full ) && is_array( $full ) ) {
+			$out = centinela_syscom_compute_precios_lista_oferta_internal( $full );
+		}
+	}
+	if ( $out['precio_lista'] <= 0 && $pid !== '' && class_exists( 'Centinela_Syscom_API' ) ) {
+		$usd_cop = centinela_syscom_try_usd_response_to_cop_prices( $pid );
+		if ( is_array( $usd_cop ) && $usd_cop['precio_lista'] > 0 ) {
+			$out = $usd_cop;
+		}
+	}
+	return $out;
 }
 
 /**
@@ -461,6 +751,13 @@ function centinela_register_hero_slider_assets() {
 		'centinela-cotizacion-web-form',
 		CENTINELA_THEME_URI . '/assets/js/cotizacion-web-form.js',
 		array( 'jquery' ),
+		CENTINELA_THEME_VERSION,
+		true
+	);
+	wp_register_script(
+		'centinela-slogan-widget',
+		CENTINELA_THEME_URI . '/assets/js/slogan-widget.js',
+		array(),
 		CENTINELA_THEME_VERSION,
 		true
 	);

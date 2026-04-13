@@ -95,17 +95,19 @@
   }
 
   function getRestUrl(params) {
-    var q = Object.keys(params).filter(function (k) { return params[k] !== '' && params[k] != null; }).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    var q = Object.keys(params).filter(function (k) { return params[k] !== '' && params[k] != null && params[k] !== false; }).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
     return '/wp-json/centinela/v1/tienda-productos?' + q;
   }
 
-  function fetchProductos(categoria, pagina, ordenar, catPath, marca, minPrice, maxPrice) {
+  function fetchProductos(categoria, pagina, ordenar, catPath, marca, minPrice, maxPrice, extra) {
+    extra = extra || {};
     var params = { pagina: String(pagina), ordenar: ordenar || 'relevancia' };
     if (categoria) params.categoria = categoria;
     if (catPath) params.cat_path = catPath;
-    if (marca) params.marca = marca;
+    if (marca != null && String(marca).trim() !== '') params.marca = String(marca).trim();
     if (minPrice) params.min_price = minPrice;
     if (maxPrice) params.max_price = maxPrice;
+    if (extra.quick) params.quick = '1';
     var url = getRestUrl(params);
     return fetch(url, { headers: { Accept: 'application/json' } })
       .then(function (r) { return r.json(); });
@@ -165,10 +167,14 @@
     return base;
   }
 
-  function updateState(categoria, catPath, pagina, marca, minPrice, maxPrice) {
+  function updateState(categoria, catPath, pagina, marca, minPrice, maxPrice, useReplace) {
     var url = buildTiendaUrl(catPath || '', pagina, marca || '', minPrice || '', maxPrice || '');
     var state = { tienda: true, categoria: categoria || '', cat_path: catPath || '', pagina: pagina || '1', marca: marca || '', min_price: minPrice || '', max_price: maxPrice || '' };
-    window.history.pushState(state, '', url);
+    if (useReplace) {
+      window.history.replaceState(state, '', url);
+    } else {
+      window.history.pushState(state, '', url);
+    }
     contentEl.setAttribute('data-categoria', categoria || '');
     contentEl.setAttribute('data-cat-path', catPath || '');
     contentEl.setAttribute('data-pagina', pagina || '1');
@@ -215,6 +221,136 @@
     }
   }
 
+  function setTiendaFilterLoadingMessage(msg) {
+    var p = contentEl.querySelector('.centinela-tienda__filter-loading-text');
+    if (p && msg) p.textContent = msg;
+  }
+
+  var brandScrollObserver = null;
+
+  function teardownBrandInfiniteScroll() {
+    if (brandScrollObserver) {
+      brandScrollObserver.disconnect();
+      brandScrollObserver = null;
+    }
+    contentEl.removeAttribute('data-brand-infinite-active');
+    contentEl.removeAttribute('data-brand-pages-total');
+    contentEl.removeAttribute('data-brand-pages-loaded');
+    contentEl.removeAttribute('data-brand-infinite-cap');
+    var sen = contentEl.querySelector('.centinela-tienda__infinite-sentinel');
+    if (sen) sen.remove();
+    var st = contentEl.querySelector('.centinela-tienda__infinite-status');
+    if (st) st.remove();
+    var pag = contentEl.querySelector('.centinela-tienda__pagination');
+    if (pag) {
+      pag.classList.remove('centinela-tienda__pagination--brand-deferred');
+      pag.removeAttribute('hidden');
+    }
+  }
+
+  /** Máximo de páginas a prefetchar por scroll; el resto queda en el paginador (evita decenas de peticiones). */
+  var TIENDA_BRAND_INFINITE_MAX_PAGES = 15;
+
+  /**
+   * Tras cargar la página 1 por marca, oculta el paginador y añade páginas 2+ al hacer scroll.
+   */
+  function setupBrandInfiniteScroll(pagesTotal) {
+    teardownBrandInfiniteScroll();
+    var marca = (contentEl.getAttribute('data-marca') || '').trim();
+    if (!marca || pagesTotal < 2) return;
+    var grid = contentEl.querySelector('.centinela-tienda__grid');
+    if (!grid) return;
+    var pag = contentEl.querySelector('.centinela-tienda__pagination');
+    if (pag) {
+      pag.classList.add('centinela-tienda__pagination--brand-deferred');
+      pag.setAttribute('hidden', '');
+    }
+    contentEl.setAttribute('data-brand-infinite-active', '1');
+    contentEl.setAttribute('data-brand-pages-total', String(pagesTotal));
+    contentEl.setAttribute('data-brand-pages-loaded', '1');
+    contentEl.setAttribute('data-brand-infinite-cap', String(Math.min(pagesTotal, TIENDA_BRAND_INFINITE_MAX_PAGES)));
+    var status = document.createElement('p');
+    status.className = 'centinela-tienda__infinite-status';
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = 'Desplázate para cargar más productos';
+    var sent = document.createElement('div');
+    sent.className = 'centinela-tienda__infinite-sentinel';
+    sent.setAttribute('aria-hidden', 'true');
+    grid.after(status);
+    status.after(sent);
+    var loadingMore = false;
+    var ordenarEl = contentEl.getAttribute('data-ordenar') || 'relevancia';
+    brandScrollObserver = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting || loadingMore) return;
+      var loaded = parseInt(contentEl.getAttribute('data-brand-pages-loaded'), 10) || 1;
+      var total = parseInt(contentEl.getAttribute('data-brand-pages-total'), 10) || 1;
+      var cap = parseInt(contentEl.getAttribute('data-brand-infinite-cap'), 10) || total;
+      if (loaded >= total) {
+        brandScrollObserver.disconnect();
+        brandScrollObserver = null;
+        sent.remove();
+        status.textContent = 'Has visto todos los productos de esta marca.';
+        return;
+      }
+      if (loaded >= cap && loaded < total) {
+        brandScrollObserver.disconnect();
+        brandScrollObserver = null;
+        sent.remove();
+        status.textContent = 'Usa la paginación inferior para ver el resto de productos.';
+        if (pag) {
+          pag.removeAttribute('hidden');
+          pag.classList.remove('centinela-tienda__pagination--brand-deferred');
+        }
+        return;
+      }
+      loadingMore = true;
+      status.textContent = 'Cargando más productos…';
+      var categoria = contentEl.getAttribute('data-categoria') || '';
+      var catPath = contentEl.getAttribute('data-cat-path') || '';
+      var minP = contentEl.getAttribute('data-min-price') || '';
+      var maxP = contentEl.getAttribute('data-max-price') || '';
+      fetchProductos(categoria, loaded + 1, ordenarEl, catPath, marca, minP, maxP, {})
+        .then(function (data) {
+          var html = data && data.html != null ? data.html : '';
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var newGrid = doc.querySelector('.centinela-tienda__grid');
+          if (newGrid && grid) {
+            newGrid.querySelectorAll('.centinela-tienda__card').forEach(function (card) {
+              grid.appendChild(document.importNode(card, true));
+            });
+          }
+          var nextLoaded = loaded + 1;
+          contentEl.setAttribute('data-brand-pages-loaded', String(nextLoaded));
+          fillCardPricesFromQuickView();
+          var capN = parseInt(contentEl.getAttribute('data-brand-infinite-cap'), 10) || total;
+          if (nextLoaded >= total) {
+            status.textContent = 'Has visto todos los productos de esta marca.';
+            brandScrollObserver.disconnect();
+            brandScrollObserver = null;
+            sent.remove();
+          } else if (nextLoaded >= capN) {
+            status.textContent = 'Usa la paginación inferior para ver el resto de productos.';
+            brandScrollObserver.disconnect();
+            brandScrollObserver = null;
+            sent.remove();
+            if (pag) {
+              pag.removeAttribute('hidden');
+              pag.classList.remove('centinela-tienda__pagination--brand-deferred');
+            }
+          } else {
+            status.textContent = 'Desplázate para cargar más productos';
+          }
+        })
+        .catch(function () {
+          status.textContent = 'No se pudieron cargar más productos. Usa el menú de categorías o recarga.';
+        })
+        .finally(function () {
+          loadingMore = false;
+        });
+    }, { root: null, rootMargin: '160px', threshold: 0 });
+    brandScrollObserver.observe(sent);
+  }
+
   function setSidebarActive(categoriaId) {
     if (!sidebarEl) return;
     var links = sidebarEl.querySelectorAll('.centinela-tienda__cat-link');
@@ -233,7 +369,9 @@
     });
   }
 
-  function loadAndShow(categoria, catPath, pagina, marca, minPrice, maxPrice) {
+  function loadAndShow(categoria, catPath, pagina, marca, minPrice, maxPrice, opts) {
+    opts = opts || {};
+    teardownBrandInfiniteScroll();
     if (isMobileFiltersViewport()) {
       closeMobileFilters();
     }
@@ -250,28 +388,58 @@
     });
     contentEl.setAttribute('aria-busy', 'true');
     contentEl.classList.add('centinela-tienda__content--loading');
+    contentEl.classList.remove('centinela-tienda__content--partial');
     showTiendaFilterLoading();
-    fetchProductos(categoria, pagina || 1, ordenar, catPath, currentMarca, currentMin, currentMax)
+
+    var progressiveBrand = !!(opts.progressiveBrand && String(currentMarca || '').trim() && String(pagina || '1') === '1' && !String(currentMin || '').trim() && !String(currentMax || '').trim());
+
+    function applyProductosResponse(data, skipHistory) {
+      var prevPath = (contentEl.getAttribute('data-cat-path') || '').trim();
+      var prevCat = (contentEl.getAttribute('data-categoria') || '').trim();
+      var html = data && data.html != null ? data.html : '';
+      var resCatPath = (data && data.cat_path != null) ? String(data.cat_path).trim() : String(catPath || '').trim();
+      var resPagina = (data && data.pagina != null) ? String(data.pagina) : (pagina || '1');
+      var resMarca = (data && data.marca != null) ? data.marca : currentMarca;
+      var resMin = (data && data.min_price != null) ? data.min_price : currentMin;
+      var resMax = (data && data.max_price != null) ? data.max_price : currentMax;
+      var nextCat = (categoria !== undefined && categoria !== null) ? String(categoria).trim() : prevCat;
+      var catContextChanged = (prevPath !== resCatPath) || (prevCat !== nextCat);
+      setContent(html, resCatPath, resPagina, resMarca, resMin, resMax);
+      if (!skipHistory) {
+        updateState(categoria, resCatPath, resPagina, resMarca, resMin, resMax, !!opts.initialHydration);
+      }
+      setSidebarActive(categoria);
+      if (catContextChanged) {
+        loadMarcas(categoria, resCatPath);
+      }
+      syncPriceRangeActive(resMin, resMax);
+      var pagesTotal = (data && data.paginas != null) ? parseInt(data.paginas, 10) : 0;
+      if (!skipHistory && resMarca && String(resPagina) === '1' && pagesTotal > 1) {
+        setupBrandInfiniteScroll(pagesTotal);
+      }
+    }
+
+    var fetchChain;
+    if (progressiveBrand) {
+      fetchChain = fetchProductos(categoria, 1, ordenar, catPath, currentMarca, currentMin, currentMax, { quick: true })
+        .then(function (q) {
+          if (q && q.html && q.partial) {
+            applyProductosResponse(q, true);
+            contentEl.classList.add('centinela-tienda__content--partial');
+            setTiendaFilterLoadingMessage('Completando catálogo de la marca…');
+          }
+          return fetchProductos(categoria, pagina || 1, ordenar, catPath, currentMarca, currentMin, currentMax, {});
+        })
+        .catch(function () {
+          return fetchProductos(categoria, pagina || 1, ordenar, catPath, currentMarca, currentMin, currentMax, {});
+        });
+    } else {
+      fetchChain = fetchProductos(categoria, pagina || 1, ordenar, catPath, currentMarca, currentMin, currentMax, {});
+    }
+
+    fetchChain
       .then(function (data) {
-        var prevPath = (contentEl.getAttribute('data-cat-path') || '').trim();
-        var prevCat = (contentEl.getAttribute('data-categoria') || '').trim();
-        var html = data && data.html != null ? data.html : '';
-        var resCatPath = (data && data.cat_path != null) ? String(data.cat_path).trim() : String(catPath || '').trim();
-        var resPagina = (data && data.pagina != null) ? String(data.pagina) : (pagina || '1');
-        var resMarca = (data && data.marca != null) ? data.marca : currentMarca;
-        var resMin = (data && data.min_price != null) ? data.min_price : currentMin;
-        var resMax = (data && data.max_price != null) ? data.max_price : currentMax;
-        var nextCat = (categoria !== undefined && categoria !== null) ? String(categoria).trim() : prevCat;
-        var catContextChanged = (prevPath !== resCatPath) || (prevCat !== nextCat);
-        setContent(html, resCatPath, resPagina, resMarca, resMin, resMax);
-        updateState(categoria, resCatPath, resPagina, resMarca, resMin, resMax);
-        setSidebarActive(categoria);
-        // tienda-marcas puede ser costoso (muchas llamadas Syscom en servidor). Solo recargar si cambió categoría/ruta;
-        // al filtrar solo por marca o precio la lista de marcas del contexto es la misma.
-        if (catContextChanged) {
-          loadMarcas(categoria, resCatPath);
-        }
-        syncPriceRangeActive(resMin, resMax);
+        applyProductosResponse(data, false);
       })
       .catch(function () {
         setContent('<p class="centinela-tienda__empty centinela-tienda__empty--main">Error al cargar productos.</p>', catPath || '', pagina || '1', currentMarca, currentMin, currentMax);
@@ -281,6 +449,8 @@
         removeTiendaFilterLoading();
         contentEl.removeAttribute('aria-busy');
         contentEl.classList.remove('centinela-tienda__content--loading');
+        contentEl.classList.remove('centinela-tienda__content--partial');
+        contentEl.removeAttribute('data-centinela-defer-brand');
       });
   }
 
@@ -332,6 +502,7 @@
   function loadMarcas(categoria, catPath) {
     if (!brandSelectEl) return;
     var statusEl = document.getElementById('centinela-tienda-brand-select-status');
+    var existingOptionsCount = brandSelectEl.options ? brandSelectEl.options.length : 0;
     brandSelectEl.setAttribute('aria-busy', 'true');
     brandSelectEl.disabled = true;
     if (statusEl) statusEl.textContent = 'Cargando marcas…';
@@ -343,6 +514,13 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var marcas = (data && data.marcas) ? data.marcas : [];
+        // Si la API responde vacío de forma transitoria, no destruir las marcas ya cargadas en el select.
+        if ((!Array.isArray(marcas) || marcas.length === 0) && existingOptionsCount > 1) {
+          brandSelectEl.removeAttribute('aria-busy');
+          brandSelectEl.disabled = false;
+          if (statusEl) statusEl.textContent = '';
+          return;
+        }
         renderMarcasSelectOptions(marcas);
       })
       .catch(function () {
@@ -456,7 +634,7 @@
       var marca = (brandSelectEl.value || '').trim();
       var minP = contentEl.getAttribute('data-min-price') || '';
       var maxP = contentEl.getAttribute('data-max-price') || '';
-      loadAndShow(categoria, catPath, '1', marca, minP, maxP);
+      loadAndShow(categoria, catPath, '1', marca, minP, maxP, { progressiveBrand: true });
     });
     syncBrandSelectValue();
   }
@@ -472,4 +650,16 @@
       closeMobileFilters();
     }
   });
+
+  // SSR diferido: /tienda/?marca=… entrega esqueleto y aquí se pide quick + catálogo completo (TTFB bajo).
+  (function bootstrapDeferredBrandSsr() {
+    if (contentEl.getAttribute('data-centinela-defer-brand') !== '1') return;
+    var categoria = contentEl.getAttribute('data-categoria') || '';
+    var catPath = contentEl.getAttribute('data-cat-path') || '';
+    var marca = contentEl.getAttribute('data-marca') || '';
+    var minP = contentEl.getAttribute('data-min-price') || '';
+    var maxP = contentEl.getAttribute('data-max-price') || '';
+    var pagina = contentEl.getAttribute('data-pagina') || '1';
+    loadAndShow(categoria, catPath, pagina, marca, minP, maxP, { progressiveBrand: true, initialHydration: true });
+  })();
 })();

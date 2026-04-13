@@ -555,8 +555,9 @@
       var apiUrl = (typeof centinelaTheme !== 'undefined' && centinelaTheme.searchApiUrl) ? centinelaTheme.searchApiUrl : (window.location.origin + '/wp-json/centinela/v1/search');
       var likelyBrandQuery = /^[a-zA-Z\s]+$/.test(q) && q.trim().length >= 4;
       // Desktop conserva más amplitud; mobile mantiene carga controlada.
-      var inlineBrandLimit = isDesktopInline ? 240 : 80;
-      var inlineRefLimit = isDesktopInline ? 60 : 40;
+      // Límite acotado: evita payloads grandes y acelera render en autocompletado.
+      var inlineBrandLimit = isDesktopInline ? 36 : 18;
+      var inlineRefLimit = isDesktopInline ? 24 : 12;
       var limitProductos = isInlineSearch ? (likelyBrandQuery ? inlineBrandLimit : inlineRefLimit) : 8;
       var limitContent = isInlineSearch ? 0 : 5;
       var params = 'q=' + encodeURIComponent(q) + '&limit_content=' + limitContent + '&limit_productos=' + limitProductos + '&suggestions=1';
@@ -694,11 +695,9 @@
       } catch (e) {}
       var prefetchTerms = [
         // Marcas frecuentes
-        'ACCESSPRO', 'HIKVISION', 'EPCOM', 'DAHUA',
+        'ACCESSPRO', 'HIKVISION',
         // Referencias/modelos populares
-        'AP1000', 'AP 1000', 'AP-1000',
-        'AP2000', 'AP 2000', 'AP-2000',
-        'AP2000HD', 'AP1000HD'
+        'AP1000', 'AP2000'
       ];
       var prefetchIdx = 0;
       var prefetchRun = function () {
@@ -711,7 +710,7 @@
         }
         fetchSuggestions(term, { silent: true });
         // Espaciado corto para calentar caché sin bloquear UI.
-        window.setTimeout(prefetchRun, 240);
+        window.setTimeout(prefetchRun, 420);
       };
       if ('requestIdleCallback' in window) {
         window.requestIdleCallback(prefetchRun, { timeout: 1800 });

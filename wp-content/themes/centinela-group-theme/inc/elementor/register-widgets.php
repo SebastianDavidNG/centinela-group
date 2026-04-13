@@ -37,6 +37,7 @@ function centinela_elementor_register_widgets( $widgets_manager ) {
 	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-image-box-widget.php';
 	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-centinela-gallery-pro-widget.php';
 	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-cotizacion-web-form-widget.php';
+	require_once CENTINELA_THEME_DIR . '/inc/elementor/class-slogan-widget.php';
 	$widgets_manager->register( new \Centinela_Hero_Slider_Widget() );
 	$widgets_manager->register( new \Centinela_Hero_Page_Inner_Widget() );
 	$widgets_manager->register( new \Centinela_Servicios_Slider_Widget() );
@@ -47,6 +48,7 @@ function centinela_elementor_register_widgets( $widgets_manager ) {
 	$widgets_manager->register( new \Centinela_Image_Box_Widget() );
 	$widgets_manager->register( new \Centinela_Gallery_Pro_Widget() );
 	$widgets_manager->register( new \Centinela_Cotizacion_Web_Form_Widget() );
+	$widgets_manager->register( new \Centinela_Slogan_Widget() );
 }
 add_action( 'elementor/widgets/register', 'centinela_elementor_register_widgets' );
 
