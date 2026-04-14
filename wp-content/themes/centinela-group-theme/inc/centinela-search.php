@@ -1067,10 +1067,9 @@ function centinela_search_build_productos_output( $productos_raw, $query, $limit
 		}
 		$imagen = centinela_search_extract_producto_image( $p );
 		$marca = centinela_search_producto_marca( $p );
+		// Candidatos -g solo para thumbnails en JS (onerror); no usarlos como src inicial:
+		// muchas referencias no tienen archivo en BancoFotografiasSyscom y el listado queda roto.
 		$imagen_fallbacks = centinela_search_build_syscom_g_image_candidates( $marca, $modelo );
-		if ( $imagen === '' && ! empty( $imagen_fallbacks ) ) {
-			$imagen = $imagen_fallbacks[0];
-		}
 		if ( $imagen === '' && function_exists( 'centinela_syscom_imagen_no_disponible_url' ) ) {
 			$imagen = centinela_syscom_imagen_no_disponible_url();
 		}

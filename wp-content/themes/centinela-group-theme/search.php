@@ -1,7 +1,7 @@
 <?php
 /**
  * Plantilla de resultados de búsqueda.
- * Muestra contenido del tema (entradas, páginas, testimonios) y productos de la API Syscom.
+ * Muestra primero productos (API Syscom) y luego contenido del tema (entradas, páginas, testimonios).
  * Coincidencias flexibles para referencias (ej. DS-KIS203-T y DS KIS203 T).
  *
  * @package Centinela_Group_Theme
@@ -14,10 +14,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 $search_query = get_search_query();
 $productos    = array();
 if ( $search_query !== '' && strlen( $search_query ) >= 2 && function_exists( 'centinela_search_productos_syscom' ) ) {
-	$is_brand_query   = preg_match( '/^[a-zA-Z\\s]{4,}$/', (string) $search_query ) === 1;
-	$limit_productos  = $is_brand_query ? 120 : 12;
-	$fast             = $is_brand_query; // para marca, priorizamos velocidad (paginación "completa" via /tienda/)
-	$productos        = centinela_search_productos_syscom( $search_query, $limit_productos, $fast );
+	$is_brand_query  = preg_match( '/^[a-zA-Z\\s]{4,}$/', (string) $search_query ) === 1;
+	// Marca larga: más ítems + modo rápido (enlace a /tienda/?marca= sigue en plantilla).
+	// Término corto o mixto (p. ej. "UPS", "APC", modelos): misma API busqueda que Syscom global_search; más cupo que el mínimo 12.
+	$limit_productos = $is_brand_query ? 120 : 72;
+	$fast            = $is_brand_query;
+	$productos       = centinela_search_productos_syscom( $search_query, $limit_productos, $fast );
 }
 
 get_header();
@@ -56,29 +58,8 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 		<?php else : ?>
 			<?php $had_content = have_posts(); ?>
 
-			<?php if ( $had_content ) : ?>
-				<section class="centinela-search-results__content mb-12" aria-label="<?php esc_attr_e( 'Contenido del sitio', 'centinela-group-theme' ); ?>">
-					<h2 class="text-xl font-semibold text-gray-900 mb-4"><?php esc_html_e( 'Contenido del sitio', 'centinela-group-theme' ); ?></h2>
-					<div class="space-y-6">
-						<?php
-						while ( have_posts() ) :
-							the_post();
-							get_template_part( 'template-parts/content', get_post_type() );
-						endwhile;
-						?>
-					</div>
-					<?php
-					the_posts_pagination( array(
-						'mid_size'  => 2,
-						'prev_text' => __( '&larr; Anterior', 'centinela-group-theme' ),
-						'next_text' => __( 'Siguiente &rarr;', 'centinela-group-theme' ),
-					) );
-					?>
-				</section>
-			<?php endif; ?>
-
 			<?php if ( ! empty( $productos ) ) : ?>
-				<section class="centinela-search-results__productos" aria-label="<?php esc_attr_e( 'Productos', 'centinela-group-theme' ); ?>">
+				<section class="centinela-search-results__productos <?php echo $had_content ? 'mb-12' : ''; ?>" aria-label="<?php esc_attr_e( 'Productos', 'centinela-group-theme' ); ?>">
 					<h2 class="text-xl font-semibold text-gray-900 mb-4"><?php esc_html_e( 'Productos', 'centinela-group-theme' ); ?></h2>
 					<?php if ( isset( $is_brand_query ) && $is_brand_query ) : ?>
 						<?php
@@ -98,7 +79,10 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 							$titulo = isset( $prod['titulo'] ) ? $prod['titulo'] : '';
 							$modelo = isset( $prod['modelo'] ) ? $prod['modelo'] : '';
 							$marca  = isset( $prod['marca'] ) ? (string) $prod['marca'] : '';
-							$img    = isset( $prod['imagen'] ) ? $prod['imagen'] : '';
+							$img    = isset( $prod['imagen'] ) ? trim( (string) $prod['imagen'] ) : '';
+							if ( $img === '' && function_exists( 'centinela_syscom_imagen_no_disponible_url' ) ) {
+								$img = centinela_syscom_imagen_no_disponible_url();
+							}
 							$precio = isset( $prod['precio_lista'] ) ? $prod['precio_lista'] : 0.0;
 
 							$marca_url = '';
@@ -109,7 +93,7 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 							<article class="centinela-tienda__card centinela-search-results__card">
 								<div class="centinela-tienda__card-image-wrap">
 									<a href="<?php echo esc_url( $url ); ?>" class="centinela-tienda__card-link centinela-tienda__card-image" aria-label="<?php echo esc_attr( $titulo ); ?>">
-										<?php if ( $img ) : ?>
+										<?php if ( $img !== '' ) : ?>
 											<img src="<?php echo esc_url( $img ); ?>" alt="<?php echo esc_attr( $titulo ); ?>" loading="lazy" />
 										<?php else : ?>
 											<span class="centinela-tienda__card-placeholder"><?php esc_html_e( 'Sin imagen', 'centinela-group-theme' ); ?></span>
@@ -137,6 +121,27 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 							</article>
 						<?php endforeach; ?>
 					</div>
+				</section>
+			<?php endif; ?>
+
+			<?php if ( $had_content ) : ?>
+				<section class="centinela-search-results__content mb-12" aria-label="<?php esc_attr_e( 'Contenido del sitio', 'centinela-group-theme' ); ?>">
+					<h2 class="text-xl font-semibold text-gray-900 mb-4"><?php esc_html_e( 'Contenido del sitio', 'centinela-group-theme' ); ?></h2>
+					<div class="space-y-6">
+						<?php
+						while ( have_posts() ) :
+							the_post();
+							get_template_part( 'template-parts/content', get_post_type() );
+						endwhile;
+						?>
+					</div>
+					<?php
+					the_posts_pagination( array(
+						'mid_size'  => 2,
+						'prev_text' => __( '&larr; Anterior', 'centinela-group-theme' ),
+						'next_text' => __( 'Siguiente &rarr;', 'centinela-group-theme' ),
+					) );
+					?>
 				</section>
 			<?php endif; ?>
 

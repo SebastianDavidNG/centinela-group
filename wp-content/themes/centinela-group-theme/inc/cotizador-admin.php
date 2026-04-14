@@ -413,10 +413,10 @@ function centinela_cotizador_email_condiciones_comerciales_fragment( $datos ) {
 	$politicas_url = apply_filters( 'centinela_cotizador_email_politicas_ventas_url', 'https://www.centinelagroup.com/principal/politicas-ventas', $datos );
 	$politicas_url = esc_url( $politicas_url );
 
-	$wrap   = 'margin-top:1.35em;padding-top:1.1em;border-top:1px solid #ddd;font-size:12px;line-height:1.55;color:#222;';
+	$wrap   = 'margin-top:1.35em;padding-top:1.1em;border-top:1px solid #ddd;font-size:7px;line-height:1.55;color:#222;';
 	$p_item = 'margin:0.35em 0;padding:0;';
 	$p_body = 'margin:0.85em 0;padding:0;';
-	$p_caps = 'margin:1em 0 0;padding:0;font-size:10px;line-height:1.5;letter-spacing:0.02em;font-weight:600;color:#111;text-transform:uppercase;';
+	$p_caps = 'margin:1em 0 0;padding:0;font-size:7px;line-height:1.5;letter-spacing:0.02em;font-weight:600;color:#111;text-transform:uppercase;';
 
 	$html  = '<div style="' . esc_attr( $wrap ) . '">';
 	$html .= '<p style="margin:0 0 0.55em;font-weight:700;text-transform:uppercase;">' . esc_html__( 'Condiciones comerciales:', 'centinela-group-theme' ) . '</p>';
@@ -461,10 +461,11 @@ function centinela_cotizador_email_condiciones_comerciales_fragment( $datos ) {
 /**
  * Generar cuerpo del correo en HTML optimizado para email (con datos de la cotización)
  *
- * @param array $datos Datos de la cotización (titulo, productos, cliente, moneda, etc.).
+ * @param array $datos   Datos de la cotización (titulo, productos, cliente, moneda, etc.).
+ * @param bool  $for_pdf Si true, pie de página para PDF (no el texto de aviso de correo).
  * @return string HTML del cuerpo del correo.
  */
-function centinela_cotizador_build_email_html( $datos ) {
+function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
 	$productos   = isset( $datos['productos'] ) && is_array( $datos['productos'] ) ? $datos['productos'] : array();
 	$cliente     = isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
 	$contacto    = isset( $datos['contacto'] ) && is_array( $datos['contacto'] ) ? $datos['contacto'] : array();
@@ -563,11 +564,11 @@ function centinela_cotizador_build_email_html( $datos ) {
 		$empresa_cabecera = 'CENTINELA GROUP S.A.S.';
 	}
 	$empresa_html = '<span style="font-size:1.15em;font-weight:700;letter-spacing:0.02em;">' . esc_html( $empresa_cabecera ) . '</span>';
-	$html        .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.5em;" cellpadding="0" cellspacing="0">';
+	$html        .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.5em;border:none;border-bottom:1px solid #ddd;" cellpadding="0" cellspacing="0">';
 	if ( $logo_url !== '' ) {
 		$html .= '<tr>';
-		$html .= '<td style="width:42%;vertical-align:middle;text-align:left;padding:0 12px 0 0;">';
-		$html .= '<img src="' . esc_url( $logo_url ) . '" alt="Logo" style="max-width:220px;max-height:72px;width:auto;height:auto;display:block;" />';
+		$html .= '<td style="width:42%;vertical-align:middle;text-align:left;padding:0 12px 12px 0;">';
+		$html .= '<img src="' . esc_url( $logo_url ) . '" alt="Logo" style="max-width:200px;max-height:65px;width:auto;height:auto;display:block;" />';
 		$html .= '</td>';
 		$html .= '<td style="vertical-align:middle;text-align:center;padding:0;">' . $empresa_html . '</td>';
 		$html .= '</tr>';
@@ -610,22 +611,28 @@ function centinela_cotizador_build_email_html( $datos ) {
 	);
 	$legal_lineas = is_array( $legal_lineas ) ? $legal_lineas : array();
 
-	$td_base = 'padding:10px 8px;border:1px solid #ddd;vertical-align:middle;font-size:12px;line-height:1.45;';
-	$html   .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.25em;table-layout:fixed;" cellpadding="0" cellspacing="0">';
+	// Sin borde lateral/superior: solo línea inferior (#ddd como antes) y sin margen inferior.
+	$td_cot_header = 'padding:10px 8px;border:none;border-bottom:1px solid #ddd;vertical-align:middle;font-size:12px;line-height:1.45;';
+	$td_cot_header_left = 'padding:10px 8px 10px 0;border:none;border-bottom:1px solid #ddd;vertical-align:middle;font-size:12px;line-height:1.45;';
+	// Texto legal: sin padding derecho (más ancho útil; borde inferior igual).
+	$td_cot_header_legal = 'padding:10px 0 10px 8px;border:none;border-bottom:1px solid #ddd;vertical-align:middle;font-size:12px;line-height:1.45;';
+	$p_cot_meta = 'margin:0 auto;font-size:12px;line-height:1.45;';
+	$cot_accent = 'color:#229379;font-weight:700;';
+	$html   .= '<table style="width:100%;border-collapse:collapse;margin-bottom:0;table-layout:fixed;border:none;" cellpadding="0" cellspacing="0">';
 	$html   .= '<tr>';
 	// Columna izquierda: número y orden de compra (el rótulo COTIZACIÓN va encima de toda la sección).
-	$html .= '<td style="width:32%;' . $td_base . '">';
-	$html .= '<p style="margin:0 0 0.35em;font-size:12px;"><strong>' . esc_html__( 'COTIZACIÓN #', 'centinela-group-theme' ) . '</strong> ' . $numero_txt . '</p>';
+	$html .= '<td style="width:38%;' . $td_cot_header_left . '">';
+	$html .= '<p style="' . esc_attr( $p_cot_meta ) . '"><span style="' . esc_attr( $cot_accent ) . '">' . esc_html__( 'COTIZACIÓN', 'centinela-group-theme' ) . ' # ' . $numero_txt . '</span></p>';
 	if ( $orden_compra_txt !== '' ) {
-		$html .= '<p style="margin:0 0 0.35em;font-size:12px;"><strong>' . esc_html__( 'ORDEN DE COMPRA:', 'centinela-group-theme' ) . '</strong> ' . $orden_compra_txt . '</p>';
+		$html .= '<p style="' . esc_attr( $p_cot_meta ) . '"><strong>' . esc_html__( 'ORDEN DE COMPRA:', 'centinela-group-theme' ) . '</strong> ' . $orden_compra_txt . '</p>';
 	} else {
-		$html .= '<p style="margin:0 0 0.35em;font-size:12px;"><strong>' . esc_html__( 'ORDEN DE COMPRA', 'centinela-group-theme' ) . '</strong></p>';
+		$html .= '<p style="' . esc_attr( $p_cot_meta ) . '"><strong>' . esc_html__( 'ORDEN DE COMPRA', 'centinela-group-theme' ) . '</strong></p>';
 	}
-	$html .= '<p style="margin:0 0 0.35em;font-size:12px;"><strong>' . esc_html__( 'FECHA:', 'centinela-group-theme' ) . '</strong> ' . $fecha_emision_txt . '</p>';
-	$html .= '<p style="margin:0;font-size:12px;"><strong>' . esc_html__( 'MÉTODO DE PAGO:', 'centinela-group-theme' ) . '</strong> ' . $metodo_pago_display . '</p>';
+	$html .= '<p style="' . esc_attr( $p_cot_meta ) . '"><span style="' . esc_attr( $cot_accent ) . '">' . esc_html__( 'FECHA:', 'centinela-group-theme' ) . '</span> <span style="' . esc_attr( $cot_accent ) . '">' . $fecha_emision_txt . '</span></p>';
+	$html .= '<p style="' . esc_attr( $p_cot_meta ) . '"><strong>' . esc_html__( 'MÉTODO DE PAGO:', 'centinela-group-theme' ) . '</strong> ' . $metodo_pago_display . '</p>';
 	$html .= '</td>';
-	// Columna central: datos empresa.
-	$html .= '<td style="width:34%;' . $td_base . 'text-align:left;font-size:10px;">';
+	// Columna central: datos empresa (más estrecha para dar espacio a COTIZACIÓN / fecha / pago).
+	$html .= '<td style="width:28%;' . $td_cot_header . 'text-align:left;font-size:7px;">';
 	$emp_i = 0;
 	foreach ( $empresa_lineas as $line ) {
 		if ( ! is_string( $line ) || trim( $line ) === '' ) {
@@ -633,17 +640,20 @@ function centinela_cotizador_build_email_html( $datos ) {
 		}
 		$line_t = trim( $line );
 		$fw     = ( 0 === $emp_i ) ? 'font-weight:700;' : '';
-		$html  .= '<p style="margin:0 0 0.3em;text-align:left;font-size:10px;' . $fw . '">' . esc_html( $line_t ) . '</p>';
+		$html  .= '<p style="margin:0 0 0.3em;text-align:left;font-size:7px;' . $fw . '">' . esc_html( $line_t ) . '</p>';
 		++$emp_i;
 	}
 	$html .= '</td>';
-	// Columna derecha: texto legal.
-	$html .= '<td style="width:34%;' . $td_base . 'font-size:9px;text-align:left;">';
+	// Columna derecha: texto legal en un solo <p> (todas las líneas del filtro, unidas por espacio).
+	$html .= '<td style="width:34%;' . $td_cot_header_legal . 'font-size:7px;text-align:left;">';
+	$legal_parts = array();
 	foreach ( $legal_lineas as $line ) {
-		if ( ! is_string( $line ) || trim( $line ) === '' ) {
-			continue;
+		if ( is_string( $line ) && trim( $line ) !== '' ) {
+			$legal_parts[] = trim( $line );
 		}
-		$html .= '<p style="margin:0 0 0.35em;font-size:9px;text-align:left;">' . esc_html( trim( $line ) ) . '</p>';
+	}
+	if ( ! empty( $legal_parts ) ) {
+		$html .= '<p style="margin:0;font-size:7px;text-align:left;">' . esc_html( implode( ' ', $legal_parts ) ) . '</p>';
 	}
 	$html .= '</td>';
 	$html .= '</tr></table>';
@@ -686,13 +696,15 @@ function centinela_cotizador_build_email_html( $datos ) {
 	$ciudad_env_txt    = isset( $envio_raw['ciudad'] ) ? trim( (string) $envio_raw['ciudad'] ) : '';
 	$cel_env_txt       = isset( $envio_raw['cel'] ) ? trim( (string) $envio_raw['cel'] ) : '';
 
-	$sec_td = 'width:50%;vertical-align:top;padding:12px;border:1px solid #ddd;background:#f9f9f9;font-size:10px;line-height:1.45;';
-	$p_fiscal = 'margin:0 0 0.35em;font-size:10px;';
+	// Dos columnas (fiscal/envío y asesor/observaciones): solo línea inferior #ddd, sin fondo.
+	$sec_td_dos_cols = 'width:50%;vertical-align:top;padding:12px;border:none;border-bottom:1px solid #ddd;font-size:7px;line-height:1.45;';
+	$sec_td_dos_cols_left = 'width:50%;vertical-align:top;padding:12px 12px 12px 0;border:none;border-bottom:1px solid #ddd;font-size:7px;line-height:1.45;';
+	$p_fiscal = 'margin:0;font-size:7px;';
 
 	// Fila 1: DATOS FISCALES | DATOS DE ENVÍO (sin guiones "—" si falta información).
-	$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.25em;" cellpadding="0" cellspacing="0">';
+	$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:0;border:none;" cellpadding="0" cellspacing="0">';
 	$html .= '<tr>';
-	$html .= '<td style="' . $sec_td . '">';
+	$html .= '<td style="' . $sec_td_dos_cols_left . '">';
 	$html .= '<p style="margin:0 0 0.5em;font-weight:700;font-size:12px;letter-spacing:0.02em;">' . esc_html__( 'DATOS FISCALES', 'centinela-group-theme' ) . '</p>';
 	$fiscal_rows = array(
 		array( 'label' => __( 'NOMBRE:', 'centinela-group-theme' ), 'val' => $nombre_cliente ),
@@ -711,7 +723,7 @@ function centinela_cotizador_build_email_html( $datos ) {
 		$html .= '<p style="' . $p_fiscal . '"><strong>' . esc_html( $lab ) . '</strong> ' . $fr['val'] . '</p>';
 	}
 	$html .= '</td>';
-	$html .= '<td style="' . $sec_td . 'border-left:0;">';
+	$html .= '<td style="' . $sec_td_dos_cols . '">';
 	$html .= '<p style="margin:0 0 0.5em;font-weight:700;font-size:12px;letter-spacing:0.02em;">' . esc_html__( 'DATOS DE ENVÍO', 'centinela-group-theme' ) . '</p>';
 	$envio_rows = array(
 		array(
@@ -761,10 +773,10 @@ function centinela_cotizador_build_email_html( $datos ) {
 		}
 	}
 
-	$p_ase = 'margin:0 0 0.35em;font-size:10px;';
-	$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.25em;" cellpadding="0" cellspacing="0">';
+	$p_ase = 'margin:0;font-size:7px;';
+	$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:0;border:none;" cellpadding="0" cellspacing="0">';
 	$html .= '<tr>';
-	$html .= '<td style="' . $sec_td . '">';
+	$html .= '<td style="' . $sec_td_dos_cols_left . '">';
 	$html .= '<p style="margin:0 0 0.5em;font-weight:700;font-size:12px;letter-spacing:0.02em;">' . esc_html__( 'DATOS DEL ASESOR', 'centinela-group-theme' ) . '</p>';
 	if ( $nombre_asesor !== '' ) {
 		$html .= '<p style="' . $p_ase . '"><strong>' . esc_html__( 'EJECUTIVO VENTAS:', 'centinela-group-theme' ) . '</strong> ' . $nombre_asesor . '</p>';
@@ -782,10 +794,10 @@ function centinela_cotizador_build_email_html( $datos ) {
 		$html .= '<p style="' . $p_ase . '"><strong>' . esc_html__( 'VIGENCIA COT:', 'centinela-group-theme' ) . '</strong> ' . (int) $dias_total . ' ' . esc_html__( 'días', 'centinela-group-theme' ) . ' — <strong>' . esc_html__( 'PLAZO:', 'centinela-group-theme' ) . '</strong> ' . (int) $dias_plazo . ' ' . esc_html__( 'días', 'centinela-group-theme' ) . '</p>';
 	}
 	$html .= '</td>';
-	$html .= '<td style="' . $sec_td . 'border-left:0;vertical-align:top;">';
+	$html .= '<td style="' . $sec_td_dos_cols . '">';
 	$html .= '<p style="margin:0 0 0.35em;font-weight:700;font-size:12px;">' . esc_html__( 'OBSERVACIONES:', 'centinela-group-theme' ) . '</p>';
 	if ( $comentarios !== '' ) {
-		$html .= '<p style="margin:0;font-size:10px;white-space:pre-wrap;">' . $comentarios . '</p>';
+		$html .= '<p style="margin:0;font-size:7px;white-space:pre-wrap;">' . $comentarios . '</p>';
 	}
 	$html .= '</td></tr></table>';
 
@@ -800,7 +812,7 @@ function centinela_cotizador_build_email_html( $datos ) {
 		$titulo_tabla_cot = __( 'Cotización', 'centinela-group-theme' );
 	}
 	$titulo_tabla_html = esc_html( $titulo_tabla_cot );
-	$titulo_bar_td = 'padding:10px 12px;border:1px solid #229379;text-align:center;font-size:12px;font-weight:700;line-height:1.35;text-transform:uppercase;background:#229379;color:#ffffff;';
+	$titulo_bar_td = 'padding:10px 12px;border:1px solid #229379;text-align:center;font-size:16px;font-weight:700;line-height:1.35;text-transform:uppercase;background:#229379;color:#ffffff;';
 
 	$html .= '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0;">';
 	$html .= '<tr><td style="' . $titulo_bar_td . '">' . $titulo_tabla_html . '</td></tr>';
@@ -820,7 +832,7 @@ function centinela_cotizador_build_email_html( $datos ) {
 
 	$cero_fmt = $simbolo . ' ' . number_format( 0, 2, ',', '.' );
 	// Sin borde superior: evita doble línea con la tabla de ítems (misma tonalidad #ddd en el resto de lados).
-	$tot_td_l = 'width:64%;vertical-align:middle;padding:16px 14px;border-top:none;border-left:1px solid #ddd;border-right:1px solid #ddd;border-bottom:1px solid #ddd;font-size:10px;line-height:1.5;text-align:left;';
+	$tot_td_l = 'width:64%;vertical-align:middle;padding:16px 14px;border-top:none;border-left:1px solid #ddd;border-right:1px solid #ddd;border-bottom:1px solid #ddd;font-size:7px;line-height:1.5;text-align:left;';
 	$tot_td_r = 'width:36%;vertical-align:top;padding:0 14px;border-top:none;border-left:none;border-right:1px solid #ddd;border-bottom:1px solid #ddd;';
 	/* translators: Preserve the <strong> tags so the account line and company name render bold. */
 	$texto_anticipo_default = __( 'Por favor depositar por anticipado en Nuestra cuenta de ahorros <strong>Número 23326193640 BANCOLOMBIA</strong> a nombre de <strong>CENTINELA GROUP S.A.S.</strong> La seguridad del anticipo y la inversión estará respaldada con póliza de Seguro de Suramericana o Seguros del Estado. Costo de póliza adicional.', 'centinela-group-theme' );
@@ -829,8 +841,8 @@ function centinela_cotizador_build_email_html( $datos ) {
 	$texto_anticipo_html    = wp_kses_post( $texto_anticipo );
 
 	$fs_r     = '12px';
-	$p_tot_r    = 'margin:0;padding:4px 0;text-align:left;font-size:' . $fs_r . ';line-height:1.45;border-bottom:1px solid #ddd;';
-	$p_tot_last = 'margin:0;padding:4px 0;text-align:left;font-size:' . $fs_r . ';line-height:1.45;border-bottom:none;';
+	$p_tot_r    = 'margin:0;padding:4px 0 0 0;text-align:left;font-size:' . $fs_r . ';line-height:1.45;border-bottom:1px solid #ddd;';
+	$p_tot_last = 'margin:0;padding:4px 0 0 0;text-align:left;font-size:' . $fs_r . ';line-height:1.45;border-bottom:none;';
 
 	$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.25em;table-layout:fixed;" cellpadding="0" cellspacing="0">';
 	$html .= '<tr>';
@@ -845,10 +857,15 @@ function centinela_cotizador_build_email_html( $datos ) {
 	$html .= '</td>';
 	$html .= '</tr></table>';
 	$html .= centinela_cotizador_email_condiciones_comerciales_fragment( $datos );
-	$html .= '<p style="margin-top:1.5em;color:#666;font-size:12px;">' . esc_html__( 'Este correo está siendo enviado por CENTINELA GROUP SAS. Adjunto encontrará la cotización en formato (PDF o Excel).', 'centinela-group-theme' ) . '</p>';
+	$footer_style = 'margin-top:1.5em;color:#666;font-size:12px;';
+	if ( $for_pdf ) {
+		$html .= '<p style="' . esc_attr( $footer_style ) . '">' . esc_html__( 'Este archivo ha sido generado por CENTINELA GROUP S.A.S.', 'centinela-group-theme' ) . '</p>';
+	} else {
+		$html .= '<p style="' . esc_attr( $footer_style ) . '">' . esc_html__( 'Este correo está siendo enviado por CENTINELA GROUP S.A.S. Adjunto encontrará la cotización en formato (PDF o Excel).', 'centinela-group-theme' ) . '</p>';
+	}
 	$html .= '</body></html>';
 
-	return apply_filters( 'centinela_cotizador_email_html', $html, $datos );
+	return apply_filters( 'centinela_cotizador_email_html', $html, $datos, (bool) $for_pdf );
 }
 
 /**
@@ -1296,6 +1313,10 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'generar_link'                => __( 'Generar link de pago', 'centinela-group-theme' ),
 			'link_copiado'                => __( 'Link copiado al portapapeles.', 'centinela-group-theme' ),
 			'agregue_productos'           => __( 'Agregue al menos un producto a la cotización.', 'centinela-group-theme' ),
+			'descargar_pdf'               => __( 'Descargar PDF', 'centinela-group-theme' ),
+			'generando_pdf'               => __( 'Generando PDF…', 'centinela-group-theme' ),
+			'pdf_generado_ok'             => __( 'PDF generado. Si no se descargó automáticamente, use el enlace del mensaje.', 'centinela-group-theme' ),
+			'error_pdf_adjunto'           => __( 'No se pudo generar el PDF de vista previa.', 'centinela-group-theme' ),
 			'aprox_usd_prefix'            => __( '≈ USD $ ', 'centinela-group-theme' ),
 			'manual_section_title'        => __( 'Producto manual (sin catálogo API)', 'centinela-group-theme' ),
 			'manual_section_help'         => __( 'Añada líneas que no existan en Syscom; se suman al subtotal y totales igual que los demás.', 'centinela-group-theme' ),
@@ -2212,6 +2233,135 @@ function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 }
 
 /**
+ * Lee bytes del logo (ruta local o HTTP) y devuelve data URI para incrustar en HTML de Dompdf.
+ *
+ * @param string $url URL absoluta o ruta relativa al sitio.
+ * @return string data:image/...;base64,... o vacío.
+ */
+function centinela_cotizador_logo_url_to_data_uri( $url ) {
+	$url = trim( (string) $url );
+	if ( $url === '' ) {
+		return '';
+	}
+	if ( ! preg_match( '#^https?://#i', $url ) ) {
+		$url = home_url( '/' . ltrim( str_replace( '\\', '/', $url ), '/' ) );
+	}
+	$url = esc_url_raw( $url );
+
+	$binary    = null;
+	$file_read = '';
+
+	$uploads = wp_upload_dir();
+	if ( empty( $uploads['error'] ) && ! empty( $uploads['baseurl'] ) && ! empty( $uploads['basedir'] ) && strpos( $url, $uploads['baseurl'] ) === 0 ) {
+		$candidate = wp_normalize_path( str_replace( $uploads['baseurl'], $uploads['basedir'], $url ) );
+		if ( is_readable( $candidate ) ) {
+			$binary    = @file_get_contents( $candidate );
+			$file_read = $candidate;
+		}
+	}
+	if ( ( $binary === null || $binary === false || $binary === '' ) && strpos( $url, content_url() ) === 0 ) {
+		$candidate = wp_normalize_path( str_replace( content_url(), WP_CONTENT_DIR, $url ) );
+		if ( is_readable( $candidate ) ) {
+			$binary    = @file_get_contents( $candidate );
+			$file_read = $candidate;
+		}
+	}
+	$site = site_url( '/' );
+	if ( ( $binary === null || $binary === false || $binary === '' ) && strpos( $url, $site ) === 0 ) {
+		$rel       = (string) substr( $url, strlen( $site ) );
+		$candidate = wp_normalize_path( ABSPATH . ltrim( $rel, '/' ) );
+		if ( is_readable( $candidate ) ) {
+			$binary    = @file_get_contents( $candidate );
+			$file_read = $candidate;
+		}
+	}
+	$home = home_url( '/' );
+	if ( ( $binary === null || $binary === false || $binary === '' ) && $home !== $site && strpos( $url, $home ) === 0 ) {
+		$rel       = (string) substr( $url, strlen( $home ) );
+		$candidate = wp_normalize_path( ABSPATH . ltrim( $rel, '/' ) );
+		if ( is_readable( $candidate ) ) {
+			$binary    = @file_get_contents( $candidate );
+			$file_read = $candidate;
+		}
+	}
+
+	$mime = 'image/png';
+	if ( $binary === null || $binary === false || $binary === '' ) {
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'     => 25,
+				'redirection' => 3,
+				'sslverify'   => (bool) apply_filters( 'https_local_ssl_verify', true ),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return '';
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $code < 200 || $code >= 400 ) {
+			return '';
+		}
+		$binary = wp_remote_retrieve_body( $response );
+		if ( $binary === null || $binary === false || $binary === '' ) {
+			return '';
+		}
+		$ct = wp_remote_retrieve_header( $response, 'content-type' );
+		if ( is_string( $ct ) && preg_match( '#\bimage/(png|jpe?g|gif|webp)\b#i', $ct, $m ) ) {
+			$ext = strtolower( $m[1] );
+			$mime = ( $ext === 'jpg' || $ext === 'jpeg' ) ? 'image/jpeg' : 'image/' . $ext;
+		} else {
+			$path_part = (string) parse_url( $url, PHP_URL_PATH );
+			$ft        = wp_check_filetype( $path_part );
+			if ( ! empty( $ft['type'] ) ) {
+				$mime = $ft['type'];
+			}
+		}
+	} elseif ( $file_read !== '' ) {
+		$ft = wp_check_filetype( $file_read );
+		if ( ! empty( $ft['type'] ) ) {
+			$mime = $ft['type'];
+		}
+	} else {
+		$path_part = (string) parse_url( $url, PHP_URL_PATH );
+		$ft        = wp_check_filetype( $path_part );
+		if ( ! empty( $ft['type'] ) ) {
+			$mime = $ft['type'];
+		}
+	}
+
+	if ( ! preg_match( '#^image/(png|jpeg|gif|webp)$#i', $mime ) ) {
+		$mime = 'image/png';
+	}
+
+	return 'data:' . $mime . ';base64,' . base64_encode( (string) $binary );
+}
+
+/**
+ * Sustituye la etiqueta img del logo en el HTML del correo por una con src en data URI (Dompdf).
+ *
+ * @param string $html  HTML completo.
+ * @param array  $datos Debe incluir logo_url si hay logo.
+ * @return string HTML modificado o el mismo si no aplica.
+ */
+function centinela_cotizador_pdf_html_embed_logo_data_uri( $html, $datos ) {
+	if ( ! is_string( $html ) || $html === '' || strpos( $html, 'alt="Logo"' ) === false ) {
+		return $html;
+	}
+	$logo_url = isset( $datos['logo_url'] ) ? trim( (string) $datos['logo_url'] ) : '';
+	if ( $logo_url === '' ) {
+		return $html;
+	}
+	$data_uri = centinela_cotizador_logo_url_to_data_uri( $logo_url );
+	if ( $data_uri === '' ) {
+		return $html;
+	}
+	$replaced = preg_replace( '/<img\s+src="[^"]*"\s+alt="Logo"/i', '<img src="' . esc_attr( $data_uri ) . '" alt="Logo"', $html, 1 );
+
+	return is_string( $replaced ) ? $replaced : $html;
+}
+
+/**
  * Fallback: generar PDF desde el mismo HTML del correo (incluye Cotización #) si Dompdf está disponible.
  * Quien implemente el filtro centinela_cotizador_generar_pdf debe incluir $datos['numero'] en el PDF.
  *
@@ -2235,7 +2385,8 @@ function centinela_cotizador_generar_pdf_fallback( $path, $post_id, $plantilla, 
 	}
 	$datos['numero']             = isset( $datos['numero'] ) ? $datos['numero'] : get_post_meta( $post_id, '_cotizacion_numero', true );
 	$datos['cotizacion_post_id'] = (int) $post_id;
-	$html = centinela_cotizador_build_email_html( $datos );
+	$html = centinela_cotizador_build_email_html( $datos, true );
+	$html = centinela_cotizador_pdf_html_embed_logo_data_uri( $html, $datos );
 	$tmp  = wp_tempnam( 'cotizacion-' . $post_id );
 	if ( ! $tmp ) {
 		return '';
@@ -2243,7 +2394,23 @@ function centinela_cotizador_generar_pdf_fallback( $path, $post_id, $plantilla, 
 	@unlink( $tmp );
 	$out = $tmp . '.pdf';
 	try {
-		$dompdf = new \Dompdf\Dompdf( array( 'isRemoteEnabled' => true ) );
+		$ud              = wp_upload_dir();
+		$upload_basedir  = ( empty( $ud['error'] ) && ! empty( $ud['basedir'] ) ) ? wp_normalize_path( $ud['basedir'] ) : '';
+		$chroot_dirs     = array_unique(
+			array_filter(
+				array(
+					ABSPATH,
+					WP_CONTENT_DIR,
+					$upload_basedir,
+				)
+			)
+		);
+		$dompdf = new \Dompdf\Dompdf(
+			array(
+				'isRemoteEnabled' => true,
+				'chroot'          => $chroot_dirs,
+			)
+		);
 		$dompdf->loadHtml( $html );
 		$dompdf->setPaper( 'A4', 'portrait' );
 		$dompdf->render();
@@ -2415,7 +2582,7 @@ function centinela_cotizador_render_page() {
 			<div class="centinela-cotizador-contenido">
 		<div class="centinela-cotizador-form">
 			<input type="hidden" id="centinela-cotizador-editar-id" value="" />
-			<div class="centinela-cotizador-field">
+			<div class="centinela-cotizador-field centinela-cotizador-field-titulo">
 				<label for="centinela-cotizador-titulo"><?php esc_html_e( 'Título de la Cotización', 'centinela-group-theme' ); ?></label>
 				<input type="text" id="centinela-cotizador-titulo" class="regular-text" placeholder="<?php esc_attr_e( 'Ej: Cotización proyecto videovigilancia', 'centinela-group-theme' ); ?>" />
 			</div>
@@ -2752,6 +2919,7 @@ function centinela_cotizador_render_page() {
 			</div>
 			<p class="centinela-cotizador-modal-msg" id="centinela-modal-enviar-msg"></p>
 			<div class="centinela-cotizador-modal-actions">
+				<button type="button" class="button button-primary" id="centinela-cotizador-modal-descargar-pdf-btn"><?php esc_html_e( 'Descargar PDF', 'centinela-group-theme' ); ?></button>
 				<button type="button" class="button" id="centinela-cotizador-modal-ver-envio-btn"><?php esc_html_e( 'Ver cómo llegaría el correo', 'centinela-group-theme' ); ?></button>
 				<button type="button" class="button" data-close-modal="centinela-cotizador-modal-enviar-guardar"><?php esc_html_e( 'Cerrar', 'centinela-group-theme' ); ?></button>
 				<button type="button" class="button button-primary" id="centinela-cotizador-modal-enviar-btn"><?php esc_html_e( 'Enviar', 'centinela-group-theme' ); ?></button>

@@ -780,6 +780,7 @@
 			return;
 		}
 		$('#centinela-modal-enviar-msg').removeClass('success error').text('');
+		$('#centinela-cotizador-modal-descargar-pdf-btn').prop('disabled', false).text(i18n.descargar_pdf || 'Descargar PDF');
 		var $preview = $('#centinela-cotizador-email-preview');
 		var $loading = $('#centinela-cotizador-email-preview-loading');
 		$preview.attr('srcdoc', '');
@@ -855,6 +856,49 @@
 				}
 			})
 			.fail(function (xhr) {
+				var m = (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) ? xhr.responseJSON.data.message : 'Error de conexión.';
+				$msg.addClass('error').text(m);
+			});
+	});
+
+	// Descargar PDF de vista previa (misma generación que "Ver cómo llegaría", sin abrir el HTML en pestaña)
+	$('#centinela-cotizador-modal-descargar-pdf-btn').on('click', function () {
+		var $btn = $('#centinela-cotizador-modal-descargar-pdf-btn');
+		var $msg = $('#centinela-modal-enviar-msg');
+		var labelPdf = i18n.descargar_pdf || 'Descargar PDF';
+		var labelWorking = i18n.generando_pdf || 'Generando PDF…';
+		$msg.removeClass('success error').text('');
+		$btn.prop('disabled', true).text(labelWorking);
+		var datos = getCotizacionPayload();
+		$.post(ajaxUrl, {
+			action: 'centinela_cotizador_preview_envio',
+			nonce: nonce,
+			datos: JSON.stringify(datos),
+			formato_adjunto: 'pdf',
+			editar_id: $('#centinela-cotizador-editar-id').val() || 0
+		})
+			.done(function (res) {
+				$btn.prop('disabled', false).text(labelPdf);
+				if (res.success && res.data && res.data.adjunto_url) {
+					var url = res.data.adjunto_url;
+					var nombre = res.data.adjunto_nombre || 'cotizacion.pdf';
+					var a = document.createElement('a');
+					a.href = url;
+					a.setAttribute('download', nombre);
+					a.target = '_blank';
+					a.rel = 'noopener';
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					$msg.addClass('success').text(i18n.pdf_generado_ok || 'PDF generado.');
+				} else if (res.success && res.data) {
+					$msg.addClass('error').text(res.data.message || i18n.error_pdf_adjunto || 'Error');
+				} else {
+					$msg.addClass('error').text((res.data && res.data.message) ? res.data.message : 'Error');
+				}
+			})
+			.fail(function (xhr) {
+				$btn.prop('disabled', false).text(labelPdf);
 				var m = (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) ? xhr.responseJSON.data.message : 'Error de conexión.';
 				$msg.addClass('error').text(m);
 			});

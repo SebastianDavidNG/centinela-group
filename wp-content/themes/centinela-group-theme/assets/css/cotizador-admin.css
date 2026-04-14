@@ -52,6 +52,14 @@
 	letter-spacing: 0.01em;
 }
 
+.centinela-cotizador-form .centinela-cotizador-field-titulo label {
+	font-size: 16px;
+}
+
+.centinela-cotizador-form .centinela-cotizador-field-titulo input[type="text"] {
+	font-size: 16px;
+}
+
 /* Inputs y selects: estilo outline (borde completo, redondeado, focus con color primario) */
 .centinela-cotizador-wrap input[type="text"],
 .centinela-cotizador-wrap input[type="email"],

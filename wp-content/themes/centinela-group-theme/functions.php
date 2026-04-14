@@ -937,6 +937,7 @@ function centinela_theme_scripts() {
 		'centinela-theme-script',
 		'centinelaTheme',
 		array(
+			'homeUrl'          => home_url( '/' ),
 			'searchApiUrl'     => rest_url( 'centinela/v1/search' ),
 			'searchPromptsUrl' => rest_url( 'centinela/v1/search-prompts' ),
 		)

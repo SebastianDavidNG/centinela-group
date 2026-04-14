@@ -593,8 +593,9 @@
               if (imageSrc) {
                 fallbackQueue = fallbackQueue.filter(function (u) { return String(u || '').trim() !== imageSrc; });
               }
-              if (!imageSrc && fallbackQueue.length) {
-                imageSrc = fallbackQueue.shift();
+              if (!imageSrc) {
+                imageSrc = syscomNoImage;
+                fallbackQueue = fallbackQueue.filter(function (u) { return String(u || '').trim() !== imageSrc; });
               }
               var fallbackAttr = escapeHtml(fallbackQueue.join('|'));
               var imageHtml = imageSrc
@@ -736,25 +737,28 @@
     document.getElementById('centinela-desktop-search-suggestions')
   );
 
-  // Enter manual en buscador: dirigir a /tienda/?marca=<query>.
-  // No afecta clic en sugerencias (esas ya navegan con su propio href).
-  function bindSearchSubmitToMarca(formSelector, inputSelector) {
+  // Enter en buscador: búsqueda global (/?s=) como Syscom principal/buscar?global_search=…
+  // Usa centinela_search_productos_syscom en search.php (API busqueda), no solo filtro /tienda/?marca=.
+  // No afecta clic en sugerencias (cada ítem lleva su href).
+  function bindSearchFormSubmitToGlobalSearch(formSelector, inputSelector) {
     var formEl = document.querySelector(formSelector);
     if (!formEl) return;
     var inputEl = formEl.querySelector(inputSelector);
     if (!inputEl) return;
     formEl.addEventListener('submit', function (e) {
       var q = (inputEl.value || '').trim();
-      if (!q) return; // deja comportamiento normal para búsquedas vacías.
+      if (!q) return;
       e.preventDefault();
-      var target = window.location.origin + '/tienda/?marca=' + encodeURIComponent(q);
-      window.location.href = target;
+      var base = (typeof centinelaTheme !== 'undefined' && centinelaTheme.homeUrl) ? String(centinelaTheme.homeUrl) : (window.location.origin + '/');
+      var u = new URL(base, window.location.href);
+      u.searchParams.set('s', q);
+      window.location.href = u.toString();
     });
   }
 
-  bindSearchSubmitToMarca('.centinela-header__search-inline-form', '#centinela-desktop-search-field');
-  bindSearchSubmitToMarca('.centinela-mobile-search-form', '#centinela-mobile-search-field');
-  bindSearchSubmitToMarca('#centinela-search-form', '#centinela-search-field');
+  bindSearchFormSubmitToGlobalSearch('.centinela-header__search-inline-form', '#centinela-desktop-search-field');
+  bindSearchFormSubmitToGlobalSearch('.centinela-mobile-search-form', '#centinela-mobile-search-field');
+  bindSearchFormSubmitToGlobalSearch('#centinela-search-form', '#centinela-search-field');
 
   // Submenú de categorías: toggle de subcategorías en móvil (acordeón)
   var submenuToggles = document.querySelectorAll('.centinela-submenu__toggle');
