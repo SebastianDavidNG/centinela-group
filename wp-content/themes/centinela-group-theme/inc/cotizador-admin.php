@@ -79,6 +79,55 @@ function centinela_cotizador_action_scheduler_run_queue_on_shutdown() {
 }
 
 /**
+ * Direcciones de correo para enviar la cotización: campo Email (principal) + opcionales (coma o punto y coma).
+ * El PDF y el bloque fiscal siguen usando solo el email principal.
+ *
+ * @param array $cliente Bloque cliente (email, email_adicionales).
+ * @return array{ primary: string, to: string[], error: string } Si error no está vacío, no enviar.
+ */
+function centinela_cotizador_cliente_emails_para_envio( $cliente ) {
+	$out = array(
+		'primary' => '',
+		'to'      => array(),
+		'error'   => '',
+	);
+	if ( ! is_array( $cliente ) ) {
+		$out['error'] = __( 'El email del cliente no es válido.', 'centinela-group-theme' );
+		return $out;
+	}
+	$primary = isset( $cliente['email'] ) ? sanitize_email( trim( (string) $cliente['email'] ) ) : '';
+	if ( ! is_email( $primary ) ) {
+		$out['error'] = __( 'El email del cliente no es válido.', 'centinela-group-theme' );
+		return $out;
+	}
+	$out['primary'] = $primary;
+	$list           = array( strtolower( $primary ) => $primary );
+	$extras_raw     = isset( $cliente['email_adicionales'] ) ? trim( (string) $cliente['email_adicionales'] ) : '';
+	if ( $extras_raw !== '' ) {
+		$tokens = preg_split( '/[\s,;]+/', $extras_raw, -1, PREG_SPLIT_NO_EMPTY );
+		$bad = array();
+		foreach ( $tokens as $tok ) {
+			$e = sanitize_email( trim( (string) $tok ) );
+			if ( $e === '' || ! is_email( $e ) ) {
+				$bad[] = sanitize_text_field( (string) $tok );
+				continue;
+			}
+			$list[ strtolower( $e ) ] = $e;
+		}
+		if ( ! empty( $bad ) ) {
+			$out['error'] = sprintf(
+				/* translators: %s: list of invalid email tokens. */
+				__( 'Hay direcciones de correo adicionales no válidas: %s', 'centinela-group-theme' ),
+				implode( ', ', $bad )
+			);
+			return $out;
+		}
+	}
+	$out['to'] = array_values( $list );
+	return $out;
+}
+
+/**
  * Registrar CPT para cotizaciones guardadas
  */
 function centinela_cotizador_register_cpt() {
@@ -402,6 +451,80 @@ function centinela_cotizador_sanitize_envio( $raw ) {
 }
 
 /**
+ * URL de la imagen de firma del director comercial (columna izquierda del bloque de firmas).
+ *
+ * Orden recomendado:
+ * 1) Subir PNG/JPG a: wp-content/themes/centinela-group-theme/assets/images/cotizador-firma-director-comercial.png
+ *    (o .jpg, .jpeg, .webp con el mismo nombre base).
+ * 2) O devolver la URL del adjunto en la biblioteca con el filtro `centinela_cotizador_firma_director_comercial_img_url`.
+ *
+ * @param array $datos Datos de la cotización (para el filtro).
+ * @return string URL absoluta o cadena vacía.
+ */
+function centinela_cotizador_get_firma_director_comercial_img_url( $datos = array() ) {
+	$datos   = is_array( $datos ) ? $datos : array();
+	$default = '';
+	$dir     = trailingslashit( get_template_directory() ) . 'assets/images/';
+	$uri     = trailingslashit( get_template_directory_uri() ) . 'assets/images/';
+	foreach ( array( 'cotizador-firma-director-comercial.png', 'cotizador-firma-director-comercial.jpg', 'cotizador-firma-director-comercial.jpeg', 'cotizador-firma-director-comercial.webp' ) as $fn ) {
+		if ( is_readable( $dir . $fn ) ) {
+			$default = $uri . $fn;
+			break;
+		}
+	}
+	return apply_filters( 'centinela_cotizador_firma_director_comercial_img_url', $default, $datos );
+}
+
+/**
+ * Bloque HTML de firmas (Centinela / cliente) bajo el texto legal de la cotización.
+ *
+ * @param array $datos Datos de la cotización.
+ * @return string HTML (sin wp_kses; lo aplica el fragmento de condiciones).
+ */
+function centinela_cotizador_email_firmas_cotizacion_fragment( $datos ) {
+	$datos = is_array( $datos ) ? $datos : array();
+
+	$url_firma = centinela_cotizador_get_firma_director_comercial_img_url( $datos );
+	$nombre    = apply_filters( 'centinela_cotizador_firma_director_nombre', 'Harley Pérez Martín', $datos );
+	$cargo     = apply_filters( 'centinela_cotizador_firma_director_cargo', __( 'Director Comercial', 'centinela-group-theme' ), $datos );
+	$nombre    = is_string( $nombre ) ? esc_html( $nombre ) : '';
+	$cargo     = is_string( $cargo ) ? esc_html( $cargo ) : esc_html( __( 'Director Comercial', 'centinela-group-theme' ) );
+
+	$tbl = 'width:100%;margin-top:1.15em;border-collapse:collapse;table-layout:fixed;font-size:8px;line-height:1.45;color:#111;';
+	$tdL = 'width:50%;vertical-align:top;padding:10px 12px 6px 0;text-align:center;border:0;';
+	$tdR = 'width:50%;vertical-align:top;padding:10px 0 6px 12px;text-align:center;border:0;border-left:1px solid #ddd;';
+	$line = 'border-bottom:1px solid #111;height:0;margin:6px 10px 10px;';
+	$box  = 'min-height:78px;margin:0 auto 8px;max-width:260px;border:1px dashed #999;background:#fafafa;text-align:center;';
+
+	if ( $url_firma !== '' ) {
+		$img_centinela = '<img src="' . esc_url( $url_firma ) . '" alt="FirmaCentinelaDirector" width="220" height="80" style="max-width:220px;max-height:80px;height:auto;width:auto;display:block;margin:0 auto 8px;" />';
+	} else {
+		$img_centinela = '<div style="min-height:80px;margin:0 auto 8px;max-width:260px;" aria-hidden="true"></div>';
+	}
+
+	$hint_cliente = esc_html__( 'Espacio para su firma o imagen (puede completarlo en Adobe Acrobat u otro editor de PDF).', 'centinela-group-theme' );
+
+	$html  = '<table style="' . esc_attr( $tbl ) . '" role="presentation"><tr>';
+	$html .= '<td style="' . esc_attr( $tdL ) . '">';
+	$html .= $img_centinela;
+	$html .= '<div style="' . esc_attr( $line ) . '"></div>';
+	$html .= '<p style="margin:8px 0 2px;padding:0;font-size:9px;font-weight:700;">' . $nombre . '</p>';
+	$html .= '<p style="margin:0;padding:0;font-size:8px;">' . $cargo . '</p>';
+	$html .= '</td>';
+	$html .= '<td style="' . esc_attr( $tdR ) . '">';
+	$html .= '<div style="' . esc_attr( $box ) . '"><span style="display:block;padding:10px 8px 6px;font-size:6.5px;line-height:1.35;color:#666;">' . $hint_cliente . '</span></div>';
+	$html .= '<div style="' . esc_attr( $line ) . '"></div>';
+	$html .= '<table style="width:100%;margin-top:8px;border-collapse:collapse;font-size:9px;" role="presentation"><tr>';
+	$html .= '<td style="text-align:left;vertical-align:bottom;padding:2px 6px 0 0;width:32%;font-weight:700;">' . esc_html__( 'Aprobado', 'centinela-group-theme' ) . '</td>';
+	$html .= '<td style="text-align:right;vertical-align:bottom;padding:2px 0 0;font-size:10px;white-space:nowrap;">&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>';
+	$html .= '</tr></table>';
+	$html .= '<p style="margin:5px 0 0;padding:0;font-size:6.5px;color:#555;text-align:right;">' . esc_html__( 'Escriba la fecha de firma entre las barras (día / mes / año).', 'centinela-group-theme' ) . '</p>';
+	$html .= '</td></tr></table>';
+
+	return apply_filters( 'centinela_cotizador_email_firmas_html', $html, $datos );
+}
+
+/**
  * Bloque HTML de condiciones comerciales (correo y PDF de cotización).
  *
  * @param array $datos Datos de la cotización.
@@ -436,13 +559,15 @@ function centinela_cotizador_email_condiciones_comerciales_fragment( $datos ) {
 	$html      .= '<p style="' . esc_attr( $p_caps ) . '">' . esc_html( is_string( $caps_legal ) ? $caps_legal : '' ) . ' ';
 	$html      .= '<a style="color:#1a5fb4;text-decoration:underline;word-break:break-all;font-weight:600;" href="' . $politicas_url . '">' . esc_html( $politicas_url ) . '</a></p>';
 
+	$html .= centinela_cotizador_email_firmas_cotizacion_fragment( $datos );
+
 	$html .= '</div>';
 
 	$html = apply_filters( 'centinela_cotizador_email_condiciones_comerciales_html', $html, $datos );
 	$html = is_string( $html ) ? $html : '';
 
 	$allowed = array(
-		'div'    => array( 'style' => true ),
+		'div'    => array( 'style' => true, 'aria-hidden' => true ),
 		'p'      => array( 'style' => true ),
 		'a'      => array(
 			'href'   => true,
@@ -453,6 +578,17 @@ function centinela_cotizador_email_condiciones_comerciales_fragment( $datos ) {
 		'strong' => array(),
 		'br'     => array(),
 		'span'   => array( 'style' => true ),
+		'table'  => array( 'style' => true, 'role' => true ),
+		'tbody'  => array( 'style' => true ),
+		'tr'     => array( 'style' => true ),
+		'td'     => array( 'style' => true, 'colspan' => true, 'rowspan' => true ),
+		'img'    => array(
+			'src'    => true,
+			'alt'    => true,
+			'style'  => true,
+			'width'  => true,
+			'height' => true,
+		),
 	);
 
 	return wp_kses( $html, $allowed );
@@ -481,7 +617,10 @@ function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
 	$nit_cliente      = isset( $cliente['nit_cc'] ) ? esc_html( $cliente['nit_cc'] ) : '';
 	$direccion_cliente = isset( $cliente['direccion'] ) ? esc_html( $cliente['direccion'] ) : '';
 	$direccion_fisica_cliente = isset( $cliente['direccion_fisica'] ) ? esc_html( $cliente['direccion_fisica'] ) : '';
-	$email_cliente    = isset( $cliente['email'] ) ? esc_html( $cliente['email'] ) : '';
+	$email_cliente    = '';
+	if ( isset( $cliente['email'] ) && (string) $cliente['email'] !== '' ) {
+		$email_cliente = esc_html( sanitize_email( trim( (string) $cliente['email'] ) ) );
+	}
 	$ciudad_cli_raw = isset( $cliente['ciudad'] ) ? trim( (string) $cliente['ciudad'] ) : '';
 	$ciudad_cliente = ( $ciudad_cli_raw !== '' && in_array( $ciudad_cli_raw, centinela_cotizador_ciudades_colombia(), true ) ) ? esc_html( $ciudad_cli_raw ) : '';
 	$vigencia_raw     = isset( $cliente['vigencia'] ) ? trim( (string) $cliente['vigencia'] ) : '';
@@ -871,6 +1010,11 @@ function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
 /**
  * Guardar o actualizar cotización como post tipo cotizacion
  *
+ * Número visible «COTIZACIÓN # N»: se guarda en meta `_cotizacion_numero` por post y no se reasigna al
+ * editar. Al eliminar otras cotizaciones (papelera) los demás posts conservan su N; pueden quedar huecos
+ * en la serie. El option `centinela_cotizador_ultimo_numero` solo aumenta al crear posts nuevos; no se
+ * decrementa al borrar, así la siguiente cotización nueva sigue después del mayor asignado.
+ *
  * @param array    $datos     Datos de la cotización (titulo, productos, cliente, contacto, moneda, etc.).
  * @param int|null $editar_id ID del post a actualizar; null para crear uno nuevo.
  * @return int|WP_Error ID del post o error.
@@ -935,6 +1079,16 @@ function centinela_cotizador_save_cotizacion( $datos, $editar_id = null ) {
 	}
 	$cliente_safe['ciudad'] = $ciudad_cli;
 
+	if ( isset( $cliente_safe['email'] ) ) {
+		$cliente_safe['email'] = sanitize_email( trim( (string) $cliente_safe['email'] ) );
+	}
+	$ea_extra = isset( $cliente_safe['email_adicionales'] ) ? wp_strip_all_tags( (string) $cliente_safe['email_adicionales'] ) : '';
+	$ea_extra = sanitize_text_field( $ea_extra );
+	if ( strlen( $ea_extra ) > 500 ) {
+		$ea_extra = substr( $ea_extra, 0, 500 );
+	}
+	$cliente_safe['email_adicionales'] = $ea_extra;
+
 	$orden_compra_save = isset( $datos['orden_compra'] ) ? sanitize_text_field( (string) $datos['orden_compra'] ) : '';
 	if ( strlen( $orden_compra_save ) > 120 ) {
 		$orden_compra_save = substr( $orden_compra_save, 0, 120 );
@@ -958,6 +1112,52 @@ function centinela_cotizador_save_cotizacion( $datos, $editar_id = null ) {
 	);
 	update_post_meta( $post_id, '_cotizacion_datos', $datos_safe );
 	return $post_id;
+}
+
+/**
+ * Crea un nuevo post cotización copiando los datos de uno existente; el título incluye «Copia».
+ *
+ * @param int $source_id ID del post cotización publicado a duplicar.
+ * @return int|WP_Error ID del nuevo post o error.
+ */
+function centinela_cotizador_duplicate_cotizacion_post( $source_id ) {
+	if ( ! centinela_cotizador_can_manage() ) {
+		return new WP_Error( 'forbidden', __( 'No autorizado.', 'centinela-group-theme' ) );
+	}
+	$source_id = absint( $source_id );
+	$post      = get_post( $source_id );
+	if ( ! $post || $post->post_type !== 'cotizacion' || $post->post_status !== 'publish' ) {
+		return new WP_Error( 'invalid', __( 'Cotización no válida.', 'centinela-group-theme' ) );
+	}
+	$datos = get_post_meta( $source_id, '_cotizacion_datos', true );
+	if ( ! is_array( $datos ) ) {
+		return new WP_Error( 'nodatos', __( 'No hay datos para duplicar.', 'centinela-group-theme' ) );
+	}
+	$datos_copy = json_decode( wp_json_encode( $datos ), true );
+	if ( ! is_array( $datos_copy ) ) {
+		return new WP_Error( 'nodatos', __( 'No hay datos para duplicar.', 'centinela-group-theme' ) );
+	}
+	$orig_title = isset( $datos_copy['titulo'] ) ? trim( (string) $datos_copy['titulo'] ) : '';
+	if ( $orig_title === '' ) {
+		$t = get_the_title( $source_id );
+		$orig_title = is_string( $t ) ? trim( $t ) : '';
+	}
+	if ( $orig_title === '' ) {
+		$orig_title = __( 'Cotización', 'centinela-group-theme' );
+	}
+	$copia   = __( 'Copia', 'centinela-group-theme' );
+	$suffix  = ' — ' . $copia;
+	$max_len = 250;
+	if ( strlen( $orig_title . $suffix ) > $max_len ) {
+		$ellipsis = '…';
+		$keep     = max( 1, $max_len - strlen( $suffix ) - strlen( $ellipsis ) );
+		$orig_title = function_exists( 'mb_substr' )
+			? mb_substr( $orig_title, 0, $keep, 'UTF-8' )
+			: substr( $orig_title, 0, $keep );
+		$orig_title .= $ellipsis;
+	}
+	$datos_copy['titulo'] = $orig_title . $suffix;
+	return centinela_cotizador_save_cotizacion( $datos_copy, null );
 }
 
 /**
@@ -1279,11 +1479,12 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 		|| ( defined( 'CENTINELA_MAIL_DEBUG' ) && CENTINELA_MAIL_DEBUG )
 	);
 	wp_localize_script( 'centinela-cotizador-admin', 'centinelaCotizador', array(
-		'ajax_url'           => admin_url( 'admin-ajax.php' ),
-		'nonce'              => wp_create_nonce( 'centinela_cotizador' ),
-		'iva_default'        => 19,
-		'logo_default_url'   => $logo_default_url ? $logo_default_url : '',
-		'cotizacion_editar'  => $cotizacion_editar,
+		'ajax_url'               => admin_url( 'admin-ajax.php' ),
+		'mis_cotizaciones_url'   => admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' ),
+		'nonce'                  => wp_create_nonce( 'centinela_cotizador' ),
+		'iva_default'            => 19,
+		'logo_default_url'       => $logo_default_url ? $logo_default_url : '',
+		'cotizacion_editar'      => $cotizacion_editar,
 		'debug_precios_admin' => current_user_can( 'manage_options' ),
 		/** wp-config: define( 'CENTINELA_COTIZADOR_DEV_MAIL_META', true ); — consola + bloque JSON en el modal al enviar cotización. */
 		'show_mail_meta'     => $show_mail_meta,
@@ -1732,13 +1933,12 @@ function centinela_cotizador_ajax_enviar_guardar() {
 		wp_send_json_error( array( 'message' => $post_id->get_error_message() ) );
 	}
 
-	$email_cliente = '';
-	if ( ! empty( $datos['cliente']['email'] ) ) {
-		$email_cliente = sanitize_email( $datos['cliente']['email'] );
+	$mail_parse = centinela_cotizador_cliente_emails_para_envio( isset( $datos['cliente'] ) ? $datos['cliente'] : array() );
+	if ( $mail_parse['error'] !== '' ) {
+		wp_send_json_error( array( 'message' => $mail_parse['error'] ) );
 	}
-	if ( ! is_email( $email_cliente ) ) {
-		wp_send_json_error( array( 'message' => __( 'El email del cliente no es válido.', 'centinela-group-theme' ) ) );
-	}
+	$email_cliente_primary = $mail_parse['primary'];
+	$email_cliente_to      = $mail_parse['to'];
 
 	$datos['numero']             = get_post_meta( $post_id, '_cotizacion_numero', true );
 	$datos['cotizacion_post_id'] = $post_id;
@@ -1808,12 +2008,12 @@ function centinela_cotizador_ajax_enviar_guardar() {
 	 * Email para cabecera Reply-To del envío al cliente.
 	 *
 	 * @param string $reply_to_default Asesor, admin_email o from_email.
-	 * @param string $email_cliente    Destinatario (To).
+	 * @param string $email_cliente    Email principal del cliente (campo Email; Reply-To no debe coincidir con To).
 	 * @param int    $post_id          ID cotización.
 	 * @param array  $datos            Payload.
 	 * @param string $from_email       Remitente From.
 	 */
-	$reply_to = apply_filters( 'centinela_cotizador_reply_to_email', $reply_to_default, $email_cliente, $post_id, $datos, $from_email );
+	$reply_to = apply_filters( 'centinela_cotizador_reply_to_email', $reply_to_default, $email_cliente_primary, $post_id, $datos, $from_email );
 	if ( ! is_email( $reply_to ) ) {
 		$reply_to = $reply_to_default;
 	}
@@ -1837,7 +2037,7 @@ function centinela_cotizador_ajax_enviar_guardar() {
 		'centinela_cotizador_wp_mail_headers',
 		$headers,
 		array(
-			'cliente_email' => $email_cliente,
+			'cliente_email' => implode( ', ', $email_cliente_to ),
 			'post_id'       => $post_id,
 			'datos'         => $datos,
 			'asunto'        => $asunto,
@@ -1886,8 +2086,17 @@ function centinela_cotizador_ajax_enviar_guardar() {
 	// Copia oculta al correo de administración de WordPress (wp-config: define( 'CENTINELA_COTIZADOR_BCC_ADMIN', true ); ).
 	if ( defined( 'CENTINELA_COTIZADOR_BCC_ADMIN' ) && CENTINELA_COTIZADOR_BCC_ADMIN ) {
 		$bcc_admin = sanitize_email( get_option( 'admin_email' ) );
-		if ( is_email( $bcc_admin ) && strcasecmp( $bcc_admin, $email_cliente ) !== 0 ) {
-			$headers[] = 'Bcc: ' . $bcc_admin;
+		if ( is_email( $bcc_admin ) ) {
+			$bcc_dup = false;
+			foreach ( $email_cliente_to as $addr ) {
+				if ( strcasecmp( $bcc_admin, $addr ) === 0 ) {
+					$bcc_dup = true;
+					break;
+				}
+			}
+			if ( ! $bcc_dup ) {
+				$headers[] = 'Bcc: ' . $bcc_admin;
+			}
 		}
 	}
 
@@ -1969,7 +2178,7 @@ function centinela_cotizador_ajax_enviar_guardar() {
 	$mail_error2    = '';
 
 	if ( $split_send ) {
-		$envio = wp_mail( $email_cliente, $asunto_envio, $cuerpo_html, $headers, array() );
+		$envio = wp_mail( $email_cliente_to, $asunto_envio, $cuerpo_html, $headers, array() );
 		$mail_error = is_string( $centinela_cotizador_last_mail_error ) ? trim( $centinela_cotizador_last_mail_error ) : '';
 		if ( $envio ) {
 			$num_subj = isset( $datos['numero'] ) && (string) $datos['numero'] !== '' ? (string) $datos['numero'] : (string) (int) $post_id;
@@ -1995,7 +2204,7 @@ function centinela_cotizador_ajax_enviar_guardar() {
 			$mail_trace_pdf = sprintf( '%d-%s-%06d-a', (int) $post_id, gmdate( 'Ymd\THis\Z' ), wp_rand( 0, 999999 ) );
 			$headers_pdf    = centinela_cotizador_mail_headers_replace_trace( $headers, $mail_trace_pdf );
 			$centinela_cotizador_last_mail_error = '';
-			$envio2 = wp_mail( $email_cliente, $asunto_pdf, $cuerpo_pdf, $headers_pdf, $attachments );
+			$envio2 = wp_mail( $email_cliente_to, $asunto_pdf, $cuerpo_pdf, $headers_pdf, $attachments );
 			$mail_error2 = is_string( $centinela_cotizador_last_mail_error ) ? trim( $centinela_cotizador_last_mail_error ) : '';
 		} else {
 			$envio2 = false;
@@ -2005,7 +2214,7 @@ function centinela_cotizador_ajax_enviar_guardar() {
 			$mail_error = trim( $mail_error . ' ' . __( '[Adjunto]', 'centinela-group-theme' ) . ' ' . $mail_error2 );
 		}
 	} else {
-		$envio = wp_mail( $email_cliente, $asunto_envio, $cuerpo_html, $headers, $attachments );
+		$envio = wp_mail( $email_cliente_to, $asunto_envio, $cuerpo_html, $headers, $attachments );
 		$mail_error = is_string( $centinela_cotizador_last_mail_error ) ? trim( $centinela_cotizador_last_mail_error ) : '';
 	}
 
@@ -2025,9 +2234,25 @@ function centinela_cotizador_ajax_enviar_guardar() {
 	// Borrado diferido: WP Mail SMTP u otros pueden poner el envío en cola; unlink en shutdown rompía el adjunto.
 	centinela_cotizador_schedule_attachment_cleanup( $attachments );
 
-	$msg_ok   = __( 'Cotización guardada y enviada por email.', 'centinela-group-theme' );
+	$n_mail_dest = count( $email_cliente_to );
 	if ( $split_send && $envio ) {
-		$msg_ok = __( 'Cotización guardada. Se enviaron dos correos al cliente (mensaje y archivo adjunto).', 'centinela-group-theme' );
+		if ( $n_mail_dest > 1 ) {
+			$msg_ok = sprintf(
+				/* translators: %d: number of email recipients. */
+				__( 'Cotización guardada. Se enviaron dos correos a %d destinatarios (mensaje y archivo adjunto).', 'centinela-group-theme' ),
+				$n_mail_dest
+			);
+		} else {
+			$msg_ok = __( 'Cotización guardada. Se enviaron dos correos al destinatario (mensaje y archivo adjunto).', 'centinela-group-theme' );
+		}
+	} elseif ( $n_mail_dest > 1 ) {
+		$msg_ok = sprintf(
+			/* translators: %d: number of email recipients. */
+			__( 'Cotización guardada y enviada por email a %d destinatarios.', 'centinela-group-theme' ),
+			$n_mail_dest
+		);
+	} else {
+		$msg_ok = __( 'Cotización guardada y enviada por email.', 'centinela-group-theme' );
 	}
 	$msg_fail = __( 'Cotización guardada. No se pudo enviar el email.', 'centinela-group-theme' );
 	if ( ! $envio && $mail_error !== '' ) {
@@ -2045,7 +2270,7 @@ function centinela_cotizador_ajax_enviar_guardar() {
 		'enviado'            => (bool) $envio,
 		'mail_error'         => $mail_error,
 		// Ayuda en Network > Response (admin): confirmar To/From/adjuntos sin depender del plugin SMTP.
-		'mail_to'            => $email_cliente,
+		'mail_to'            => implode( ', ', $email_cliente_to ),
 		'mail_from'          => $from_email,
 		'mail_reply_to'      => $reply_to,
 		'mail_trace'         => $mail_trace,
@@ -2137,6 +2362,7 @@ function centinela_cotizador_ajax_preview_envio() {
 	}
 
 	wp_send_json_success( array(
+		'id'              => $post_id,
 		'html_url'        => $html_url,
 		'adjunto_url'     => $adjunto_url,
 		'adjunto_nombre'  => $adjunto_nombre,
@@ -2362,6 +2588,34 @@ function centinela_cotizador_pdf_html_embed_logo_data_uri( $html, $datos ) {
 }
 
 /**
+ * Sustituye la imagen de firma del director por data URI para Dompdf (misma lógica que el logo).
+ *
+ * @param string $html  HTML completo.
+ * @param array  $datos Datos de la cotización.
+ * @return string
+ */
+function centinela_cotizador_pdf_html_embed_firma_director_data_uri( $html, $datos ) {
+	if ( ! is_string( $html ) || $html === '' || stripos( $html, 'FirmaCentinelaDirector' ) === false ) {
+		return $html;
+	}
+	$url = centinela_cotizador_get_firma_director_comercial_img_url( is_array( $datos ) ? $datos : array() );
+	if ( $url === '' ) {
+		return $html;
+	}
+	$data_uri = centinela_cotizador_logo_url_to_data_uri( $url );
+	if ( $data_uri === '' ) {
+		return $html;
+	}
+	$replaced = preg_replace(
+		'/<img\b[^>]*\balt\s*=\s*([\'"])FirmaCentinelaDirector\1[^>]*>/i',
+		'<img src="' . esc_attr( $data_uri ) . '" alt="FirmaCentinelaDirector" width="220" height="80" style="max-width:220px;max-height:80px;height:auto;width:auto;display:block;margin:0 auto 8px;" />',
+		$html,
+		1
+	);
+	return is_string( $replaced ) ? $replaced : $html;
+}
+
+/**
  * Fallback: generar PDF desde el mismo HTML del correo (incluye Cotización #) si Dompdf está disponible.
  * Quien implemente el filtro centinela_cotizador_generar_pdf debe incluir $datos['numero'] en el PDF.
  *
@@ -2387,6 +2641,7 @@ function centinela_cotizador_generar_pdf_fallback( $path, $post_id, $plantilla, 
 	$datos['cotizacion_post_id'] = (int) $post_id;
 	$html = centinela_cotizador_build_email_html( $datos, true );
 	$html = centinela_cotizador_pdf_html_embed_logo_data_uri( $html, $datos );
+	$html = centinela_cotizador_pdf_html_embed_firma_director_data_uri( $html, $datos );
 	$tmp  = wp_tempnam( 'cotizacion-' . $post_id );
 	if ( ! $tmp ) {
 		return '';
@@ -2679,6 +2934,12 @@ function centinela_cotizador_render_page() {
 					<div class="centinela-cotizador-field">
 						<label for="centinela-cotizador-cliente-email"><?php esc_html_e( 'Email', 'centinela-group-theme' ); ?></label>
 						<input type="email" id="centinela-cotizador-cliente-email" class="regular-text" />
+						<p class="description"><?php esc_html_e( 'Este es el correo que aparece en la cotización impresa y en el PDF.', 'centinela-group-theme' ); ?></p>
+					</div>
+					<div class="centinela-cotizador-field">
+						<label for="centinela-cotizador-cliente-email-adicionales"><?php esc_html_e( 'Emails adicionales (opcional)', 'centinela-group-theme' ); ?></label>
+						<input type="text" id="centinela-cotizador-cliente-email-adicionales" class="large-text" autocomplete="off" placeholder="correo@ejemplo.com, otro@ejemplo.com" />
+						<p class="description"><?php esc_html_e( 'Separe varias direcciones con coma o punto y coma. Recibirán la misma cotización por correo; no se muestran en el PDF.', 'centinela-group-theme' ); ?></p>
 					</div>
 					<div class="centinela-cotizador-field">
 						<label for="centinela-cotizador-cliente-telefono"><?php esc_html_e( 'Teléfono', 'centinela-group-theme' ); ?></label>
@@ -2915,7 +3176,7 @@ function centinela_cotizador_render_page() {
 					<option value="pdf"><?php esc_html_e( 'PDF', 'centinela-group-theme' ); ?></option>
 					<option value="excel"><?php esc_html_e( 'Excel', 'centinela-group-theme' ); ?></option>
 				</select>
-				<p class="description"><?php esc_html_e( 'El archivo se adjuntará al correo que recibirá el cliente en el email indicado en Datos del cliente.', 'centinela-group-theme' ); ?></p>
+				<p class="description"><?php esc_html_e( 'El archivo se adjuntará al correo enviado al email principal y, si los indicó, a los emails adicionales en Datos del cliente.', 'centinela-group-theme' ); ?></p>
 			</div>
 			<p class="centinela-cotizador-modal-msg" id="centinela-modal-enviar-msg"></p>
 			<div class="centinela-cotizador-modal-actions">
@@ -3012,10 +3273,29 @@ function centinela_cotizador_render_mis_cotizaciones() {
 		if ( wp_verify_nonce( $nonce, 'centinela_eliminar_cotizacion_' . $eliminar_id ) ) {
 			$post = get_post( $eliminar_id );
 			if ( $post && $post->post_type === 'cotizacion' ) {
+				// No tocar `_cotizacion_numero` de otros posts ni `centinela_cotizador_ultimo_numero`: cada cotización conserva su #.
 				wp_trash_post( $eliminar_id );
 				wp_safe_redirect( admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones&eliminado=1' ) );
 				exit;
 			}
+		}
+	}
+	// Duplicar cotización (mismo permiso que ver el listado: centinela_manage_cotizador).
+	$duplicar_id = isset( $_GET['duplicar'] ) ? absint( $_GET['duplicar'] ) : 0;
+	if ( $duplicar_id > 0 && isset( $_GET['_wpnonce'] ) ) {
+		$nonce_dup = sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) );
+		if ( ! centinela_cotizador_can_manage() ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones&permiso_duplicar=0' ) );
+			exit;
+		}
+		if ( wp_verify_nonce( $nonce_dup, 'centinela_duplicar_cotizacion_' . $duplicar_id ) ) {
+			$new_id = centinela_cotizador_duplicate_cotizacion_post( $duplicar_id );
+			if ( ! is_wp_error( $new_id ) ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones&duplicado=1' ) );
+				exit;
+			}
+			wp_safe_redirect( admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones&duplicar_error=1' ) );
+			exit;
 		}
 	}
 	$query = new WP_Query( array(
@@ -3030,6 +3310,15 @@ function centinela_cotizador_render_mis_cotizaciones() {
 		<h1><?php esc_html_e( 'Mis Cotizaciones', 'centinela-group-theme' ); ?></h1>
 		<?php if ( isset( $_GET['permiso_eliminar'] ) && $_GET['permiso_eliminar'] === '0' ) : ?>
 			<div class="notice notice-warning is-dismissible"><p><?php esc_html_e( 'No tienes permisos para eliminar cotizaciones. Solicita esta acción al administrador.', 'centinela-group-theme' ); ?></p></div>
+		<?php endif; ?>
+		<?php if ( isset( $_GET['permiso_duplicar'] ) && $_GET['permiso_duplicar'] === '0' ) : ?>
+			<div class="notice notice-warning is-dismissible"><p><?php esc_html_e( 'No tienes permisos para duplicar cotizaciones.', 'centinela-group-theme' ); ?></p></div>
+		<?php endif; ?>
+		<?php if ( isset( $_GET['duplicado'] ) && $_GET['duplicado'] === '1' ) : ?>
+			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Cotización duplicada. La copia aparece en el listado con «Copia» en el título.', 'centinela-group-theme' ); ?></p></div>
+		<?php endif; ?>
+		<?php if ( isset( $_GET['duplicar_error'] ) && $_GET['duplicar_error'] === '1' ) : ?>
+			<div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'No se pudo duplicar la cotización. Inténtelo de nuevo o contacte al administrador.', 'centinela-group-theme' ); ?></p></div>
 		<?php endif; ?>
 		<?php if ( isset( $_GET['eliminado'] ) && $_GET['eliminado'] === '1' ) : ?>
 			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Cotización eliminada.', 'centinela-group-theme' ); ?></p></div>
@@ -3090,7 +3379,12 @@ function centinela_cotizador_render_mis_cotizaciones() {
 							'eliminar' => get_the_ID(),
 							'_wpnonce' => wp_create_nonce( 'centinela_eliminar_cotizacion_' . get_the_ID() ),
 						), admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' ) );
+						$duplicar_url = add_query_arg( array(
+							'duplicar' => get_the_ID(),
+							'_wpnonce' => wp_create_nonce( 'centinela_duplicar_cotizacion_' . get_the_ID() ),
+						), admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' ) );
 						$eliminar_confirm = esc_attr__( '¿Eliminar esta cotización? No se podrá deshacer.', 'centinela-group-theme' );
+						$duplicar_confirm = esc_attr__( '¿Duplicar esta cotización? Se creará una nueva con el mismo contenido y «Copia» en el título.', 'centinela-group-theme' );
 						?>
 						<tr>
 							<td><strong><?php the_title(); ?></strong></td>
@@ -3099,6 +3393,7 @@ function centinela_cotizador_render_mis_cotizaciones() {
 							<td><?php echo esc_html( get_the_date() ); ?></td>
 							<td>
 								<a href="<?php echo esc_url( $editar_url ); ?>" class="button button-small"><?php esc_html_e( 'Editar', 'centinela-group-theme' ); ?></a>
+								<a href="<?php echo esc_url( $duplicar_url ); ?>" class="button button-small" onclick="return confirm('<?php echo esc_js( $duplicar_confirm ); ?>');"><?php esc_html_e( 'Duplicar', 'centinela-group-theme' ); ?></a>
 								<?php if ( current_user_can( 'manage_options' ) ) : ?>
 									<a href="<?php echo esc_url( $eliminar_url ); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php echo esc_js( $eliminar_confirm ); ?>');"><?php esc_html_e( 'Eliminar', 'centinela-group-theme' ); ?></a>
 								<?php endif; ?>

@@ -16,6 +16,7 @@
 	var ivaDefault = typeof config.iva_default !== 'undefined' ? config.iva_default : 19;
 	var logoDefaultUrl = config.logo_default_url || '';
 	var cotizacionEditar = config.cotizacion_editar || null;
+	var misCotizacionesUrl = config.mis_cotizaciones_url || '';
 
 	var $titulo = $('#centinela-cotizador-titulo');
 	var $tipo = $('#centinela-cotizador-tipo-busqueda');
@@ -694,6 +695,7 @@
 				direccion_fisica: $('#centinela-cotizador-cliente-direccion-fisica').val(),
 				ciudad: $('#centinela-cotizador-cliente-ciudad').val() || '',
 				email: $('#centinela-cotizador-cliente-email').val(),
+				email_adicionales: $('#centinela-cotizador-cliente-email-adicionales').val(),
 				vigencia: $('#centinela-cotizador-cliente-vigencia').val(),
 				comentarios: $('#centinela-cotizador-cliente-comentarios').val()
 			},
@@ -720,6 +722,17 @@
 			total: total,
 			logo_url: $('#centinela-cotizador-logo-url').val() || ''
 		};
+	}
+
+	/** Tras el primer guardado en una cotización nueva, el servidor devuelve id; lo guardamos para no crear duplicados. */
+	function rememberCotizacionPostId(data) {
+		if (!data || data.id === undefined || data.id === null || data.id === '') {
+			return;
+		}
+		var id = parseInt(data.id, 10);
+		if (id > 0) {
+			$('#centinela-cotizador-editar-id').val(String(id));
+		}
 	}
 
 	function openModal(id) {
@@ -818,6 +831,7 @@
 			.done(function (res) {
 				if (res.success) {
 					var d = res.data || {};
+					rememberCotizacionPostId(d);
 					var enviado = d.enviado !== false && d.enviado !== 0;
 					var mailMetaBlock = showMailMeta ? {
 						mail_template: d.mail_template,
@@ -879,6 +893,9 @@
 		})
 			.done(function (res) {
 				$btn.prop('disabled', false).text(labelPdf);
+				if (res.success && res.data) {
+					rememberCotizacionPostId(res.data);
+				}
 				if (res.success && res.data && res.data.adjunto_url) {
 					var url = res.data.adjunto_url;
 					var nombre = res.data.adjunto_nombre || 'cotizacion.pdf';
@@ -918,6 +935,7 @@
 		})
 			.done(function (res) {
 				if (res.success && res.data) {
+					rememberCotizacionPostId(res.data);
 					$msg.addClass('success').text(res.data.message || '');
 					if (res.data.html_url) {
 						window.open(res.data.html_url, '_blank', 'noopener');
@@ -960,8 +978,14 @@
 		})
 			.done(function (res) {
 				if (res.success) {
+					rememberCotizacionPostId(res.data || {});
 					$msg.addClass('success').text(res.data.message || '');
-					setTimeout(function () { closeModal('#centinela-cotizador-modal-guardar'); }, 1500);
+					setTimeout(function () {
+						closeModal('#centinela-cotizador-modal-guardar');
+						if (misCotizacionesUrl) {
+							window.location.href = misCotizacionesUrl;
+						}
+					}, 1500);
 				} else {
 					$msg.addClass('error').text(res.data && res.data.message ? res.data.message : 'Error');
 				}
@@ -1063,6 +1087,7 @@
 		$('#centinela-cotizador-cliente-direccion-fisica').val(cliente.direccion_fisica || '');
 		$('#centinela-cotizador-cliente-ciudad').val(cliente.ciudad || '');
 		$('#centinela-cotizador-cliente-email').val(cliente.email || '');
+		$('#centinela-cotizador-cliente-email-adicionales').val(cliente.email_adicionales || '');
 		$('#centinela-cotizador-cliente-vigencia').val(cliente.vigencia || '');
 		$('#centinela-cotizador-cliente-comentarios').val(cliente.comentarios || '');
 
