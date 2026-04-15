@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Local environment secrets / overrides
+.env
+
+# WordPress generated uploads and logs (do not version runtime content)
+wp-content/uploads/*
+!wp-content/uploads/.htaccess
+!wp-content/uploads/index.php
+
+# Temporary or accidental duplicated plugin files
+wp-content/plugins/woocommerce/license\ 2.txt
+wp-content/plugins/woocommerce/readme\ 2.txt
+wp-content/plugins/woocommerce/uninstall\ 2.php
+wp-content/plugins/woocommerce/woocommerce\ 2.php
