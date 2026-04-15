@@ -1560,7 +1560,8 @@ function centinela_cotizador_ajax_buscar_productos() {
 
 	// Misma lógica que el buscador del sitio: variantes API + barrido de catálogo + coincidencia flexible (p. ej. TK-3000-KV2).
 	if ( function_exists( 'centinela_search_productos_syscom' ) ) {
-		$rows      = centinela_search_productos_syscom( $busqueda, 50, false );
+		// Modo rápido para autocompletar del cotizador: evita timeouts/errores AJAX en referencias complejas.
+		$rows      = centinela_search_productos_syscom( $busqueda, 50, true );
 		$productos = array();
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {

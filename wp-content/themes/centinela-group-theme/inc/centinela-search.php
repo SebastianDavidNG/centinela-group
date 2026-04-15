@@ -22,7 +22,9 @@ function centinela_normalize_search_term_for_api( $term ) {
 	if ( $term === '' ) {
 		return '';
 	}
-	$normalized = trim( preg_replace( '/[\s\-_]+/', '+', $term ), '+' );
+	$normalized = strtolower( remove_accents( $term ) );
+	// Syscom responde mejor si enviamos solo tokens alfanuméricos separados por "+" (evita problemas con paréntesis, barras, etc.).
+	$normalized = trim( preg_replace( '/[^a-z0-9]+/i', '+', $normalized ), '+' );
 	$normalized = $normalized !== '' ? $normalized : $term;
 	return strtolower( $normalized );
 }
@@ -40,7 +42,8 @@ function centinela_normalize_for_match( $str ) {
 	}
 	$s = remove_accents( (string) $str );
 	$s = strtolower( $s );
-	$s = preg_replace( '/[\s\-_\.]+/', '', $s );
+	// Igualar referencias aunque traigan símbolos: DS-KV8413-WME1(C) === DS KV8413 WME1 C.
+	$s = preg_replace( '/[^a-z0-9]+/i', '', $s );
 	return $s;
 }
 
