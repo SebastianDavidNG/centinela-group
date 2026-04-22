@@ -770,6 +770,17 @@
 	color: var(--cot-accent, #2271b1);
 }
 
+.centinela-cotizador-tc-pending {
+	margin: 0.5em 0 0;
+	padding: 8px 10px;
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+#centinela-cotizador-actualizar-tc.is-tc-pending {
+	box-shadow: 0 0 0 2px var(--cot-error, #d93025);
+}
+
 /* Depuración API: widget fijo (no consume ancho del layout de columnas) */
 .centinela-cotizador-debug-dock {
 	position: fixed;
@@ -948,6 +959,34 @@
 	border-top: 1px solid var(--cot-border, #dcdcde);
 	font-weight: 600;
 	color: var(--cot-text, #1d2327);
+}
+
+.centinela-cotizador-tc-hint-cop-usd {
+	margin-top: 0.35em;
+	color: var(--cot-text-secondary, #50575e);
+}
+
+.centinela-cotizador-ref-usd-bloque.centinela-trm-ref-updated {
+	border-radius: var(--cot-radius-sm, 4px);
+	animation: centinela-trm-ref-pulse 0.95s ease-out;
+}
+
+@keyframes centinela-trm-ref-pulse {
+	0% {
+		background-color: rgba(21, 67, 160, 0.12);
+		box-shadow: 0 0 0 3px rgba(21, 67, 160, 0.22);
+	}
+	100% {
+		background-color: transparent;
+		box-shadow: 0 0 0 0 transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.centinela-cotizador-ref-usd-bloque.centinela-trm-ref-updated {
+		animation: none;
+		background-color: rgba(21, 67, 160, 0.08);
+	}
 }
 
 .centinela-cotizador-resumen-botones {

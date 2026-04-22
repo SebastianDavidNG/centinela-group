@@ -3,19 +3,29 @@
  * Plugin Name: Site Mailer - SMTP Replacement, Email API Deliverability & Email Log
  * Description: Effortlessly manage transactional emails with Site Mailer. High deliverability, logs and statistics, and no SMTP plugins needed.
  * Plugin URI: https://elementor.com/
- * Version: 1.4.3
+ * Version: 1.4.4
  * Author: Elementor.com
  * Author URI: https://go.elementor.com/author-url-sm/
  * Text Domain: site-mailer
  * License: GPL-3.0
  * License URI: http://www.gnu.org/licenses/gpl-3.0.html
+ *
+ * Site Mailer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Site Mailer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
-define( 'SITE_MAILER_VERSION', '1.4.3' );
+define( 'SITE_MAILER_VERSION', '1.4.4' );
 define( 'SITE_MAILER_FILE', __FILE__ );
 define( 'SITE_MAILER_PATH', plugin_dir_path( SITE_MAILER_FILE ) );
 define( 'SITE_MAILER_URL', plugins_url( '/', SITE_MAILER_FILE ) );

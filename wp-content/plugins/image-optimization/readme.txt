@@ -1,10 +1,10 @@
 === Image Optimizer - Optimize Images and Convert to WebP or AVIF ===
 Contributors: elemntor
 Tags: image optimization, image compression, convert webp, convert avif, performance,
-Requires at least: 6.6
-Tested up to: 6.9
+Requires at least: 6.7
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.3
+Stable tag: 1.7.4
 License: GPL-3
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 
@@ -118,6 +118,12 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 5. Image Optimizer - Image Optimization in the Media Uploader
 
 == Changelog ==
+
+= 1.7.4 2026-03-31 =
+* Tweak: Improved WPML support
+* Fix: Optimize All button missing for Elementor One users
+* Fix: Fix incorrect optimization status update
+
 = 1.7.3 2026-02-17 =
 * Tweak: Enabled display of WordPress admin notices for better visibility
 * Fix: Resolved issues related to feature usage tracking

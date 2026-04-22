@@ -2,8 +2,8 @@
 
 **Contributors:** elemntor \
 **Tags:** email, email log, SMTP, email API, sender \
-**Requires at least:** 6.6 \
-**Tested up to:** 6.9 \
+**Requires at least:** 6.7 \
+**Tested up to:** 7.0 \
 **Requires PHP:** 7.4 \
 **Stable tag:** 1.4.0 \
 **License:** GPL-3 \

@@ -3,12 +3,22 @@
  * Plugin Name: Image Optimizer - Compress, Resize and Optimize Images
  * Description: Automatically resize, optimize, and convert images to WebP and AVIF. Compress images in bulk or on upload to boost your WordPress site performance.
  * Plugin URI: https://go.elementor.com/wp-repo-description-tab-io-product-page/
- * Version: 1.7.3
+ * Version: 1.7.4
  * Author: Elementor.com
  * Author URI: https://go.elementor.com/author-uri-io/
  * Text Domain: image-optimization
  * License: GPL-3
  * License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * Image Optimizer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Image Optimizer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 use ImageOptimization\Modules\Core\Module as CoreModule;
@@ -17,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
-define( 'IMAGE_OPTIMIZATION_VERSION', '1.7.3' );
+define( 'IMAGE_OPTIMIZATION_VERSION', '1.7.4' );
 define( 'IMAGE_OPTIMIZATION_FILE', __FILE__ );
 define( 'IMAGE_OPTIMIZATION_PATH', plugin_dir_path( IMAGE_OPTIMIZATION_FILE ) );
 define( 'IMAGE_OPTIMIZATION_URL', plugins_url( '/', IMAGE_OPTIMIZATION_FILE ) );

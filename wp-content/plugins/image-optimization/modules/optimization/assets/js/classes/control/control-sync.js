@@ -30,6 +30,11 @@ class ControlSync {
 				return;
 			}
 
+			// Required check as the status endpoint doesn't return validation errors
+			if ( currentStatus === 'error' && ! new ControlMeta( controlWrapper ).allowRetry() ) {
+				return;
+			}
+
 			switch ( imageData.status ) {
 				case 'optimization-in-progress':
 					controlStates.renderLoading( 'optimize' );

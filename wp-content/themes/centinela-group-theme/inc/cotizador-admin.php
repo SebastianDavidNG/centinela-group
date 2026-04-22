@@ -1499,6 +1499,8 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'tc_recalculado'             => __( 'Totales actualizados con el tipo de cambio del campo.', 'centinela-group-theme' ),
 			'tc_invalido'                => __( 'Indica un tipo de cambio mayor que 0.', 'centinela-group-theme' ),
 			'trm_syscom_ok'              => __( 'TRM Syscom cargado. Totales actualizados.', 'centinela-group-theme' ),
+			'tc_pending_hint'            => __( 'Has modificado el tipo de cambio. Pulsa «Actualizar» para confirmarlo y alinear referencias en USD y el valor que se guardará al enviar o guardar la cotización.', 'centinela-group-theme' ),
+			'tc_confirm_save_prompt'     => __( 'El tipo de cambio cambió y no pulsaste «Actualizar». Los totales en pantalla ya usan el valor del campo; al guardar o enviar se usará ese mismo valor. ¿Quieres continuar? (Recomendado: cancelar, pulsar «Actualizar» y luego guardar.)', 'centinela-group-theme' ),
 			'debug_id_required'          => __( 'Introduce un ID numérico de producto Syscom.', 'centinela-group-theme' ),
 			'enviar_guardar'             => __( 'Enviar y Guardar', 'centinela-group-theme' ),
 			'guardar_cotizacion'         => __( 'Guardar Cotización', 'centinela-group-theme' ),
@@ -1520,7 +1522,7 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'error_pdf_adjunto'           => __( 'No se pudo generar el PDF de vista previa.', 'centinela-group-theme' ),
 			'aprox_usd_prefix'            => __( '≈ USD $ ', 'centinela-group-theme' ),
 			'manual_section_title'        => __( 'Producto manual (sin catálogo API)', 'centinela-group-theme' ),
-			'manual_section_help'         => __( 'Añada líneas que no existan en Syscom; se suman al subtotal y totales igual que los demás.', 'centinela-group-theme' ),
+			'manual_section_help'         => __( 'Añada líneas que no existan en Syscom. El precio se ingresa en COP (como en catálogo): se suma al subtotal y al total en pesos igual que el resto, y en moneda COP también entra en la referencia en USD cuando cambia el TRM.', 'centinela-group-theme' ),
 			'manual_ref'                  => __( 'Referencia', 'centinela-group-theme' ),
 			'manual_modelo'               => __( 'Modelo / nombre', 'centinela-group-theme' ),
 			'manual_descripcion'          => __( 'Descripción (opcional)', 'centinela-group-theme' ),
@@ -3103,8 +3105,10 @@ function centinela_cotizador_render_page() {
 						<button type="button" class="button button-primary" id="centinela-cotizador-actualizar-tc"><?php esc_html_e( 'Actualizar', 'centinela-group-theme' ); ?></button>
 						<button type="button" class="button" id="centinela-cotizador-sync-tc-syscom"><?php esc_html_e( 'Cargar TRM Syscom', 'centinela-group-theme' ); ?></button>
 					</div>
-					<p class="description centinela-cotizador-tc-hint"><?php esc_html_e( 'El TRM es «1 USD = X COP». Con moneda COP, subtotal y total en pesos no cambian al mover el TRM; el equivalente en USD (misma fila y bloque de abajo) sí se recalcula al instante: a mayor X suelen corresponder menos dólares por el mismo monto en pesos. Con moneda USD, subtotal, IVA y total ya están en dólares. «Actualizar» valida el TRM; «Cargar TRM Syscom» trae el tipo oficial.', 'centinela-group-theme' ); ?></p>
+					<p class="description centinela-cotizador-tc-hint"><?php esc_html_e( 'El TRM es «1 USD = X COP». «Actualizar» confirma el valor; «Cargar TRM Syscom» trae el tipo oficial del día.', 'centinela-group-theme' ); ?></p>
+					<p class="description centinela-cotizador-tc-hint centinela-cotizador-tc-hint-cop-usd"><?php esc_html_e( 'Importante: los precios de catálogo Syscom ya vienen en pesos colombianos (COP). Por eso, con moneda COP, al cambiar solo el TRM no cambian el precio de cada línea ni el total en pesos: el TRM sirve para la referencia en dólares (texto «≈ USD» junto a cada total y el bloque «Referencia USD» más abajo). Si sube el TRM, con el mismo total en pesos verá menos dólares en esa referencia. Si necesita que el subtotal y el total principal del resumen se muevan al cambiar el TRM, elija la moneda USD en «Moneda».', 'centinela-group-theme' ); ?></p>
 					<p class="centinela-cotizador-tc-msg" id="centinela-cotizador-tc-msg" aria-live="polite"></p>
+					<p class="centinela-cotizador-tc-pending notice notice-warning" id="centinela-cotizador-tc-pending" role="status" hidden></p>
 				</div>
 
 				<div class="centinela-cotizador-resumen-totales">
@@ -3257,6 +3261,200 @@ function centinela_cotizador_render_page() {
 }
 
 /**
+ * Paginación de Mis Cotizaciones: IDs de posts y totales (búsqueda en meta serializada vía SQL LIKE).
+ *
+ * @param string $buscar Texto libre (nombre, NIT, etc. dentro de _cotizacion_datos).
+ * @param int    $paged  Página (1-based).
+ * @return array{ ids: int[], found_posts: int, max_num_pages: int }
+ */
+function centinela_cotizador_mis_cotizaciones_get_page( $buscar, $paged = 1 ) {
+	global $wpdb;
+	$per_page = 50;
+	$buscar   = trim( (string) $buscar );
+	if ( strlen( $buscar ) > 160 ) {
+		$buscar = substr( $buscar, 0, 160 );
+	}
+	$paged  = max( 1, (int) $paged );
+	$offset = ( $paged - 1 ) * $per_page;
+
+	if ( $buscar === '' ) {
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s ORDER BY post_date DESC LIMIT %d OFFSET %d",
+				'cotizacion',
+				'publish',
+				$per_page,
+				$offset
+			)
+		);
+		$found = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s",
+				'cotizacion',
+				'publish'
+			)
+		);
+	} else {
+		$like = '%' . $wpdb->esc_like( $buscar ) . '%';
+		$ids  = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+				INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+				WHERE p.post_type = %s AND p.post_status = %s AND pm.meta_value LIKE %s
+				ORDER BY p.post_date DESC
+				LIMIT %d OFFSET %d",
+				'_cotizacion_datos',
+				'cotizacion',
+				'publish',
+				$like,
+				$per_page,
+				$offset
+			)
+		);
+		$found = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p
+				INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+				WHERE p.post_type = %s AND p.post_status = %s AND pm.meta_value LIKE %s",
+				'_cotizacion_datos',
+				'cotizacion',
+				'publish',
+				$like
+			)
+		);
+	}
+	$ids = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+	$max = $found > 0 ? (int) ceil( $found / $per_page ) : 0;
+
+	return array(
+		'ids'           => $ids,
+		'found_posts'   => $found,
+		'max_num_pages' => $max,
+	);
+}
+
+/**
+ * Fila de Mis Cotizaciones para JSON (búsqueda en vivo).
+ *
+ * @param int $post_id ID del post cotización.
+ * @return array<string,mixed>|null
+ */
+function centinela_cotizador_mis_cotizaciones_row_payload( $post_id ) {
+	$post_id = absint( $post_id );
+	$post    = get_post( $post_id );
+	if ( ! $post || $post->post_type !== 'cotizacion' || $post->post_status !== 'publish' ) {
+		return null;
+	}
+	$datos         = get_post_meta( $post_id, '_cotizacion_datos', true );
+	$cliente_arr   = is_array( $datos ) && isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
+	$cli_nombre    = isset( $cliente_arr['nombre'] ) ? trim( (string) $cliente_arr['nombre'] ) : '';
+	$cli_nit       = isset( $cliente_arr['nit_cc'] ) ? trim( (string) $cliente_arr['nit_cc'] ) : '';
+	$cli_nombre_d  = $cli_nombre !== '' ? $cli_nombre : '—';
+	$cli_nit_d     = $cli_nit !== '' ? $cli_nit : '—';
+	$moneda        = is_array( $datos ) && isset( $datos['moneda'] ) ? (string) $datos['moneda'] : 'COP';
+	$total         = is_array( $datos ) && isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
+	$total_fmt     = $moneda === 'USD' ? 'USD $ ' . number_format( $total, 2, '.', ',' ) : 'CO $ ' . number_format( $total, 0, ',', '.' );
+	$editar_url    = add_query_arg( 'editar', $post_id, admin_url( 'admin.php?page=centinela-cotizador' ) );
+	$eliminar_url  = add_query_arg(
+		array(
+			'eliminar' => $post_id,
+			'_wpnonce' => wp_create_nonce( 'centinela_eliminar_cotizacion_' . $post_id ),
+		),
+		admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' )
+	);
+	$duplicar_url = add_query_arg(
+		array(
+			'duplicar' => $post_id,
+			'_wpnonce' => wp_create_nonce( 'centinela_duplicar_cotizacion_' . $post_id ),
+		),
+		admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' )
+	);
+
+	return array(
+		'id'               => $post_id,
+		'title'            => get_the_title( $post_id ),
+		'cliente'          => $cli_nombre_d,
+		'nit'              => $cli_nit_d,
+		'moneda'           => $moneda,
+		'total_fmt'        => $total_fmt,
+		'fecha'            => mysql2date( get_option( 'date_format' ), $post->post_date ),
+		'editar_url'       => $editar_url,
+		'duplicar_url'     => $duplicar_url,
+		'eliminar_url'     => $eliminar_url,
+		'can_delete'       => current_user_can( 'manage_options' ),
+		'confirm_duplicar' => __( '¿Duplicar esta cotización? Se creará una nueva con el mismo contenido y «Copia» en el título.', 'centinela-group-theme' ),
+		'confirm_eliminar' => __( '¿Eliminar esta cotización? No se podrá deshacer.', 'centinela-group-theme' ),
+	);
+}
+
+/**
+ * AJAX: listado / búsqueda Mis Cotizaciones (tiempo real).
+ */
+function centinela_cotizador_ajax_mis_cotizaciones_list() {
+	check_ajax_referer( 'centinela_mis_cotizaciones', 'nonce' );
+	if ( ! centinela_cotizador_can_manage() ) {
+		wp_send_json_error( array( 'message' => __( 'No autorizado.', 'centinela-group-theme' ) ) );
+	}
+	$q     = isset( $_POST['q'] ) ? sanitize_text_field( wp_unslash( $_POST['q'] ) ) : '';
+	$paged = isset( $_POST['paged'] ) ? max( 1, absint( $_POST['paged'] ) ) : 1;
+	$page  = centinela_cotizador_mis_cotizaciones_get_page( $q, $paged );
+	$rows  = array();
+	foreach ( $page['ids'] as $pid ) {
+		$row = centinela_cotizador_mis_cotizaciones_row_payload( $pid );
+		if ( $row ) {
+			$rows[] = $row;
+		}
+	}
+	wp_send_json_success(
+		array(
+			'rows'          => $rows,
+			'found_posts'   => (int) $page['found_posts'],
+			'max_num_pages' => (int) $page['max_num_pages'],
+			'paged'         => $paged,
+		)
+	);
+}
+add_action( 'wp_ajax_centinela_mis_cotizaciones_list', 'centinela_cotizador_ajax_mis_cotizaciones_list' );
+
+/**
+ * Scripts Mis Cotizaciones (búsqueda en vivo).
+ *
+ * @param string $hook_suffix Hook de pantalla admin.
+ */
+function centinela_cotizador_enqueue_mis_cotizaciones( $hook_suffix ) {
+	if ( strpos( (string) $hook_suffix, 'centinela-cotizador-mis-cotizaciones' ) === false ) {
+		return;
+	}
+	$path = get_template_directory() . '/assets/js/mis-cotizaciones-admin.js';
+	wp_enqueue_script(
+		'centinela-mis-cotizaciones-admin',
+		get_template_directory_uri() . '/assets/js/mis-cotizaciones-admin.js',
+		array( 'jquery' ),
+		file_exists( $path ) ? (string) filemtime( $path ) : '1.0.0',
+		true
+	);
+	wp_localize_script(
+		'centinela-mis-cotizaciones-admin',
+		'centinelaMisCotizaciones',
+		array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'nonce'    => wp_create_nonce( 'centinela_mis_cotizaciones' ),
+			'i18n'     => array(
+				'no_results' => __( 'No hay cotizaciones que coincidan. Pruebe con otra palabra o con parte del NIT.', 'centinela-group-theme' ),
+				'loading'    => __( 'Buscando…', 'centinela-group-theme' ),
+				'mostrando'  => __( 'Mostrando', 'centinela-group-theme' ),
+				'de'         => __( 'de', 'centinela-group-theme' ),
+				'cotizacion' => __( 'cotización(es)', 'centinela-group-theme' ),
+				'editar'     => __( 'Editar', 'centinela-group-theme' ),
+				'duplicar'   => __( 'Duplicar', 'centinela-group-theme' ),
+				'eliminar'   => __( 'Eliminar', 'centinela-group-theme' ),
+			),
+		)
+	);
+}
+add_action( 'admin_enqueue_scripts', 'centinela_cotizador_enqueue_mis_cotizaciones' );
+
+/**
  * Renderizar la página Mis Cotizaciones (listado de cotizaciones guardadas)
  */
 function centinela_cotizador_render_mis_cotizaciones() {
@@ -3299,13 +3497,37 @@ function centinela_cotizador_render_mis_cotizaciones() {
 			exit;
 		}
 	}
-	$query = new WP_Query( array(
-		'post_type'      => 'cotizacion',
-		'post_status'    => 'publish',
-		'posts_per_page' => 50,
-		'orderby'        => 'date',
-		'order'          => 'DESC',
-	) );
+	$buscar = '';
+	if ( isset( $_GET['buscar'] ) && is_string( $_GET['buscar'] ) ) {
+		$buscar = trim( sanitize_text_field( wp_unslash( $_GET['buscar'] ) ) );
+	}
+	if ( strlen( $buscar ) > 160 ) {
+		$buscar = substr( $buscar, 0, 160 );
+	}
+	$paged = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+
+	$page_result   = centinela_cotizador_mis_cotizaciones_get_page( $buscar, $paged );
+	$ids           = $page_result['ids'];
+	$mis_found     = (int) $page_result['found_posts'];
+	$mis_max_pages = (int) $page_result['max_num_pages'];
+
+	if ( empty( $ids ) ) {
+		$query = new WP_Query( array( 'post__in' => array( 0 ) ) );
+	} else {
+		$query = new WP_Query(
+			array(
+				'post_type'           => 'cotizacion',
+				'post_status'         => 'publish',
+				'post__in'            => $ids,
+				'orderby'             => 'post__in',
+				'posts_per_page'      => count( $ids ),
+				'ignore_sticky_posts' => true,
+				'no_found_rows'       => true,
+			)
+		);
+	}
+
+	$mis_cot_base_url = admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' );
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Mis Cotizaciones', 'centinela-group-theme' ); ?></h1>
@@ -3347,6 +3569,26 @@ function centinela_cotizador_render_mis_cotizaciones() {
 			</div>
 		<?php endif; ?>
 		<p class="description"><?php esc_html_e( 'Cotizaciones guardadas. Podrás consultarlas, editarlas o enviarlas por email en PDF.', 'centinela-group-theme' ); ?></p>
+		<div class="centinela-mis-cotizaciones-buscar" style="margin:12px 0 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+			<label for="centinela-mis-cotizaciones-buscar" style="font-weight:600;">
+				<?php esc_html_e( 'Buscar por cliente', 'centinela-group-theme' ); ?>
+			</label>
+			<input
+				type="search"
+				id="centinela-mis-cotizaciones-buscar"
+				value="<?php echo esc_attr( $buscar ); ?>"
+				class="regular-text"
+				style="max-width:min(100%,360px);"
+				placeholder="<?php esc_attr_e( 'Nombre o NIT / C.C. (búsqueda al escribir)', 'centinela-group-theme' ); ?>"
+				autocomplete="off"
+				data-initial-q="<?php echo esc_attr( $buscar ); ?>"
+			/>
+			<button type="button" class="button" id="centinela-mis-cotizaciones-limpiar"<?php echo $buscar === '' ? ' hidden' : ''; ?>><?php esc_html_e( 'Limpiar', 'centinela-group-theme' ); ?></button>
+			<span class="description" id="centinela-mis-cotizaciones-buscar-estado" style="margin:0;" aria-live="polite"></span>
+		</div>
+		<p class="description" style="margin-top:-8px;">
+			<?php esc_html_e( 'La búsqueda filtra al escribir (nombre, NIT / C.C. u otros datos guardados en la cotización).', 'centinela-group-theme' ); ?>
+		</p>
 		<?php if ( class_exists( 'Centinela_Syscom_API' ) ) : ?>
 			<p>
 				<a class="button button-secondary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?action=centinela_cotizador_sync_zero_prices' ), 'centinela_cotizador_sync_zero_prices' ) ); ?>">
@@ -3357,38 +3599,55 @@ function centinela_cotizador_render_mis_cotizaciones() {
 				</span>
 			</p>
 		<?php endif; ?>
-		<?php if ( $query->have_posts() ) : ?>
-			<table class="widefat striped">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Título', 'centinela-group-theme' ); ?></th>
-						<th><?php esc_html_e( 'Moneda', 'centinela-group-theme' ); ?></th>
-						<th><?php esc_html_e( 'Total', 'centinela-group-theme' ); ?></th>
-						<th><?php esc_html_e( 'Fecha', 'centinela-group-theme' ); ?></th>
-						<th><?php esc_html_e( 'Acciones', 'centinela-group-theme' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php while ( $query->have_posts() ) : $query->the_post(); ?>
-						<?php
-						$datos = get_post_meta( get_the_ID(), '_cotizacion_datos', true );
-						$moneda = is_array( $datos ) && isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP';
-						$total  = is_array( $datos ) && isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
-						$total_fmt = $moneda === 'USD' ? 'USD $ ' . number_format( $total, 2 ) : 'CO $ ' . number_format( $total, 0 );
-						$editar_url = add_query_arg( 'editar', get_the_ID(), admin_url( 'admin.php?page=centinela-cotizador' ) );
-						$eliminar_url = add_query_arg( array(
-							'eliminar' => get_the_ID(),
-							'_wpnonce' => wp_create_nonce( 'centinela_eliminar_cotizacion_' . get_the_ID() ),
-						), admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' ) );
-						$duplicar_url = add_query_arg( array(
-							'duplicar' => get_the_ID(),
-							'_wpnonce' => wp_create_nonce( 'centinela_duplicar_cotizacion_' . get_the_ID() ),
-						), admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' ) );
+		<style>#centinela-mis-cotizaciones-tbody.is-loading{opacity:.55;pointer-events:none}</style>
+		<table class="widefat striped">
+			<thead>
+				<tr>
+					<th><?php esc_html_e( 'Título', 'centinela-group-theme' ); ?></th>
+					<th><?php esc_html_e( 'Cliente', 'centinela-group-theme' ); ?></th>
+					<th><?php esc_html_e( 'NIT / C.C.', 'centinela-group-theme' ); ?></th>
+					<th><?php esc_html_e( 'Moneda', 'centinela-group-theme' ); ?></th>
+					<th><?php esc_html_e( 'Total', 'centinela-group-theme' ); ?></th>
+					<th><?php esc_html_e( 'Fecha', 'centinela-group-theme' ); ?></th>
+					<th><?php esc_html_e( 'Acciones', 'centinela-group-theme' ); ?></th>
+				</tr>
+			</thead>
+			<tbody id="centinela-mis-cotizaciones-tbody">
+				<?php if ( $query->have_posts() ) : ?>
+					<?php
+					while ( $query->have_posts() ) :
+						$query->the_post();
+						$datos         = get_post_meta( get_the_ID(), '_cotizacion_datos', true );
+						$cliente_arr   = is_array( $datos ) && isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
+						$cli_nombre    = isset( $cliente_arr['nombre'] ) ? trim( (string) $cliente_arr['nombre'] ) : '';
+						$cli_nit       = isset( $cliente_arr['nit_cc'] ) ? trim( (string) $cliente_arr['nit_cc'] ) : '';
+						$cli_nombre_disp = $cli_nombre !== '' ? $cli_nombre : '—';
+						$cli_nit_disp    = $cli_nit !== '' ? $cli_nit : '—';
+						$moneda        = is_array( $datos ) && isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP';
+						$total         = is_array( $datos ) && isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
+						$total_fmt     = $moneda === 'USD' ? 'USD $ ' . number_format( $total, 2, '.', ',' ) : 'CO $ ' . number_format( $total, 0, ',', '.' );
+						$editar_url    = add_query_arg( 'editar', get_the_ID(), admin_url( 'admin.php?page=centinela-cotizador' ) );
+						$eliminar_url  = add_query_arg(
+							array(
+								'eliminar' => get_the_ID(),
+								'_wpnonce' => wp_create_nonce( 'centinela_eliminar_cotizacion_' . get_the_ID() ),
+							),
+							admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' )
+						);
+						$duplicar_url = add_query_arg(
+							array(
+								'duplicar' => get_the_ID(),
+								'_wpnonce' => wp_create_nonce( 'centinela_duplicar_cotizacion_' . get_the_ID() ),
+							),
+							admin_url( 'admin.php?page=centinela-cotizador-mis-cotizaciones' )
+						);
 						$eliminar_confirm = esc_attr__( '¿Eliminar esta cotización? No se podrá deshacer.', 'centinela-group-theme' );
 						$duplicar_confirm = esc_attr__( '¿Duplicar esta cotización? Se creará una nueva con el mismo contenido y «Copia» en el título.', 'centinela-group-theme' );
 						?>
 						<tr>
 							<td><strong><?php the_title(); ?></strong></td>
+							<td><?php echo esc_html( $cli_nombre_disp ); ?></td>
+							<td><?php echo esc_html( $cli_nit_disp ); ?></td>
 							<td><?php echo esc_html( $moneda ); ?></td>
 							<td><?php echo esc_html( $total_fmt ); ?></td>
 							<td><?php echo esc_html( get_the_date() ); ?></td>
@@ -3401,12 +3660,53 @@ function centinela_cotizador_render_mis_cotizaciones() {
 							</td>
 						</tr>
 					<?php endwhile; ?>
-				</tbody>
-			</table>
-			<?php wp_reset_postdata(); ?>
-		<?php else : ?>
-			<p><?php esc_html_e( 'No hay cotizaciones guardadas. Crea una desde el Cotizador y guárdala.', 'centinela-group-theme' ); ?></p>
-		<?php endif; ?>
+					<?php wp_reset_postdata(); ?>
+				<?php elseif ( $buscar !== '' ) : ?>
+					<tr class="centinela-mis-cot-no-results">
+						<td colspan="7">
+							<?php esc_html_e( 'No hay cotizaciones que coincidan con el término:', 'centinela-group-theme' ); ?>
+							<strong><?php echo esc_html( $buscar ); ?></strong>.
+							<?php esc_html_e( 'Pruebe con otra palabra o con parte del NIT.', 'centinela-group-theme' ); ?>
+							<a class="button" style="margin-left:8px;" href="<?php echo esc_url( $mis_cot_base_url ); ?>"><?php esc_html_e( 'Ver todas', 'centinela-group-theme' ); ?></a>
+						</td>
+					</tr>
+				<?php else : ?>
+					<tr class="centinela-mis-cot-empty-list">
+						<td colspan="7"><?php esc_html_e( 'No hay cotizaciones guardadas. Crea una desde el Cotizador y guárdala.', 'centinela-group-theme' ); ?></td>
+					</tr>
+				<?php endif; ?>
+			</tbody>
+		</table>
+		<?php
+		if ( $mis_max_pages > 1 ) {
+			$pagination_base = $mis_cot_base_url;
+			if ( $buscar !== '' ) {
+				$pagination_base = add_query_arg( 'buscar', $buscar, $pagination_base );
+			}
+			$pagination_base = str_replace(
+				'999999999',
+				'%#%',
+				esc_url( add_query_arg( 'paged', 999999999, $pagination_base ) )
+			);
+			echo '<div id="centinela-mis-cotizaciones-pagination" class="tablenav" style="margin-top:12px;"><div class="tablenav-pages">';
+			echo wp_kses_post(
+				paginate_links(
+					array(
+						'base'      => $pagination_base,
+						'format'    => '',
+						'current'   => $paged,
+						'total'     => $mis_max_pages,
+						'prev_text' => '&laquo;',
+						'next_text' => '&raquo;',
+						'type'      => 'plain',
+					)
+				)
+			);
+			echo '</div></div>';
+		} else {
+			echo '<div id="centinela-mis-cotizaciones-pagination" style="display:none;"></div>';
+		}
+		?>
 	</div>
 	<?php
 }
