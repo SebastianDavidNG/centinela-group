@@ -344,10 +344,82 @@
 	background: rgba(21, 67, 160, 0.03);
 }
 
+.centinela-cotizador-tabla .centinela-cotizador-col-orden {
+	width: 2rem;
+	min-width: 2rem;
+	max-width: 2.25rem;
+	text-align: center;
+	vertical-align: middle;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.centinela-cotizador-tabla thead .centinela-cotizador-col-orden {
+	color: var(--cot-text-secondary);
+	font-weight: 500;
+}
+
+.centinela-cotizador-drag-head {
+	display: inline-block;
+	letter-spacing: -0.12em;
+	font-size: 0.95rem;
+	line-height: 1;
+	opacity: 0.75;
+	cursor: help;
+}
+
+.centinela-cotizador-drag-handle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.75rem;
+	min-height: 2rem;
+	padding: 4px 2px;
+	margin: 0 auto;
+	cursor: grab;
+	color: var(--cot-text-secondary);
+	font-size: 0.95rem;
+	line-height: 1;
+	letter-spacing: -0.1em;
+	user-select: none;
+	border-radius: var(--cot-radius-sm);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.centinela-cotizador-drag-handle:hover {
+	background: var(--cot-primary-ripple);
+	color: var(--cot-primary);
+}
+
+.centinela-cotizador-drag-handle:active {
+	cursor: grabbing;
+}
+
+.centinela-cotizador-tabla tbody tr.ui-sortable-helper {
+	box-shadow: var(--cot-elevation-3);
+	background: var(--cot-surface) !important;
+	opacity: 0.98;
+}
+
+.centinela-cotizador-tabla tbody tr.centinela-cotizador-sortable-placeholder {
+	visibility: visible !important;
+	background: rgba(21, 67, 160, 0.06) !important;
+	outline: 2px dashed rgba(21, 67, 160, 0.25);
+	outline-offset: -2px;
+}
+
+.centinela-cotizador-tabla tbody tr.centinela-cotizador-sortable-placeholder td {
+	border-color: transparent;
+}
+
 .centinela-cotizador-tabla .centinela-cotizador-col-modelo {
-	max-width: 200px;
-	min-width: 270px;
-	width: 270px;
+	min-width: 200px;
+	max-width: 280px;
+	width: 240px;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-modelo .centinela-cotizador-producto-cell {
+	min-width: 0;
 }
 
 .centinela-cotizador-producto-cell {
@@ -389,8 +461,12 @@
 .centinela-cotizador-manual-grid {
 	display: grid;
 	grid-template-columns: repeat(12, minmax(0, 1fr));
-	gap: 1rem 1.25rem;
+	gap: 0.5rem 1rem;
 	align-items: end;
+}
+
+.centinela-cotizador-manual-grid .centinela-cotizador-field {
+	margin-bottom: 0;
 }
 
 .centinela-cotizador-manual-ref-wrap {
@@ -402,19 +478,26 @@
 }
 
 .centinela-cotizador-manual-cantidad-wrap {
-	grid-column: 1 / span 2;
+	grid-column: 1 / span 4;
 }
 
 .centinela-cotizador-manual-descripcion-wrap {
-	grid-column: 3 / span 6;
+	grid-column: 1 / -1;
 }
 
 .centinela-cotizador-manual-descuento-wrap {
-	grid-column: 9 / span 2;
+	grid-column: 5 / span 4;
 }
 
 .centinela-cotizador-manual-precio-wrap {
-	grid-column: 11 / span 2;
+	grid-column: 9 / span 4;
+}
+
+.centinela-cotizador-manual-descripcion-wrap textarea.regular-text {
+	width: 100%;
+	min-height: 116px;
+	resize: vertical;
+	line-height: 1.4;
 }
 
 @media (max-width: 782px) {
@@ -453,10 +536,6 @@
 .centinela-cotizador-manual-actions .dashicons {
 	font-size: 16px;
 	line-height: 1;
-}
-
-.centinela-cotizador-col-acciones .centinela-cotizador-btn-editar-manual {
-	margin-right: 8px;
 }
 
 .centinela-cotizador-tabla tbody tr.producto-fila.is-editing-manual {
@@ -515,6 +594,21 @@
 .centinela-cotizador-tabla-vacia td {
 	color: var(--cot-text-secondary);
 	font-style: italic;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-acciones {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: 5.75rem;
+	width: 1%;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-acciones .centinela-cotizador-btn-eliminar,
+.centinela-cotizador-tabla .centinela-cotizador-col-acciones .centinela-cotizador-btn-editar-manual {
+	white-space: nowrap;
 }
 
 .centinela-cotizador-tabla tbody tr.producto-fila .centinela-cotizador-col-acciones {

@@ -30,6 +30,64 @@ function centinela_normalize_search_term_for_api( $term ) {
 }
 
 /**
+ * Singulariza de forma conservadora un token (ES) para mejorar búsquedas plural/singular.
+ * Ej: camaras -> camara, torniquetes -> torniquete, paneles -> panel.
+ *
+ * @param string $token Palabra.
+ * @return string
+ */
+function centinela_search_singularize_token_es( $token ) {
+	$token = trim( (string) $token );
+	$len   = strlen( $token );
+	if ( $len < 4 ) {
+		return $token;
+	}
+	$lower = strtolower( remove_accents( $token ) );
+	// Evitar tocar "ss" / formas cortas.
+	if ( substr( $lower, -2 ) === 'ss' ) {
+		return $token;
+	}
+	// Si termina en "...es", decidir entre quitar "s" o "es".
+	if ( substr( $lower, -2 ) === 'es' && $len >= 5 ) {
+		$before_e = substr( $lower, -3, 1 );
+		// Vocal + es -> normalmente basta quitar solo "s" (torniquetes -> torniquete).
+		if ( preg_match( '/[aeiou]/', $before_e ) ) {
+			return substr( $token, 0, -1 );
+		}
+		// Consonante + es -> quitar "es" (paneles -> panel).
+		return substr( $token, 0, -2 );
+	}
+	// Vocal/consonante + s -> quitar "s" (camaras -> camara).
+	if ( substr( $lower, -1 ) === 's' && $len >= 5 ) {
+		return substr( $token, 0, -1 );
+	}
+	return $token;
+}
+
+/**
+ * Convierte una frase a una variante más singular (token por token), sin perder el original.
+ *
+ * @param string $query Consulta de búsqueda.
+ * @return string
+ */
+function centinela_search_plural_to_singular_query( $query ) {
+	$query = trim( (string) $query );
+	if ( $query === '' ) {
+		return '';
+	}
+	$parts = preg_split( '/\s+/', $query, -1, PREG_SPLIT_NO_EMPTY );
+	if ( empty( $parts ) ) {
+		return $query;
+	}
+	$mapped = array();
+	foreach ( $parts as $part ) {
+		$mapped[] = centinela_search_singularize_token_es( $part );
+	}
+	$out = trim( implode( ' ', $mapped ) );
+	return $out !== '' ? $out : $query;
+}
+
+/**
  * Normaliza una cadena para comparación flexible (quitar espacios, guiones, puntos; minúsculas sin acentos).
  * Así "DS-KIS203-T", "DS KIS203 T" y "TK-3000-KV2" / "TK3000KV2" alinean mejor con la API Syscom.
  *

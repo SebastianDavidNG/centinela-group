@@ -400,19 +400,76 @@ function centinela_cotizador_email_fecha_cotizacion_ymd( $datos ) {
 }
 
 /**
+ * Mapa ciudad => lista de departamentos/municipios comunes (cotizador admin).
+ *
+ * @return array<string,string[]>
+ */
+function centinela_cotizador_ciudad_departamento_map() {
+	$map = array(
+		'Aguachica'             => array( 'Cesar', 'Ocaña' ),
+		'Arauca'                => array( 'Arauca', 'Yopal' ),
+		'Armenia'               => array( 'Quindío', 'Pereira' ),
+		'Barrancabermeja'       => array( 'Santander', 'Bucaramanga' ),
+		'Barranquilla'          => array( 'Atlántico', 'Soledad' ),
+		'Bello'                 => array( 'Antioquia', 'Medellín' ),
+		'Bogotá D.C.'           => array( 'Bogotá D.C.', 'Cundinamarca', 'Soacha', 'Chía', 'Zipaquirá' ),
+		'Bucaramanga'           => array( 'Santander', 'Floridablanca', 'Girón', 'Piedecuesta' ),
+		'Buenaventura'          => array( 'Valle del Cauca', 'Cali' ),
+		'Cali'                  => array( 'Valle del Cauca', 'Palmira', 'Yumbo' ),
+		'Cartagena de Indias'   => array( 'Bolívar', 'Turbaco' ),
+		'Cartago'               => array( 'Valle del Cauca', 'Pereira' ),
+		'Chía'                  => array( 'Cundinamarca', 'Bogotá D.C.' ),
+		'Cúcuta'                => array( 'Norte de Santander', 'Villa del Rosario' ),
+		'Duitama'               => array( 'Boyacá', 'Sogamoso' ),
+		'Envigado'              => array( 'Antioquia', 'Medellín' ),
+		'Facatativá'            => array( 'Cundinamarca', 'Bogotá D.C.' ),
+		'Florencia'             => array( 'Caquetá', 'Neiva' ),
+		'Floridablanca'         => array( 'Santander', 'Bucaramanga' ),
+		'Girardot'              => array( 'Cundinamarca', 'Tolima' ),
+		'Girón'                 => array( 'Santander', 'Bucaramanga' ),
+		'Ibagué'                => array( 'Tolima', 'Girardot' ),
+		'Inírida'               => array( 'Guainía' ),
+		'Itagüí'                => array( 'Antioquia', 'Medellín' ),
+		'Leticia'               => array( 'Amazonas' ),
+		'Manizales'             => array( 'Caldas', 'Pereira' ),
+		'Medellín'              => array( 'Antioquia', 'Bello', 'Envigado', 'Itagüí', 'Sabaneta' ),
+		'Mitú'                  => array( 'Vaupés' ),
+		'Mocoa'                 => array( 'Putumayo' ),
+		'Montería'              => array( 'Córdoba', 'Sincelejo' ),
+		'Neiva'                 => array( 'Huila', 'Florencia' ),
+		'Ocaña'                 => array( 'Norte de Santander', 'Cesar' ),
+		'Palmira'               => array( 'Valle del Cauca', 'Cali' ),
+		'Pasto'                 => array( 'Nariño', 'Ipiales' ),
+		'Pereira'               => array( 'Risaralda', 'Dosquebradas', 'Armenia', 'Manizales' ),
+		'Piedecuesta'           => array( 'Santander', 'Bucaramanga' ),
+		'Popayán'               => array( 'Cauca', 'Cali' ),
+		'Puerto Carreño'        => array( 'Vichada' ),
+		'Quibdó'                => array( 'Chocó' ),
+		'Riohacha'              => array( 'La Guajira', 'Maicao' ),
+		'San Andrés'            => array( 'San Andrés y Providencia' ),
+		'San José del Guaviare' => array( 'Guaviare' ),
+		'Santa Marta'           => array( 'Magdalena', 'Barranquilla' ),
+		'Sincelejo'             => array( 'Sucre', 'Montería' ),
+		'Soacha'                => array( 'Cundinamarca', 'Bogotá D.C.' ),
+		'Sogamoso'              => array( 'Boyacá', 'Duitama' ),
+		'Tuluá'                 => array( 'Valle del Cauca', 'Cali' ),
+		'Tunja'                 => array( 'Boyacá', 'Duitama', 'Sogamoso' ),
+		'Valledupar'            => array( 'Cesar', 'La Guajira' ),
+		'Villavicencio'         => array( 'Meta', 'Bogotá D.C.' ),
+		'Yopal'                 => array( 'Casanare', 'Arauca' ),
+		'Zipaquirá'             => array( 'Cundinamarca', 'Bogotá D.C.' ),
+	);
+	ksort( $map, SORT_NATURAL | SORT_FLAG_CASE );
+	return apply_filters( 'centinela_cotizador_ciudad_departamento_map', $map );
+}
+
+/**
  * Ciudades de Colombia para el selector de envío (ampliable con filtro).
  *
  * @return string[] Lista ordenada alfabéticamente.
  */
 function centinela_cotizador_ciudades_colombia() {
-	$ciudades = array(
-		'Aguachica', 'Arauca', 'Armenia', 'Barrancabermeja', 'Barranquilla', 'Bello', 'Bogotá D.C.', 'Bucaramanga', 'Buenaventura',
-		'Cali', 'Cartagena de Indias', 'Cartago', 'Chía', 'Cúcuta', 'Duitama', 'Envigado', 'Facatativá', 'Florencia', 'Floridablanca',
-		'Girardot', 'Girón', 'Ibagué', 'Inírida', 'Itagüí', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva',
-		'Ocaña', 'Palmira', 'Pasto', 'Pereira', 'Piedecuesta', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés',
-		'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Soacha', 'Sogamoso', 'Tuluá', 'Tunja', 'Valledupar', 'Villavicencio',
-		'Yopal', 'Zipaquirá',
-	);
+	$ciudades = array_keys( centinela_cotizador_ciudad_departamento_map() );
 	sort( $ciudades, SORT_NATURAL | SORT_FLAG_CASE );
 	return apply_filters( 'centinela_cotizador_lista_ciudades_colombia', $ciudades );
 }
@@ -605,12 +662,14 @@ function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
 	$productos   = isset( $datos['productos'] ) && is_array( $datos['productos'] ) ? $datos['productos'] : array();
 	$cliente     = isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
 	$contacto    = isset( $datos['contacto'] ) && is_array( $datos['contacto'] ) ? $datos['contacto'] : array();
-	$moneda      = isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP';
+	$moneda      = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
 	$simbolo     = $moneda === 'USD' ? 'USD $' : 'CO $';
 	$subtotal    = isset( $datos['subtotal'] ) ? floatval( $datos['subtotal'] ) : 0;
 	$iva_valor   = isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0;
 	$total       = isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
 	$iva_pct     = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
+	$tipo_cambio_tabla = isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0;
+	$lineas_precio_usd = ( $moneda === 'USD' && $tipo_cambio_tabla > 0 );
 
 	$nombre_cliente   = isset( $cliente['nombre'] ) ? esc_html( $cliente['nombre'] ) : '';
 	$telefono_cliente = isset( $cliente['telefono'] ) ? esc_html( $cliente['telefono'] ) : '';
@@ -677,6 +736,10 @@ function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
 		$descuento = isset( $p['descuento'] ) ? floatval( $p['descuento'] ) : 0;
 		$precio    = isset( $p['precio'] ) ? floatval( $p['precio'] ) : 0;
 		$importe   = isset( $p['importe'] ) ? floatval( $p['importe'] ) : ( $cantidad * $precio * ( 1 - $descuento / 100 ) );
+		if ( $lineas_precio_usd ) {
+			$precio  = $precio / $tipo_cambio_tabla;
+			$importe = $importe / $tipo_cambio_tabla;
+		}
 		$rows     .= '<tr>';
 		$rows     .= '<td style="' . $td_item . '">' . esc_html( $item_label ) . '</td>';
 		$rows     .= '<td style="' . $td_mod . '">' . $ref_line . $modelo . '</td>';
@@ -1101,7 +1164,7 @@ function centinela_cotizador_save_cotizacion( $datos, $editar_id = null ) {
 		'cliente'       => $cliente_safe,
 		'contacto'      => $contacto_safe,
 		'envio'         => $envio_safe,
-		'moneda'        => isset( $datos['moneda'] ) ? sanitize_text_field( $datos['moneda'] ) : 'COP',
+		'moneda'        => centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' ),
 		'tipo_cambio'   => isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0,
 		'tipo_precio'   => isset( $datos['tipo_precio'] ) ? sanitize_text_field( $datos['tipo_precio'] ) : 'lista',
 		'iva_pct'       => isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19,
@@ -1161,7 +1224,19 @@ function centinela_cotizador_duplicate_cotizacion_post( $source_id ) {
 }
 
 /**
- * Recalcula subtotal / IVA / total en COP a partir de las líneas guardadas.
+ * Normaliza el código de moneda del cotizador a COP o USD.
+ *
+ * @param mixed $moneda Valor guardado o recibido por AJAX.
+ * @return string 'USD' o 'COP'.
+ */
+function centinela_cotizador_normalize_moneda( $moneda ) {
+	$m = strtoupper( trim( (string) $moneda ) );
+	return ( $m === 'USD' ) ? 'USD' : 'COP';
+}
+
+/**
+ * Recalcula subtotal / IVA / total a partir de las líneas (importes en COP del catálogo).
+ * Si moneda es USD y hay tipo de cambio > 0, los agregados se guardan en USD (división por TRM).
  *
  * @param array $datos Estructura _cotizacion_datos.
  * @return array Datos con subtotal, iva_valor, total actualizados.
@@ -1178,10 +1253,21 @@ function centinela_cotizador_recalc_totales_desde_lineas( $datos ) {
 			}
 		}
 	}
-	$iva_pct = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
-	$datos['subtotal']  = $sub;
-	$datos['iva_valor'] = $sub * ( $iva_pct / 100 );
-	$datos['total']     = $sub + $datos['iva_valor'];
+	$iva_pct   = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
+	$sub_cop   = $sub;
+	$iva_cop   = $sub_cop * ( $iva_pct / 100 );
+	$total_cop = $sub_cop + $iva_cop;
+	$moneda    = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
+	$tc        = isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0;
+	if ( $moneda === 'USD' && $tc > 0 ) {
+		$datos['subtotal']  = $sub_cop / $tc;
+		$datos['iva_valor'] = $iva_cop / $tc;
+		$datos['total']     = $total_cop / $tc;
+	} else {
+		$datos['subtotal']  = $sub_cop;
+		$datos['iva_valor'] = $iva_cop;
+		$datos['total']     = $total_cop;
+	}
 	return $datos;
 }
 
@@ -1457,7 +1543,7 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 	wp_enqueue_script(
 		'centinela-cotizador-admin',
 		get_template_directory_uri() . '/assets/js/cotizador-admin.js',
-		array( 'jquery' ),
+		array( 'jquery', 'jquery-ui-sortable' ),
 		file_exists( $cotizador_js ) ? (string) filemtime( $cotizador_js ) : ( defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0' ),
 		true
 	);
@@ -1485,6 +1571,7 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 		'iva_default'            => 19,
 		'logo_default_url'       => $logo_default_url ? $logo_default_url : '',
 		'cotizacion_editar'      => $cotizacion_editar,
+		'ciudad_departamento_map' => centinela_cotizador_ciudad_departamento_map(),
 		'debug_precios_admin' => current_user_can( 'manage_options' ),
 		/** wp-config: define( 'CENTINELA_COTIZADOR_DEV_MAIL_META', true ); — consola + bloque JSON en el modal al enviar cotización. */
 		'show_mail_meta'     => $show_mail_meta,
@@ -1512,9 +1599,14 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'datos_cliente_pago'          => __( 'Datos para el link de pago', 'centinela-group-theme' ),
 			'direccion'                   => __( 'Dirección', 'centinela-group-theme' ),
 			'ciudad'                      => __( 'Ciudad', 'centinela-group-theme' ),
-			'departamento'                => __( 'Departamento', 'centinela-group-theme' ),
+			'departamento'                => __( 'Departamento / Municipio', 'centinela-group-theme' ),
+			'seleccione_ciudad'           => __( 'Seleccione una ciudad', 'centinela-group-theme' ),
+			'seleccione_departamento'     => __( 'Seleccione un departamento o municipio', 'centinela-group-theme' ),
 			'generar_link'                => __( 'Generar link de pago', 'centinela-group-theme' ),
 			'link_copiado'                => __( 'Link copiado al portapapeles.', 'centinela-group-theme' ),
+			'reenviar_link'               => __( 'Reenviar link por correo', 'centinela-group-theme' ),
+			'reenviando_link'             => __( 'Reenviando link…', 'centinela-group-theme' ),
+			'link_reenviado_ok'           => __( 'Link de pago reenviado al correo del cliente.', 'centinela-group-theme' ),
 			'agregue_productos'           => __( 'Agregue al menos un producto a la cotización.', 'centinela-group-theme' ),
 			'descargar_pdf'               => __( 'Descargar PDF', 'centinela-group-theme' ),
 			'generando_pdf'               => __( 'Generando PDF…', 'centinela-group-theme' ),
@@ -1535,6 +1627,7 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'manual_error_modelo'         => __( 'Indique el modelo o nombre del producto.', 'centinela-group-theme' ),
 			'manual_error_precio'         => __( 'Indique un precio mayor que cero.', 'centinela-group-theme' ),
 			'tabla_vacia'                 => __( 'Agrega productos con el buscador o con «Producto manual».', 'centinela-group-theme' ),
+			'orden_arrastrar'             => __( 'Arrastrar para cambiar la posición de la línea en la cotización', 'centinela-group-theme' ),
 		),
 	) );
 }
@@ -2384,11 +2477,13 @@ add_action( 'wp_ajax_centinela_cotizador_preview_envio', 'centinela_cotizador_aj
 function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 	$productos = isset( $datos['productos'] ) && is_array( $datos['productos'] ) ? $datos['productos'] : array();
 	$titulo    = isset( $datos['titulo'] ) ? $datos['titulo'] : __( 'Cotización', 'centinela-group-theme' );
-	$moneda    = isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP';
+	$moneda    = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
 	$simbolo   = $moneda === 'USD' ? 'USD $' : 'CO $';
 	$subtotal  = isset( $datos['subtotal'] ) ? floatval( $datos['subtotal'] ) : 0;
 	$iva_valor = isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0;
 	$total     = isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
+	$tipo_cambio_csv   = isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0;
+	$tabla_lineas_usd  = ( $moneda === 'USD' && $tipo_cambio_csv > 0 );
 	$numero    = isset( $datos['numero'] ) ? $datos['numero'] : get_post_meta( $post_id, '_cotizacion_numero', true );
 	$cliente   = isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
 	$telefono_cliente = isset( $cliente['telefono'] ) ? (string) $cliente['telefono'] : '';
@@ -2450,6 +2545,10 @@ function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 		$descuento  = isset( $p['descuento'] ) ? floatval( $p['descuento'] ) : 0;
 		$precio     = isset( $p['precio'] ) ? floatval( $p['precio'] ) : 0;
 		$importe    = isset( $p['importe'] ) ? floatval( $p['importe'] ) : ( $cantidad * $precio * ( 1 - $descuento / 100 ) );
+		if ( $tabla_lineas_usd ) {
+			$precio  = $precio / $tipo_cambio_csv;
+			$importe = $importe / $tipo_cambio_csv;
+		}
 		fputcsv( $fp, array( $item_label, $modelo, $desc_csv, $cantidad, $precio, $importe ), ';' );
 	}
 	fputcsv( $fp, array( '' ), ';' );
@@ -2758,6 +2857,83 @@ function centinela_cotizador_adjunto_html_fallback( $post_id, $datos ) {
 /**
  * AJAX: generar link de pago (crear pedido WC y devolver URL Wompi)
  */
+function centinela_cotizador_send_payment_link_email( $datos, $pay_url, $order_id = 0 ) {
+	$datos   = is_array( $datos ) ? $datos : array();
+	$pay_url = esc_url_raw( trim( (string) $pay_url ) );
+	if ( $pay_url === '' ) {
+		return false;
+	}
+	$cliente = isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
+	$email_pack = centinela_cotizador_cliente_emails_para_envio( $cliente );
+	if ( ! empty( $email_pack['error'] ) || empty( $email_pack['to'] ) ) {
+		return false;
+	}
+	$titulo = isset( $datos['titulo'] ) ? sanitize_text_field( (string) $datos['titulo'] ) : '';
+	if ( $titulo === '' ) {
+		$titulo = __( 'Cotización', 'centinela-group-theme' );
+	}
+	$nombre = isset( $cliente['nombre'] ) ? sanitize_text_field( (string) $cliente['nombre'] ) : '';
+	$saludo = $nombre !== '' ? $nombre : __( 'Cliente', 'centinela-group-theme' );
+	$subject = sprintf(
+		/* translators: %s: quote title */
+		__( 'Link de pago de tu cotización: %s', 'centinela-group-theme' ),
+		$titulo
+	);
+	$order_txt = $order_id > 0 ? sprintf( __( 'Pedido #%d', 'centinela-group-theme' ), (int) $order_id ) : '';
+	$body  = '<p>' . esc_html( sprintf( __( 'Hola %s,', 'centinela-group-theme' ), $saludo ) ) . '</p>';
+	$body .= '<p>' . esc_html__( 'Tu link de pago ya está listo para completar la compra de tu cotización aprobada.', 'centinela-group-theme' ) . '</p>';
+	$body .= '<p><strong>' . esc_html__( 'Cotización:', 'centinela-group-theme' ) . '</strong> ' . esc_html( $titulo ) . '</p>';
+	if ( $order_txt !== '' ) {
+		$body .= '<p><strong>' . esc_html__( 'Referencia:', 'centinela-group-theme' ) . '</strong> ' . esc_html( $order_txt ) . '</p>';
+	}
+	$body .= '<p><a href="' . esc_url( $pay_url ) . '" style="display:inline-block;padding:10px 14px;background:#229379;color:#fff;text-decoration:none;border-radius:4px;">' . esc_html__( 'Pagar ahora', 'centinela-group-theme' ) . '</a></p>';
+	$body .= '<p>' . esc_html__( 'Si el botón no abre, copia y pega este enlace en tu navegador:', 'centinela-group-theme' ) . '<br />' . esc_html( $pay_url ) . '</p>';
+	$body .= '<p style="color:#666;font-size:12px;">' . esc_html__( 'Este mensaje fue enviado automáticamente por Centinela Group.', 'centinela-group-theme' ) . '</p>';
+
+	$trace = 'cart-link-' . wp_generate_password( 10, false, false );
+	$headers = array(
+		'Content-Type: text/html; charset=UTF-8',
+		'X-Centinela-Cotizacion-Trace: ' . $trace,
+	);
+	$headers = apply_filters( 'centinela_cotizador_wp_mail_headers', $headers, array(
+		'type'       => 'payment_link',
+		'trace'      => $trace,
+		'order_id'   => (int) $order_id,
+		'cotizacion' => $datos,
+	) );
+
+	return (bool) wp_mail( $email_pack['to'], $subject, $body, $headers, array() );
+}
+
+/**
+ * Guarda rastro del último link de pago generado en la cotización (si existe post ID).
+ *
+ * @param int    $post_id   ID de la cotización.
+ * @param int    $order_id  ID del pedido WC.
+ * @param string $pay_url   Link de pago.
+ * @param bool   $mail_sent Si el correo fue enviado.
+ * @return void
+ */
+function centinela_cotizador_store_payment_link_trace( $post_id, $order_id, $pay_url, $mail_sent ) {
+	$post_id = absint( $post_id );
+	if ( $post_id < 1 ) {
+		return;
+	}
+	$post = get_post( $post_id );
+	if ( ! $post || $post->post_type !== 'cotizacion' ) {
+		return;
+	}
+	$datos = get_post_meta( $post_id, '_cotizacion_datos', true );
+	if ( ! is_array( $datos ) ) {
+		$datos = array();
+	}
+	$datos['ultimo_link_pago'] = esc_url_raw( (string) $pay_url );
+	$datos['ultimo_order_id_wc'] = absint( $order_id );
+	$datos['ultimo_link_pago_fecha'] = current_time( 'mysql' );
+	$datos['ultimo_link_pago_mail_sent'] = $mail_sent ? 1 : 0;
+	update_post_meta( $post_id, '_cotizacion_datos', $datos );
+}
+
 function centinela_cotizador_ajax_enviar_carrito() {
 	check_ajax_referer( 'centinela_cotizador', 'nonce' );
 	if ( ! centinela_cotizador_can_manage() ) {
@@ -2765,17 +2941,24 @@ function centinela_cotizador_ajax_enviar_carrito() {
 	}
 	$raw = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
 	$datos = is_string( $raw ) ? json_decode( $raw, true ) : ( is_array( $raw ) ? $raw : array() );
+	$editar_id = isset( $_POST['editar_id'] ) ? absint( $_POST['editar_id'] ) : 0;
 	if ( empty( $datos ) || empty( $datos['productos'] ) ) {
 		wp_send_json_error( array( 'message' => __( 'No hay productos en la cotización.', 'centinela-group-theme' ) ) );
 	}
 	$direccion  = isset( $_POST['centinela_direccion'] ) ? sanitize_text_field( wp_unslash( $_POST['centinela_direccion'] ) ) : '';
 	$ciudad     = isset( $_POST['centinela_ciudad'] ) ? sanitize_text_field( wp_unslash( $_POST['centinela_ciudad'] ) ) : '';
 	$departamento = isset( $_POST['centinela_departamento'] ) ? sanitize_text_field( wp_unslash( $_POST['centinela_departamento'] ) ) : '';
+	$city_dept_map = centinela_cotizador_ciudad_departamento_map();
 	$nombre     = isset( $datos['cliente']['nombre'] ) ? sanitize_text_field( $datos['cliente']['nombre'] ) : '';
 	$email      = isset( $datos['cliente']['email'] ) ? sanitize_email( $datos['cliente']['email'] ) : '';
 	$telefono   = isset( $datos['contacto']['telefono'] ) ? sanitize_text_field( $datos['contacto']['telefono'] ) : '';
 	if ( $nombre === '' || $email === '' || $direccion === '' || $ciudad === '' || $departamento === '' ) {
 		wp_send_json_error( array( 'message' => __( 'Complete los datos del cliente: nombre, email, dirección, ciudad y departamento.', 'centinela-group-theme' ) ) );
+	}
+	$zonas_validas = isset( $city_dept_map[ $ciudad ] ) && is_array( $city_dept_map[ $ciudad ] ) ? $city_dept_map[ $ciudad ] : array();
+	$zonas_validas = array_map( 'strval', $zonas_validas );
+	if ( empty( $zonas_validas ) || ! in_array( $departamento, $zonas_validas, true ) ) {
+		wp_send_json_error( array( 'message' => __( 'Seleccione una ciudad de Colombia y un departamento/municipio válido para esa ciudad.', 'centinela-group-theme' ) ) );
 	}
 	if ( ! is_email( $email ) ) {
 		wp_send_json_error( array( 'message' => __( 'Email del cliente no válido.', 'centinela-group-theme' ) ) );
@@ -2812,6 +2995,11 @@ function centinela_cotizador_ajax_enviar_carrito() {
 		'centinela_codigo_postal'=> '',
 		'centinela_pais'         => 'Colombia',
 		'centinela_notas'        => isset( $datos['titulo'] ) ? $datos['titulo'] : '',
+		'centinela_cot_moneda'   => isset( $datos['moneda'] ) ? (string) $datos['moneda'] : 'COP',
+		'centinela_cot_subtotal' => isset( $datos['subtotal'] ) ? (float) $datos['subtotal'] : 0.0,
+		'centinela_cot_iva_valor'=> isset( $datos['iva_valor'] ) ? (float) $datos['iva_valor'] : 0.0,
+		'centinela_cot_total'    => isset( $datos['total'] ) ? (float) $datos['total'] : 0.0,
+		'centinela_cot_iva_pct'  => isset( $datos['iva_pct'] ) ? (float) $datos['iva_pct'] : 0.0,
 	);
 
 	if ( ! function_exists( 'centinela_checkout_create_wc_order' ) ) {
@@ -2821,9 +3009,53 @@ function centinela_cotizador_ajax_enviar_carrito() {
 	if ( ! $result['success'] ) {
 		wp_send_json_error( array( 'message' => $result['message'] ) );
 	}
-	wp_send_json_success( array( 'redirect' => $result['redirect'], 'message' => __( 'Link de pago generado.', 'centinela-group-theme' ) ) );
+	$mail_sent = centinela_cotizador_send_payment_link_email(
+		$datos,
+		isset( $result['redirect'] ) ? $result['redirect'] : '',
+		isset( $result['order_id'] ) ? (int) $result['order_id'] : 0
+	);
+	centinela_cotizador_store_payment_link_trace(
+		$editar_id,
+		isset( $result['order_id'] ) ? (int) $result['order_id'] : 0,
+		isset( $result['redirect'] ) ? (string) $result['redirect'] : '',
+		$mail_sent
+	);
+	$msg = $mail_sent
+		? __( 'Link de pago generado y enviado al correo del cliente.', 'centinela-group-theme' )
+		: __( 'Link de pago generado. No se pudo enviar por correo automáticamente.', 'centinela-group-theme' );
+	wp_send_json_success( array(
+		'redirect' => $result['redirect'],
+		'message'  => $msg,
+		'order_id' => isset( $result['order_id'] ) ? (int) $result['order_id'] : 0,
+		'mail_sent'=> $mail_sent ? 1 : 0,
+	) );
 }
 add_action( 'wp_ajax_centinela_cotizador_enviar_carrito', 'centinela_cotizador_ajax_enviar_carrito' );
+
+/**
+ * AJAX: reenviar por email un link de pago ya generado.
+ */
+function centinela_cotizador_ajax_reenviar_link_carrito() {
+	check_ajax_referer( 'centinela_cotizador', 'nonce' );
+	if ( ! centinela_cotizador_can_manage() ) {
+		wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+	}
+	$raw = isset( $_POST['datos'] ) ? wp_unslash( $_POST['datos'] ) : '';
+	$datos = is_string( $raw ) ? json_decode( $raw, true ) : ( is_array( $raw ) ? $raw : array() );
+	$pay_url = isset( $_POST['pay_url'] ) ? esc_url_raw( wp_unslash( $_POST['pay_url'] ) ) : '';
+	$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+	$editar_id = isset( $_POST['editar_id'] ) ? absint( $_POST['editar_id'] ) : 0;
+	if ( empty( $datos ) || $pay_url === '' ) {
+		wp_send_json_error( array( 'message' => __( 'No hay información suficiente para reenviar el link.', 'centinela-group-theme' ) ) );
+	}
+	$ok = centinela_cotizador_send_payment_link_email( $datos, $pay_url, $order_id );
+	centinela_cotizador_store_payment_link_trace( $editar_id, $order_id, $pay_url, $ok );
+	if ( ! $ok ) {
+		wp_send_json_error( array( 'message' => __( 'No se pudo reenviar el link por correo.', 'centinela-group-theme' ) ) );
+	}
+	wp_send_json_success( array( 'message' => __( 'Link de pago reenviado al correo del cliente.', 'centinela-group-theme' ) ) );
+}
+add_action( 'wp_ajax_centinela_cotizador_reenviar_link_carrito', 'centinela_cotizador_ajax_reenviar_link_carrito' );
 
 /**
  * Renderizar la página del Cotizador
@@ -2868,6 +3100,10 @@ function centinela_cotizador_render_page() {
 					<table class="widefat striped centinela-cotizador-tabla" id="centinela-cotizador-tabla">
 						<thead>
 							<tr>
+								<th scope="col" class="centinela-cotizador-col-orden" title="<?php esc_attr_e( 'Arrastre las líneas por el asa para reordenarlas.', 'centinela-group-theme' ); ?>">
+									<span class="screen-reader-text"><?php esc_html_e( 'Orden', 'centinela-group-theme' ); ?></span>
+									<span class="centinela-cotizador-drag-head" aria-hidden="true">⋮⋮</span>
+								</th>
 								<th><?php esc_html_e( 'Modelo', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-cantidad"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-descuento"><?php esc_html_e( 'Descuento %', 'centinela-group-theme' ); ?></th>
@@ -2878,7 +3114,7 @@ function centinela_cotizador_render_page() {
 						</thead>
 						<tbody id="centinela-cotizador-filas">
 							<tr class="centinela-cotizador-tabla-vacia" id="centinela-cotizador-fila-vacia">
-								<td colspan="6"><?php esc_html_e( 'Agrega productos con el buscador o con «Producto manual».', 'centinela-group-theme' ); ?></td>
+								<td colspan="7"><?php esc_html_e( 'Agrega productos con el buscador o con «Producto manual».', 'centinela-group-theme' ); ?></td>
 							</tr>
 						</tbody>
 					</table>
@@ -2900,10 +3136,6 @@ function centinela_cotizador_render_page() {
 							<label for="centinela-cotizador-manual-cantidad"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
 							<input type="number" id="centinela-cotizador-manual-cantidad" class="regular-text" min="1" step="1" value="1" />
 						</div>
-						<div class="centinela-cotizador-field centinela-cotizador-manual-descripcion-wrap">
-							<label for="centinela-cotizador-manual-descripcion"><?php esc_html_e( 'Descripción (opcional)', 'centinela-group-theme' ); ?></label>
-							<input type="text" id="centinela-cotizador-manual-descripcion" class="regular-text" autocomplete="off" />
-						</div>
 						<div class="centinela-cotizador-field centinela-cotizador-manual-descuento-wrap">
 							<label for="centinela-cotizador-manual-descuento"><?php esc_html_e( 'Descuento %', 'centinela-group-theme' ); ?></label>
 							<input type="number" id="centinela-cotizador-manual-descuento" class="regular-text" min="0" max="100" step="0.01" value="0" />
@@ -2911,6 +3143,10 @@ function centinela_cotizador_render_page() {
 						<div class="centinela-cotizador-field centinela-cotizador-manual-precio-wrap">
 							<label for="centinela-cotizador-manual-precio"><?php esc_html_e( 'Precio', 'centinela-group-theme' ); ?> <span class="required">*</span></label>
 							<input type="number" id="centinela-cotizador-manual-precio" class="regular-text" min="0" step="0.01" value="" placeholder="0" />
+						</div>
+						<div class="centinela-cotizador-field centinela-cotizador-manual-descripcion-wrap">
+							<label for="centinela-cotizador-manual-descripcion"><?php esc_html_e( 'Descripción (opcional)', 'centinela-group-theme' ); ?></label>
+							<textarea id="centinela-cotizador-manual-descripcion" class="regular-text" rows="4" autocomplete="off"></textarea>
 						</div>
 						<div class="centinela-cotizador-field centinela-cotizador-manual-actions">
 							<label class="screen-reader-text" for="centinela-cotizador-manual-add"><?php esc_html_e( 'Agregar a la tabla', 'centinela-group-theme' ); ?></label>
@@ -3219,11 +3455,18 @@ function centinela_cotizador_render_page() {
 			</div>
 			<div class="centinela-cotizador-field">
 				<label for="centinela-modal-ciudad"><?php esc_html_e( 'Ciudad', 'centinela-group-theme' ); ?></label>
-				<input type="text" id="centinela-modal-ciudad" class="regular-text" />
+				<select id="centinela-modal-ciudad" class="regular-text">
+					<option value=""><?php esc_html_e( 'Seleccione una ciudad', 'centinela-group-theme' ); ?></option>
+					<?php foreach ( centinela_cotizador_ciudades_colombia() as $ciudad_opt ) : ?>
+						<option value="<?php echo esc_attr( $ciudad_opt ); ?>"><?php echo esc_html( $ciudad_opt ); ?></option>
+					<?php endforeach; ?>
+				</select>
 			</div>
 			<div class="centinela-cotizador-field">
-				<label for="centinela-modal-departamento"><?php esc_html_e( 'Departamento', 'centinela-group-theme' ); ?></label>
-				<input type="text" id="centinela-modal-departamento" class="regular-text" />
+				<label for="centinela-modal-departamento"><?php esc_html_e( 'Departamento / Municipio', 'centinela-group-theme' ); ?></label>
+				<select id="centinela-modal-departamento" class="regular-text">
+					<option value=""><?php esc_html_e( 'Seleccione un departamento o municipio', 'centinela-group-theme' ); ?></option>
+				</select>
 			</div>
 			<p class="centinela-cotizador-modal-msg" id="centinela-modal-carrito-msg"></p>
 			<div class="centinela-cotizador-modal-actions">
@@ -3235,7 +3478,9 @@ function centinela_cotizador_render_page() {
 				<div class="centinela-cotizador-link-row">
 					<input type="text" id="centinela-cotizador-pago-link" class="large-text" readonly />
 					<button type="button" class="button" id="centinela-cotizador-copiar-link"><?php esc_html_e( 'Copiar', 'centinela-group-theme' ); ?></button>
+					<button type="button" class="button" id="centinela-cotizador-reenviar-link" disabled><?php esc_html_e( 'Reenviar link por correo', 'centinela-group-theme' ); ?></button>
 				</div>
+				<input type="hidden" id="centinela-cotizador-link-order-id" value="" />
 			</div>
 		</div>
 	</div>
@@ -3351,7 +3596,7 @@ function centinela_cotizador_mis_cotizaciones_row_payload( $post_id ) {
 	$cli_nit       = isset( $cliente_arr['nit_cc'] ) ? trim( (string) $cliente_arr['nit_cc'] ) : '';
 	$cli_nombre_d  = $cli_nombre !== '' ? $cli_nombre : '—';
 	$cli_nit_d     = $cli_nit !== '' ? $cli_nit : '—';
-	$moneda        = is_array( $datos ) && isset( $datos['moneda'] ) ? (string) $datos['moneda'] : 'COP';
+	$moneda        = centinela_cotizador_normalize_moneda( is_array( $datos ) && isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
 	$total         = is_array( $datos ) && isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
 	$total_fmt     = $moneda === 'USD' ? 'USD $ ' . number_format( $total, 2, '.', ',' ) : 'CO $ ' . number_format( $total, 0, ',', '.' );
 	$editar_url    = add_query_arg( 'editar', $post_id, admin_url( 'admin.php?page=centinela-cotizador' ) );
@@ -3623,7 +3868,7 @@ function centinela_cotizador_render_mis_cotizaciones() {
 						$cli_nit       = isset( $cliente_arr['nit_cc'] ) ? trim( (string) $cliente_arr['nit_cc'] ) : '';
 						$cli_nombre_disp = $cli_nombre !== '' ? $cli_nombre : '—';
 						$cli_nit_disp    = $cli_nit !== '' ? $cli_nit : '—';
-						$moneda        = is_array( $datos ) && isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP';
+						$moneda        = centinela_cotizador_normalize_moneda( is_array( $datos ) && isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
 						$total         = is_array( $datos ) && isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
 						$total_fmt     = $moneda === 'USD' ? 'USD $ ' . number_format( $total, 2, '.', ',' ) : 'CO $ ' . number_format( $total, 0, ',', '.' );
 						$editar_url    = add_query_arg( 'editar', get_the_ID(), admin_url( 'admin.php?page=centinela-cotizador' ) );

@@ -14,12 +14,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 $search_query = get_search_query();
 $productos    = array();
 if ( $search_query !== '' && strlen( $search_query ) >= 2 && function_exists( 'centinela_search_productos_syscom' ) ) {
-	$is_brand_query  = preg_match( '/^[a-zA-Z\\s]{4,}$/', (string) $search_query ) === 1;
+	$search_query_productos = function_exists( 'centinela_search_plural_to_singular_query' )
+		? centinela_search_plural_to_singular_query( $search_query )
+		: $search_query;
+	$is_brand_query  = preg_match( '/^[a-zA-Z\\s]{4,}$/', (string) $search_query_productos ) === 1;
 	// Marca larga: más ítems + modo rápido (enlace a /tienda/?marca= sigue en plantilla).
 	// Término corto o mixto (p. ej. "UPS", "APC", modelos): misma API busqueda que Syscom global_search; más cupo que el mínimo 12.
 	$limit_productos = $is_brand_query ? 120 : 72;
 	$fast            = $is_brand_query;
-	$productos       = centinela_search_productos_syscom( $search_query, $limit_productos, $fast );
+	$productos       = centinela_search_productos_syscom( $search_query_productos, $limit_productos, $fast );
 }
 
 get_header();

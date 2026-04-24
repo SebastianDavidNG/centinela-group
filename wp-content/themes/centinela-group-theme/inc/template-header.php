@@ -130,9 +130,8 @@ function centinela_theme_default_header() {
 								<a href="<?php echo esc_url( get_edit_user_link() ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Mi cuenta', 'centinela-group-theme' ); ?></a>
 								<a href="<?php echo esc_url( wp_logout_url( get_permalink() ) ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Cerrar sesión', 'centinela-group-theme' ); ?></a>
 							<?php else : ?>
-								<p class="centinela-header__dropdown-label"><?php esc_html_e( 'Iniciar sesión', 'centinela-group-theme' ); ?></p>
+								<p class="centinela-header__dropdown-label"><?php esc_html_e( 'Acceso', 'centinela-group-theme' ); ?></p>
 								<a href="<?php echo esc_url( wp_login_url() ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Entrar', 'centinela-group-theme' ); ?></a>
-								<a href="<?php echo esc_url( wp_registration_url() ); ?>" class="centinela-header__dropdown-link"><?php esc_html_e( 'Crear cuenta', 'centinela-group-theme' ); ?></a>
 							<?php endif; ?>
 						</div>
 					</div>

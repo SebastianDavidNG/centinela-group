@@ -10,28 +10,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-wp_enqueue_script(
-	'centinela-checkout-page',
-	get_template_directory_uri() . '/assets/js/checkout-page.js',
-	array( 'centinela-theme-script' ),
-	defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0',
-	true
-);
+$is_order_pay_endpoint = ( function_exists( 'is_wc_endpoint_url' ) && is_wc_endpoint_url( 'order-pay' ) ) || get_query_var( 'order-pay' );
 
-$wompi_available = function_exists( 'centinela_checkout_wompi_available' ) && centinela_checkout_wompi_available();
-if ( $wompi_available ) {
-	wp_localize_script( 'centinela-checkout-page', 'centinelaCheckout', array(
-		'wompiAvailable' => true,
-		'createOrderUrl' => rest_url( 'centinela/v1/checkout-create-order' ),
-		'nonce'          => wp_create_nonce( 'wp_rest' ),
-		'strings'        => array(
-			'payWithWompi' => __( 'Pagar con Wompi', 'centinela-group-theme' ),
-			'creatingOrder' => __( 'Creando pedido…', 'centinela-group-theme' ),
-			'errorCreating' => __( 'No se pudo crear el pedido. Intente de nuevo.', 'centinela-group-theme' ),
-		),
-	) );
-} else {
-	wp_localize_script( 'centinela-checkout-page', 'centinelaCheckout', array( 'wompiAvailable' => false ) );
+if ( ! $is_order_pay_endpoint ) {
+	wp_enqueue_script(
+		'centinela-checkout-page',
+		get_template_directory_uri() . '/assets/js/checkout-page.js',
+		array( 'centinela-theme-script' ),
+		defined( 'CENTINELA_THEME_VERSION' ) ? CENTINELA_THEME_VERSION : '1.0.0',
+		true
+	);
+
+	$wompi_available = function_exists( 'centinela_checkout_wompi_available' ) && centinela_checkout_wompi_available();
+	if ( $wompi_available ) {
+		wp_localize_script( 'centinela-checkout-page', 'centinelaCheckout', array(
+			'wompiAvailable' => true,
+			'createOrderUrl' => rest_url( 'centinela/v1/checkout-create-order' ),
+			'nonce'          => wp_create_nonce( 'wp_rest' ),
+			'strings'        => array(
+				'payWithWompi' => __( 'Pagar con Wompi', 'centinela-group-theme' ),
+				'creatingOrder' => __( 'Creando pedido…', 'centinela-group-theme' ),
+				'errorCreating' => __( 'No se pudo crear el pedido. Intente de nuevo.', 'centinela-group-theme' ),
+			),
+		) );
+	} else {
+		wp_localize_script( 'centinela-checkout-page', 'centinelaCheckout', array( 'wompiAvailable' => false ) );
+	}
 }
 
 $checkout_id       = get_queried_object_id();
@@ -51,6 +55,55 @@ get_template_part( 'template-parts/hero', 'page-inner', array(
 	'breadcrumb' => true,
 	'image_url'  => $checkout_hero_img ? $checkout_hero_img : '',
 ) );
+?>
+
+<?php if ( $is_order_pay_endpoint ) : ?>
+<main id="content" class="site-main flex-grow">
+	<div class="centinela-container centinela-order-pay-wrap" style="padding:24px 0;">
+		<style>
+			.centinela-order-pay-wrap .woocommerce {
+				max-width: 880px;
+				margin: 0 auto;
+				background: #fff;
+				border: 1px solid #e6e6e6;
+				border-radius: 12px;
+				padding: 24px;
+				box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+			}
+			.centinela-order-pay-wrap .woocommerce .order_details {
+				max-width: 100%;
+				margin: 1rem auto;
+				padding: 14px 16px;
+				background: #f8fafc;
+				border: 1px solid #e9eef5;
+				border-radius: 10px;
+			}
+			.centinela-order-pay-wrap .woocommerce .order_details li {
+				font-size: 14px;
+			}
+			@media (max-width: 768px) {
+				.centinela-order-pay-wrap .woocommerce {
+					padding: 16px;
+					border-radius: 10px;
+				}
+				.centinela-order-pay-wrap .woocommerce .order_details {
+					padding: 12px;
+				}
+			}
+		</style>
+		<?php
+		if ( shortcode_exists( 'woocommerce_checkout' ) ) {
+			echo do_shortcode( '[woocommerce_checkout]' );
+		} else {
+			echo '<p>' . esc_html__( 'No se pudo cargar el formulario de pago.', 'centinela-group-theme' ) . '</p>';
+		}
+		?>
+	</div>
+</main>
+<?php
+get_footer();
+return;
+endif;
 ?>
 
 <main id="content" class="site-main flex-grow">

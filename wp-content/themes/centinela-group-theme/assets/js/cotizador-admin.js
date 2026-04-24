@@ -1,10 +1,10 @@
 /**
- * Cotizador Admin: autocompletado de productos Syscom, filas editables, importe y eliminar
+ * Cotizador Admin: autocompletado Syscom, filas editables, importe, eliminar y reordenar (sortable).
  *
  * @package Centinela_Group_Theme
  */
 
-(function ($) {
+jQuery(function ($) {
 	'use strict';
 
 	var config = window.centinelaCotizador || {};
@@ -17,6 +17,7 @@
 	var logoDefaultUrl = config.logo_default_url || '';
 	var cotizacionEditar = config.cotizacion_editar || null;
 	var misCotizacionesUrl = config.mis_cotizaciones_url || '';
+	var ciudadDepartamentoMap = (config.ciudad_departamento_map && typeof config.ciudad_departamento_map === 'object') ? config.ciudad_departamento_map : {};
 
 	var $titulo = $('#centinela-cotizador-titulo');
 	var $tipo = $('#centinela-cotizador-tipo-busqueda');
@@ -38,6 +39,9 @@
 	var $refUsdSubtotalEl = $('#centinela-cotizador-ref-usd-subtotal');
 	var $refUsdIvaEl = $('#centinela-cotizador-ref-usd-iva');
 	var $refUsdTotalEl = $('#centinela-cotizador-ref-usd-total');
+	var $resTotales = $('.centinela-cotizador-resumen-totales');
+	var $modalCiudad = $('#centinela-modal-ciudad');
+	var $modalDepartamento = $('#centinela-modal-departamento');
 	var $manualRef = $('#centinela-cotizador-manual-ref');
 	var $manualModelo = $('#centinela-cotizador-manual-modelo');
 	var $manualDescripcion = $('#centinela-cotizador-manual-descripcion');
@@ -55,27 +59,6 @@
 	var lastSuggestionsQuery = '';
 	var lastSuggestionsTipo = '';
 	var manualEditingRowId = '';
-	/** Último TRM usado al pintar el resumen (COP): para animar la referencia USD solo cuando el TRM cambia de verdad. */
-	var tcRawPreviousResumen = null;
-	var trmRefPulseTimer = null;
-
-	function pulseTrmReferenceBlock() {
-		if (!$refUsdBloque.length) {
-			return;
-		}
-		if (trmRefPulseTimer) {
-			clearTimeout(trmRefPulseTimer);
-		}
-		$refUsdBloque.removeClass('centinela-trm-ref-updated');
-		if ($refUsdBloque[0]) {
-			void $refUsdBloque[0].offsetWidth;
-		}
-		$refUsdBloque.addClass('centinela-trm-ref-updated');
-		trmRefPulseTimer = setTimeout(function () {
-			trmRefPulseTimer = null;
-			$refUsdBloque.removeClass('centinela-trm-ref-updated');
-		}, 1000);
-	}
 
 	function clearManualForm() {
 		$manualRef.val('');
@@ -131,6 +114,64 @@
 		return isNaN(n) ? 0 : n;
 	}
 
+	/** Moneda del select (COP / USD); tolera espacios y mayúsculas. */
+	function getMonedaSeleccionada() {
+		return String($('#centinela-cotizador-moneda').val() || 'COP').trim().toUpperCase();
+	}
+
+	/** TRM 1 USD = X COP; si falta, 1 (solo para evitar división por cero en vista). */
+	function getTcEfectivo() {
+		var t = parseNum($tipoCambio.val());
+		return t > 0 ? t : 1;
+	}
+
+	/** Interpreta el valor del input «Precio»: en USD es precio en dólares → COP interno. */
+	function precioInputToCop(precioCampo) {
+		if (getMonedaSeleccionada() === 'USD') {
+			return precioCampo * getTcEfectivo();
+		}
+		return precioCampo;
+	}
+
+	function formatImporteMostrado(impCop) {
+		if (getMonedaSeleccionada() === 'USD') {
+			return formatPrecioUSD(impCop / getTcEfectivo());
+		}
+		return formatPrecio(impCop);
+	}
+
+	/** Precio unitario en COP guardado en la fila (catálogo / manual siempre en COP al persistir). */
+	function getRowPrecioCop($tr) {
+		var raw = $tr.attr('data-precio-cop');
+		if (raw !== undefined && raw !== '' && !isNaN(parseFloat(raw))) {
+			return parseNum(raw);
+		}
+		var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
+		var desc = parseNum($tr.find('.centinela-cotizador-input-descuento').val());
+		var imp = parseNum($tr.find('.centinela-cotizador-importe').attr('data-importe'));
+		var denom = cant * (1 - desc / 100);
+		if (denom > 1e-9) {
+			return imp / denom;
+		}
+		return precioInputToCop(parseNum($tr.find('.centinela-cotizador-input-precio').val()));
+	}
+
+	/** Actualiza input de precio e texto de importe según moneda/TRM; data-importe sigue en COP. */
+	function syncFilaMontosVisibles($tr) {
+		var precCop = getRowPrecioCop($tr);
+		$tr.attr('data-precio-cop', precCop);
+		var tc = getTcEfectivo();
+		var moneda = getMonedaSeleccionada();
+		var $inp = $tr.find('.centinela-cotizador-input-precio');
+		if (moneda === 'USD') {
+			$inp.val(Math.round((precCop / tc) * 100) / 100);
+		} else {
+			$inp.val(precCop);
+		}
+		var impCop = parseNum($tr.find('.centinela-cotizador-importe').attr('data-importe'));
+		$tr.find('.centinela-cotizador-importe').text(formatImporteMostrado(impCop));
+	}
+
 	function updatePlaceholder() {
 		var tipo = $tipo.val();
 		$busqueda.attr('placeholder', tipo === 'modelo' ? (i18n.buscar_placeholder_modelo || 'Buscar por modelo…') : (i18n.buscar_placeholder_titulo || 'Buscar por título…'));
@@ -138,6 +179,38 @@
 
 	function showLoading(show) {
 		$wrap.toggleClass('is-loading', !!show);
+	}
+
+	function buildOption(value, label) {
+		return $('<option></option>').attr('value', value).text(label);
+	}
+
+	function updateDepartamentoPorCiudad(ciudad) {
+		if (!$modalDepartamento.length) return;
+		var deptoPlaceholder = i18n.seleccione_departamento || 'Seleccione un departamento';
+		$modalDepartamento.empty().append(buildOption('', deptoPlaceholder));
+		var raw = ciudad ? ciudadDepartamentoMap[ciudad] : null;
+		var opciones = [];
+		if (Array.isArray(raw)) {
+			opciones = raw.map(function (v) { return String(v || '').trim(); }).filter(Boolean);
+		} else if (raw != null && raw !== '') {
+			opciones = [String(raw).trim()];
+		}
+		opciones = Array.from(new Set(opciones));
+		if (opciones.length) {
+			opciones.forEach(function (opt) {
+				$modalDepartamento.append(buildOption(opt, opt));
+			});
+			$modalDepartamento.val(opciones[0]);
+		}
+	}
+
+	function initCarritoCityDepartmentSelectors() {
+		if (!$modalCiudad.length || !$modalDepartamento.length) return;
+		updateDepartamentoPorCiudad($modalCiudad.val() || '');
+		$modalCiudad.on('change', function () {
+			updateDepartamentoPorCiudad($(this).val() || '');
+		});
 	}
 
 	function escHtml(s) {
@@ -225,7 +298,8 @@
 		return tipoPrecio === 'oferta' && tieneOferta ? oferta : lista;
 	}
 
-	function addFila(producto) {
+	function addFila(producto, opts) {
+		opts = opts || {};
 		var isManual = !!producto.manual;
 		var id = isManual
 			? (producto.id && String(producto.id).indexOf('manual-') === 0
@@ -240,6 +314,9 @@
 		var tieneOferta = !!producto.tiene_oferta;
 		if (isManual) {
 			var pIniSrc = producto.precio_inicial != null ? parseNum(producto.precio_inicial) : precioLista;
+			if (getMonedaSeleccionada() === 'USD') {
+				pIniSrc = pIniSrc * getTcEfectivo();
+			}
 			precioLista = pIniSrc;
 			precioOferta = pIniSrc;
 			tieneOferta = false;
@@ -260,6 +337,7 @@
 		var manualAttr = isManual ? ' data-manual="1"' : '';
 		var manualEditBtn = isManual ? '<button type="button" class="button button-small centinela-cotizador-btn-editar-manual">' + (i18n.manual_edit || 'Editar') + '</button>' : '';
 		var $tr = $('<tr class="producto-fila"' + manualAttr + ' data-producto-id="' + escHtml(id) + '" data-modelo="' + modeloAttr + '" data-titulo="' + tituloAttr + '" data-referencia="' + refAttr + '" data-precio-lista="' + precioLista + '" data-precio-oferta="' + precioOferta + '" data-tiene-oferta="' + (tieneOferta ? '1' : '0') + '">' +
+			'<td class="centinela-cotizador-col-orden"><span class="centinela-cotizador-drag-handle">⋮⋮</span></td>' +
 			'<td class="centinela-cotizador-col-modelo"><div class="centinela-cotizador-producto-cell">' +
 			refBlock +
 			'<span class="centinela-cotizador-producto-modelo">' + (modelo ? escHtml(modelo) : '') + '</span>' +
@@ -268,16 +346,21 @@
 			'<td class="centinela-cotizador-col-descuento"><input type="number" class="centinela-cotizador-input-descuento" min="0" max="100" step="0.01" value="' + descuento + '" /></td>' +
 			'<td class="centinela-cotizador-col-precio"><input type="number" class="centinela-cotizador-input-precio" min="0" step="0.01" value="' + precioInicial + '" /></td>' +
 			'<td class="centinela-cotizador-col-importe"><span class="centinela-cotizador-importe">' + formatPrecio(importe) + '</span></td>' +
-			'<td class="centinela-cotizador-col-acciones">' + manualEditBtn + '<button type="button" class="button button-link-delete centinela-cotizador-btn-eliminar">' + (i18n.eliminar || 'Eliminar') + '</button></td>' +
+			'<td class="centinela-cotizador-col-acciones">' + '<button type="button" class="button button-link-delete centinela-cotizador-btn-eliminar">' + (i18n.eliminar || 'Eliminar') + '</button>' + manualEditBtn + '</td>' +
 			'</tr>');
+		$tr.find('.centinela-cotizador-drag-handle').attr({
+			title: i18n.orden_arrastrar || 'Arrastrar para reordenar',
+			'aria-label': i18n.orden_arrastrar || 'Arrastrar para reordenar'
+		});
 
 		function recalcImporte() {
 			var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
 			var desc = parseNum($tr.find('.centinela-cotizador-input-descuento').val());
-			var prec = parseNum($tr.find('.centinela-cotizador-input-precio').val());
-			var imp = cant * prec * (1 - desc / 100);
+			var precCop = precioInputToCop(parseNum($tr.find('.centinela-cotizador-input-precio').val()));
+			$tr.attr('data-precio-cop', precCop);
+			var imp = cant * precCop * (1 - desc / 100);
 			var $importeSpan = $tr.find('.centinela-cotizador-importe');
-			$importeSpan.text(formatPrecio(imp)).attr('data-importe', imp);
+			$importeSpan.attr('data-importe', imp).text(formatImporteMostrado(imp));
 			updateResumen();
 		}
 
@@ -294,14 +377,20 @@
 			if ($tbody.find('tr.producto-fila').length === 0) {
 				$filaVacia.show();
 			}
+			refreshCotizadorFilasSortable();
 			updateResumen();
 		});
 		$tr.find('.centinela-cotizador-btn-editar-manual').on('click', function () {
 			startManualEdit($tr);
 		});
 
+		$tr.attr('data-precio-cop', precioInicial);
 		$tr.find('.centinela-cotizador-importe').attr('data-importe', importe);
 		$tbody.append($tr);
+		syncFilaMontosVisibles($tr);
+		if (!opts.skipSortableRefresh) {
+			refreshCotizadorFilasSortable();
+		}
 		updateResumen();
 	}
 
@@ -316,11 +405,15 @@
 		if (ivaPct > 100) ivaPct = 100;
 		var ivaValorCOP = subtotalCOP * (ivaPct / 100);
 		var totalCOP = subtotalCOP + ivaValorCOP;
-		// TRM = COP por 1 USD. Los importes de fila (Syscom y manuales) están en COP; en moneda COP
-		// los totales en pesos no deben escalarse al cambiar el TRM (solo la referencia en USD).
 		var tcRaw = parseNum($tipoCambio.val());
 		var tc = tcRaw > 0 ? tcRaw : 1;
-		var moneda = $moneda.val() || 'COP';
+		var moneda = getMonedaSeleccionada();
+		var subtotalCOPMostrado = subtotalCOP;
+		var ivaValorCOPMostrado = ivaValorCOP;
+		var totalCOPMostrado = totalCOP;
+		if ($resTotales.length) {
+			$resTotales.toggleClass('is-moneda-usd', moneda === 'USD');
+		}
 		function hideCopUsdRefs() {
 			$subtotalUsdRef.prop('hidden', true).text('');
 			$ivaValorUsdRef.prop('hidden', true).text('');
@@ -335,15 +428,14 @@
 			if ($refUsdBloque.length) {
 				$refUsdBloque.prop('hidden', true);
 			}
-			tcRawPreviousResumen = tcRaw > 0 ? tcRaw : null;
 		} else {
-			$subtotalEl.text('CO $ ' + formatPrecio(subtotalCOP));
-			$ivaValorEl.text('CO $ ' + formatPrecio(ivaValorCOP));
-			$totalEl.text('CO $ ' + formatPrecio(totalCOP));
+			$subtotalEl.text('CO $ ' + formatPrecio(subtotalCOPMostrado));
+			$ivaValorEl.text('CO $ ' + formatPrecio(ivaValorCOPMostrado));
+			$totalEl.text('CO $ ' + formatPrecio(totalCOPMostrado));
 			if (tcRaw > 0) {
-				var usdSub = subtotalCOP / tcRaw;
-				var usdIva = ivaValorCOP / tcRaw;
-				var usdTot = totalCOP / tcRaw;
+				var usdSub = subtotalCOPMostrado / tcRaw;
+				var usdIva = ivaValorCOPMostrado / tcRaw;
+				var usdTot = totalCOPMostrado / tcRaw;
 				var aprox = i18n.aprox_usd_prefix || '≈ USD $ ';
 				var lineUsd = function (n) {
 					return aprox + formatPrecioUSD(n);
@@ -363,90 +455,69 @@
 					$refUsdIvaEl.text('USD $ ' + formatPrecioUSD(usdIva));
 					$refUsdTotalEl.text('USD $ ' + formatPrecioUSD(usdTot));
 				}
-				if (
-					$refUsdBloque.length &&
-					tcRawPreviousResumen !== null &&
-					Math.abs(tcRaw - tcRawPreviousResumen) > 0.0005
-				) {
-					pulseTrmReferenceBlock();
-				}
-				tcRawPreviousResumen = tcRaw;
 			} else {
 				hideCopUsdRefs();
 				if ($refUsdBloque.length) {
 					$refUsdBloque.prop('hidden', true);
 				}
-				tcRawPreviousResumen = null;
 			}
 		}
+
+		$tbody.find('tr.producto-fila').each(function () {
+			syncFilaMontosVisibles($(this));
+		});
+	}
+
+	function destroyCotizadorFilasSortable() {
+		if (!$tbody.length || typeof $.fn.sortable !== 'function') {
+			return;
+		}
+		if ($tbody.data('ui-sortable')) {
+			try {
+				$tbody.sortable('destroy');
+			} catch (ignore) {
+				/* noop */
+			}
+		}
+	}
+
+	/** Reordenar filas (catálogo y manual) con arrastre; el payload sigue el orden del DOM. */
+	function refreshCotizadorFilasSortable() {
+		destroyCotizadorFilasSortable();
+		if (!$tbody.length || typeof $.fn.sortable !== 'function') {
+			return;
+		}
+		var n = $tbody.find('tr.producto-fila').length;
+		if (n === 0) {
+			return;
+		}
+		$tbody.sortable({
+			items: '> tr.producto-fila',
+			handle: '.centinela-cotizador-drag-handle',
+			axis: 'y',
+			cursor: 'grabbing',
+			tolerance: 'pointer',
+			distance: 6,
+			placeholder: 'centinela-cotizador-sortable-placeholder',
+			forcePlaceholderSize: true,
+			helper: function (e, tr) {
+				var $orig = tr.children();
+				var $helper = tr.clone();
+				$helper.children().each(function (i) {
+					$(this).width($orig.eq(i).outerWidth());
+				});
+				return $helper;
+			},
+			update: function () {
+				updateResumen();
+			}
+		});
 	}
 
 	var tcMsgTimer = null;
 	/** Si el usuario editó el TRM a mano, no sobrescribir el campo cuando llegue tarde la respuesta de Syscom. */
 	var tcApplySyscomToField = true;
 	var tcFetchSeq = 0;
-	/** Último TRM «confirmado» (Actualizar, Syscom aplicado al campo o valor al abrir una cotización guardada). null = aún sin línea base establecida. */
-	var tcLastConfirmed = null;
-	var tcPendingUiTimer = null;
-
-	function tcEpsilonDiff(a, b) {
-		return Math.abs(a - b) > 0.0005;
-	}
-
-	function isTcPendingUnconfirmed() {
-		var cur = parseNum($tipoCambio.val());
-		if (cur <= 0) {
-			return false;
-		}
-		if (tcLastConfirmed === null || tcLastConfirmed === undefined) {
-			return true;
-		}
-		return tcEpsilonDiff(cur, tcLastConfirmed);
-	}
-
-	function updateTcPendingUi() {
-		var $p = $('#centinela-cotizador-tc-pending');
-		var $btn = $('#centinela-cotizador-actualizar-tc');
-		if (!$p.length) {
-			return;
-		}
-		if (isTcPendingUnconfirmed()) {
-			$p.removeAttr('hidden').text(i18n.tc_pending_hint || '');
-			$btn.addClass('is-tc-pending');
-		} else {
-			$p.attr('hidden', 'hidden').text('');
-			$btn.removeClass('is-tc-pending');
-		}
-	}
-
-	function scheduleTcPendingUi() {
-		if (tcPendingUiTimer) {
-			clearTimeout(tcPendingUiTimer);
-		}
-		tcPendingUiTimer = setTimeout(function () {
-			tcPendingUiTimer = null;
-			updateTcPendingUi();
-		}, 280);
-	}
-
-	function setTcConfirmedFromField() {
-		if (tcPendingUiTimer) {
-			clearTimeout(tcPendingUiTimer);
-			tcPendingUiTimer = null;
-		}
-		var v = parseNum($tipoCambio.val());
-		tcLastConfirmed = v > 0 ? v : null;
-		updateTcPendingUi();
-	}
-
-	/** Si el TRM está pendiente de confirmar, pregunta antes de guardar/enviar. true = seguir. */
-	function confirmTcBeforeAction() {
-		if (!isTcPendingUnconfirmed()) {
-			return true;
-		}
-		var msg = i18n.tc_confirm_save_prompt || '';
-		return window.confirm(msg);
-	}
 
 	function showTcMsg(text) {
 		var $m = $('#centinela-cotizador-tc-msg');
@@ -483,17 +554,11 @@
 					return;
 				}
 				if (res.success && res.data && res.data.tipo_cambio) {
-					var aplicoTc = false;
 					if (tcApplySyscomToField || force) {
 						$tipoCambio.val(res.data.tipo_cambio).attr('placeholder', '');
-						aplicoTc = true;
-						setTcConfirmedFromField();
 					}
 					updateResumen();
-					if (!aplicoTc) {
-						updateTcPendingUi();
-					}
-					if (aplicoTc) {
+					if (tcApplySyscomToField || force) {
 						showTcMsg(i18n.trm_syscom_ok || 'TRM Syscom cargado. Totales actualizados.');
 					}
 				} else {
@@ -527,9 +592,15 @@
 			var oferta = parseNum($tr.attr('data-precio-oferta'));
 			var tieneOferta = $tr.attr('data-tiene-oferta') === '1';
 			if (oferta <= 0) oferta = lista;
-			var precio = tipoPrecio === 'oferta' && tieneOferta ? oferta : lista;
-			$tr.find('.centinela-cotizador-input-precio').val(precio).trigger('change');
+			var precioCop = tipoPrecio === 'oferta' && tieneOferta ? oferta : lista;
+			$tr.attr('data-precio-cop', precioCop);
+			var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
+			var desc = parseNum($tr.find('.centinela-cotizador-input-descuento').val());
+			var imp = cant * precioCop * (1 - desc / 100);
+			$tr.find('.centinela-cotizador-importe').attr('data-importe', imp);
+			syncFilaMontosVisibles($tr);
 		});
+		updateResumen();
 	}
 
 	function onSelectSugerencia(e) {
@@ -557,6 +628,7 @@
 	// Inicialización
 	$tipo.on('change', updatePlaceholder);
 	updatePlaceholder();
+	initCarritoCityDepartmentSelectors();
 
 	$busqueda.on('input', function () {
 		clearTimeout(timerBusqueda);
@@ -598,8 +670,9 @@
 	// Resumen: IVA por defecto desde config
 	$ivaPct.val(ivaDefault);
 
-	// Resumen: cambios en moneda, tipo de cambio, IVA
-	$moneda.add($ivaPct).on('input change', updateResumen);
+	// Resumen: moneda (delegado por si el DOM aún no existía al evaluar el script), IVA
+	$(document).on('input change', '#centinela-cotizador-moneda', updateResumen);
+	$ivaPct.on('input change', updateResumen);
 
 	function markTcEditedByUser() {
 		tcApplySyscomToField = false;
@@ -608,27 +681,20 @@
 	function onTipoCambioLive() {
 		markTcEditedByUser();
 		updateResumen();
-		scheduleTcPendingUi();
 	}
 
 	// TRM: recalcular totales al vuelo (input + change cubre flechas/step en la mayoría de navegadores; paste/keyup refuerza casos raros)
 	$tipoCambio.on('input change', onTipoCambioLive);
 	$tipoCambio.on('paste', function () {
 		markTcEditedByUser();
-		setTimeout(function () {
-			updateResumen();
-			scheduleTcPendingUi();
-		}, 0);
+		setTimeout(updateResumen, 0);
 	});
 	$tipoCambio.on('keyup', function (e) {
 		if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
 			onTipoCambioLive();
 		}
 	});
-	$tipoCambio.on('blur', function () {
-		updateResumen();
-		updateTcPendingUi();
-	});
+	$tipoCambio.on('blur', updateResumen);
 
 	// Tipo de Precio (Lista / Oferta): actualizar precio en todas las filas según API Syscom
 	$('#centinela-cotizador-tipo-precio').on('change', applyTipoPrecioToRows);
@@ -712,7 +778,6 @@
 			return;
 		}
 		updateResumen();
-		setTcConfirmedFromField();
 		showTcMsg(i18n.tc_recalculado || 'Totales actualizados con el tipo de cambio del campo.');
 	});
 
@@ -758,7 +823,7 @@
 				titulo: $tr.attr('data-titulo') || '',
 				cantidad: parseNum($tr.find('.centinela-cotizador-input-cantidad').val()),
 				descuento: parseNum($tr.find('.centinela-cotizador-input-descuento').val()),
-				precio: parseNum($tr.find('.centinela-cotizador-input-precio').val()),
+				precio: getRowPrecioCop($tr),
 				importe: parseNum($tr.find('.centinela-cotizador-importe').attr('data-importe'))
 			};
 			var ref = ($tr.attr('data-referencia') || '').trim();
@@ -775,8 +840,15 @@
 			subtotalCOP += parseNum($(this).find('.centinela-cotizador-importe').attr('data-importe'));
 		});
 		var ivaPct = parseNum($ivaPct.val());
-		var ivaValor = subtotalCOP * (ivaPct / 100);
-		var total = subtotalCOP + ivaValor;
+		var ivaValorCop = subtotalCOP * (ivaPct / 100);
+		var totalCop = subtotalCOP + ivaValorCop;
+		var monedaSel = getMonedaSeleccionada();
+		var tcPayload = parseNum($tipoCambio.val());
+		var tcUsd = tcPayload > 0 ? tcPayload : 1;
+		var divisor = monedaSel === 'USD' ? tcUsd : 1;
+		var subtotalOut = subtotalCOP / divisor;
+		var ivaValorOut = ivaValorCop / divisor;
+		var totalOut = totalCop / divisor;
 		return {
 			titulo: $('#centinela-cotizador-titulo').val(),
 			orden_compra: String($('#centinela-cotizador-orden-compra').val() || '').trim(),
@@ -808,13 +880,13 @@
 				ciudad: $('#centinela-cotizador-envio-ciudad').val() || '',
 				cel: $('#centinela-cotizador-envio-cel').val() || ''
 			},
-			moneda: $moneda.val() || 'COP',
+			moneda: monedaSel === 'USD' ? 'USD' : 'COP',
 			tipo_cambio: parseNum($tipoCambio.val()),
 			tipo_precio: $('#centinela-cotizador-tipo-precio').val() || 'lista',
 			iva_pct: ivaPct,
-			subtotal: subtotalCOP,
-			iva_valor: ivaValor,
-			total: total,
+			subtotal: subtotalOut,
+			iva_valor: ivaValorOut,
+			total: totalOut,
 			logo_url: $('#centinela-cotizador-logo-url').val() || ''
 		};
 	}
@@ -887,10 +959,6 @@
 			alert(i18n.agregue_productos || 'Agregue al menos un producto a la cotización.');
 			return;
 		}
-		if (!confirmTcBeforeAction()) {
-			$('#centinela-cotizador-actualizar-tc').trigger('focus');
-			return;
-		}
 		$('#centinela-modal-enviar-msg').removeClass('success error').text('');
 		$('#centinela-cotizador-modal-descargar-pdf-btn').prop('disabled', false).text(i18n.descargar_pdf || 'Descargar PDF');
 		var $preview = $('#centinela-cotizador-email-preview');
@@ -931,7 +999,6 @@
 				if (res.success) {
 					var d = res.data || {};
 					rememberCotizacionPostId(d);
-					setTcConfirmedFromField();
 					var enviado = d.enviado !== false && d.enviado !== 0;
 					var mailMetaBlock = showMailMeta ? {
 						mail_template: d.mail_template,
@@ -1060,11 +1127,7 @@
 			alert(i18n.agregue_productos || 'Agregue al menos un producto a la cotización.');
 			return;
 		}
-		if (!confirmTcBeforeAction()) {
-			$('#centinela-cotizador-actualizar-tc').trigger('focus');
-			return;
-		}
-		var moneda = $moneda.val() || 'COP';
+		var moneda = getMonedaSeleccionada() === 'USD' ? 'USD' : 'COP';
 		$('#centinela-modal-guardar-text').text((i18n.guardar_en_moneda || '¿Desea guardar la cotización en la moneda seleccionada?') + ' (' + moneda + ')');
 		$('#centinela-modal-guardar-msg').removeClass('success error').text('');
 		openModal('#centinela-cotizador-modal-guardar');
@@ -1083,7 +1146,6 @@
 			.done(function (res) {
 				if (res.success) {
 					rememberCotizacionPostId(res.data || {});
-					setTcConfirmedFromField();
 					$msg.addClass('success').text(res.data.message || '');
 					setTimeout(function () {
 						closeModal('#centinela-cotizador-modal-guardar');
@@ -1107,33 +1169,42 @@
 			alert(i18n.agregue_productos || 'Agregue al menos un producto a la cotización.');
 			return;
 		}
-		if (!confirmTcBeforeAction()) {
-			$('#centinela-cotizador-actualizar-tc').trigger('focus');
-			return;
-		}
-		$('#centinela-modal-direccion, #centinela-modal-ciudad, #centinela-modal-departamento').val('');
+		$('#centinela-modal-direccion').val('');
+		$modalCiudad.val('');
+		updateDepartamentoPorCiudad('');
 		$('#centinela-modal-carrito-msg').removeClass('success error').text('');
 		$('#centinela-cotizador-link-wrap').hide();
+		$('#centinela-cotizador-pago-link').val('');
+		$('#centinela-cotizador-link-order-id').val('');
+		$('#centinela-cotizador-reenviar-link').prop('disabled', true).text(i18n.reenviar_link || 'Reenviar link por correo');
 		openModal('#centinela-cotizador-modal-carrito');
 	});
 
 	$('#centinela-cotizador-modal-carrito-btn').on('click', function () {
 		var $msg = $('#centinela-modal-carrito-msg');
+		var ciudadSel = String($modalCiudad.val() || '').trim();
+		var deptSel = String($modalDepartamento.val() || '').trim();
+		if (!ciudadSel || !deptSel) {
+			$msg.removeClass('success error').addClass('error').text(i18n.seleccione_ciudad || 'Seleccione una ciudad y su departamento.');
+			return;
+		}
 		$msg.removeClass('success error').text('…');
 		var datos = getCotizacionPayload();
 		$.post(ajaxUrl, {
 			action: 'centinela_cotizador_enviar_carrito',
 			nonce: nonce,
 			datos: JSON.stringify(datos),
+			editar_id: $('#centinela-cotizador-editar-id').val() || 0,
 			centinela_direccion: $('#centinela-modal-direccion').val(),
-			centinela_ciudad: $('#centinela-modal-ciudad').val(),
-			centinela_departamento: $('#centinela-modal-departamento').val()
+			centinela_ciudad: ciudadSel,
+			centinela_departamento: deptSel
 		})
 			.done(function (res) {
 				if (res.success && res.data.redirect) {
-					setTcConfirmedFromField();
 					$msg.addClass('success').text(res.data.message || '');
 					$('#centinela-cotizador-pago-link').val(res.data.redirect);
+					$('#centinela-cotizador-link-order-id').val(String(res.data.order_id || ''));
+					$('#centinela-cotizador-reenviar-link').prop('disabled', false).text(i18n.reenviar_link || 'Reenviar link por correo');
 					$('#centinela-cotizador-link-wrap').show();
 				} else {
 					$msg.addClass('error').text(res.data && res.data.message ? res.data.message : 'Error');
@@ -1142,6 +1213,39 @@
 			.fail(function (xhr) {
 				var m = (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) ? xhr.responseJSON.data.message : 'Error de conexión.';
 				$msg.addClass('error').text(m);
+			});
+	});
+
+	$('#centinela-cotizador-reenviar-link').on('click', function () {
+		var $btn = $(this);
+		var payUrl = String($('#centinela-cotizador-pago-link').val() || '').trim();
+		if (!payUrl) return;
+		var datos = getCotizacionPayload();
+		var $msg = $('#centinela-modal-carrito-msg');
+		var oldText = $btn.text();
+		$btn.prop('disabled', true).text(i18n.reenviando_link || 'Reenviando link…');
+		$msg.removeClass('success error').text('…');
+		$.post(ajaxUrl, {
+			action: 'centinela_cotizador_reenviar_link_carrito',
+			nonce: nonce,
+			datos: JSON.stringify(datos),
+			editar_id: $('#centinela-cotizador-editar-id').val() || 0,
+			pay_url: payUrl,
+			order_id: $('#centinela-cotizador-link-order-id').val() || 0
+		})
+			.done(function (res) {
+				if (res.success) {
+					$msg.addClass('success').text((res.data && res.data.message) ? res.data.message : (i18n.link_reenviado_ok || 'Link de pago reenviado al correo del cliente.'));
+				} else {
+					$msg.addClass('error').text(res.data && res.data.message ? res.data.message : 'Error');
+				}
+			})
+			.fail(function (xhr) {
+				var m = (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) ? xhr.responseJSON.data.message : 'Error de conexión.';
+				$msg.addClass('error').text(m);
+			})
+			.always(function () {
+				$btn.prop('disabled', false).text(oldText || (i18n.reenviar_link || 'Reenviar link por correo'));
 			});
 	});
 
@@ -1166,6 +1270,7 @@
 		$titulo.val(datos.titulo || '');
 		$('#centinela-cotizador-orden-compra').val(datos.orden_compra || '');
 
+		destroyCotizadorFilasSortable();
 		$tbody.find('tr.producto-fila').remove();
 		$filaVacia.show();
 		var productos = datos.productos || [];
@@ -1184,7 +1289,7 @@
 				precio_inicial: precio,
 				cantidad_inicial: parseNum(p.cantidad) || 1,
 				descuento_inicial: parseNum(p.descuento) || 0
-			});
+			}, { skipSortableRefresh: true });
 			$tbody.find('tr.producto-fila').last().find('.centinela-cotizador-input-cantidad').trigger('change');
 		});
 
@@ -1221,9 +1326,6 @@
 
 		$moneda.val(datos.moneda || 'COP');
 		$tipoCambio.val(parseNum(datos.tipo_cambio));
-		// No dejar que una petición TRM en curso pise el tipo guardado al reabrir la cotización.
-		tcApplySyscomToField = false;
-		setTcConfirmedFromField();
 		$('#centinela-cotizador-tipo-precio').val(datos.tipo_precio || 'lista');
 		$ivaPct.val(parseNum(datos.iva_pct) || 19);
 
@@ -1237,6 +1339,7 @@
 			$('#centinela-cotizador-logo-placeholder').show();
 		}
 
+		refreshCotizadorFilasSortable();
 		updateResumen();
 	}
 
@@ -1246,6 +1349,5 @@
 
 	// Primera actualización del resumen
 	updateResumen();
-	updateTcPendingUi();
 
-})(jQuery);
+});
