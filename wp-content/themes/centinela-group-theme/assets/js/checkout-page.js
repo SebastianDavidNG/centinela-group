@@ -256,9 +256,18 @@
           'Content-Type': 'application/json',
           'X-WP-Nonce': nonce
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
       })
-        .then(function (res) { return res.json(); })
+        .then(function (res) {
+          var ct = (res.headers.get('content-type') || '').toLowerCase();
+          if (!res.ok && ct.indexOf('application/json') === -1) {
+            return res.text().then(function () {
+              throw new Error('non_json_error');
+            });
+          }
+          return res.json();
+        })
         .then(function (json) {
           if (json.success && json.redirect) {
             window.location.href = json.redirect;

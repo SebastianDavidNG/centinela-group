@@ -417,6 +417,10 @@ rewind_posts();
 		<div class="centinela-quickview__backdrop" data-close-quickview></div>
 		<div class="centinela-quickview__box">
 			<button type="button" class="centinela-quickview__close" aria-label="<?php esc_attr_e( 'Cerrar', 'centinela-group-theme' ); ?>" data-close-quickview></button>
+			<div class="centinela-quickview__loading" id="centinela-quickview-loading" aria-hidden="true">
+				<span class="centinela-quickview__loading-spinner" aria-hidden="true"></span>
+				<span class="centinela-quickview__loading-text"><?php esc_html_e( 'Cargando producto...', 'centinela-group-theme' ); ?></span>
+			</div>
 			<div class="centinela-quickview__inner">
 				<div class="centinela-quickview__gallery">
 					<div class="centinela-quickview__thumbs" id="centinela-quickview-thumbs"></div>
@@ -434,7 +438,11 @@ rewind_posts();
 					<p id="centinela-quickview-stock" class="centinela-single-producto__stock centinela-quickview__stock" style="display: none;"><?php echo esc_html( __( 'Stock disponible:', 'centinela-group-theme' ) ); ?> <span id="centinela-quickview-stock-value" class="centinela-single-producto__stock-value"></span></p>
 					<div class="centinela-quickview__cart-row">
 						<label for="centinela-quickview-qty" class="centinela-quickview__qty-label"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></label>
-						<input type="number" id="centinela-quickview-qty" class="centinela-quickview__qty" min="1" value="1" />
+						<div class="centinela-quickview__qty-control" role="group" aria-label="<?php esc_attr_e( 'Control de cantidad', 'centinela-group-theme' ); ?>">
+							<button type="button" class="centinela-quickview__qty-btn centinela-quickview__qty-btn--minus" data-quickview-qty-step="-1" aria-label="<?php esc_attr_e( 'Disminuir cantidad', 'centinela-group-theme' ); ?>">−</button>
+							<input type="number" id="centinela-quickview-qty" class="centinela-quickview__qty" min="1" value="1" inputmode="numeric" pattern="[0-9]*" />
+							<button type="button" class="centinela-quickview__qty-btn centinela-quickview__qty-btn--plus" data-quickview-qty-step="1" aria-label="<?php esc_attr_e( 'Aumentar cantidad', 'centinela-group-theme' ); ?>">+</button>
+						</div>
 						<button type="button" id="centinela-quickview-addcart" class="centinela-quickview__btn centinela-quickview__btn--primary"><?php esc_html_e( 'Agregar al carrito', 'centinela-group-theme' ); ?></button>
 					</div>
 					<p id="centinela-quickview-modelo" class="centinela-quickview__meta"></p>

@@ -329,3 +329,82 @@ function centinela_theme_submenu() {
 	</nav>
 	<?php
 }
+
+/**
+ * Carrito móvil: botón flotante (FAB) + panel inferior (misma información que el dropdown del header en desktop).
+ * Visible solo en viewport menor a 768px cuando hay ítems; el comportamiento lo controla theme.js.
+ */
+function centinela_theme_mobile_cart_shell() {
+	$centinela_cart_page     = get_page_by_path( 'carrito', OBJECT, 'page' );
+	$centinela_cart_url      = $centinela_cart_page ? get_permalink( $centinela_cart_page ) : home_url( '/carrito/' );
+	$centinela_checkout_page = get_page_by_path( 'finalizar-compra', OBJECT, 'page' );
+	$centinela_checkout_url  = $centinela_checkout_page ? get_permalink( $centinela_checkout_page ) : $centinela_cart_url;
+	if ( function_exists( 'wc_get_cart_url' ) ) {
+		$centinela_cart_url = wc_get_cart_url();
+	}
+	if ( function_exists( 'wc_get_checkout_url' ) ) {
+		$centinela_checkout_url = wc_get_checkout_url();
+	}
+	$centinela_tienda_url = home_url( '/tienda/' );
+	$centinela_cart_url      = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_cart_url ) : $centinela_cart_url;
+	$centinela_checkout_url  = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_checkout_url ) : $centinela_checkout_url;
+	$centinela_tienda_url    = function_exists( 'centinela_force_http_on_localhost' ) ? centinela_force_http_on_localhost( $centinela_tienda_url ) : $centinela_tienda_url;
+	?>
+	<div
+		id="centinela-mobile-cart-app"
+		class="centinela-mobile-cart-app"
+		hidden
+		data-cart-url="<?php echo esc_url( $centinela_cart_url ); ?>"
+		data-checkout-url="<?php echo esc_url( $centinela_checkout_url ); ?>"
+		data-tienda-url="<?php echo esc_url( $centinela_tienda_url ); ?>"
+	>
+		<div
+			id="centinela-mobile-cart-sheet"
+			class="centinela-mobile-cart-sheet"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="centinela-mobile-cart-sheet-title"
+			hidden
+		>
+			<button type="button" class="centinela-mobile-cart-sheet__backdrop" id="centinela-mobile-cart-sheet-backdrop" aria-label="<?php esc_attr_e( 'Cerrar carrito', 'centinela-group-theme' ); ?>"></button>
+			<div class="centinela-mobile-cart-sheet__panel">
+				<div class="centinela-mobile-cart-sheet__grab" aria-hidden="true"></div>
+				<header class="centinela-mobile-cart-sheet__header">
+					<h2 id="centinela-mobile-cart-sheet-title" class="centinela-mobile-cart-sheet__title"><?php esc_html_e( 'Tu carrito', 'centinela-group-theme' ); ?> <span id="centinela-mobile-cart-sheet-count"></span></h2>
+					<button type="button" class="centinela-mobile-cart-sheet__close" id="centinela-mobile-cart-sheet-close" aria-label="<?php esc_attr_e( 'Cerrar', 'centinela-group-theme' ); ?>">
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+					</button>
+				</header>
+				<div class="centinela-mobile-cart-sheet__body">
+					<p class="centinela-mobile-cart-sheet__empty" id="centinela-mobile-cart-empty"><?php esc_html_e( 'Tu carrito está vacío.', 'centinela-group-theme' ); ?></p>
+					<div class="centinela-mobile-cart-sheet__content" id="centinela-mobile-cart-content" style="display: none;">
+						<div class="centinela-mobile-cart-sheet__items" id="centinela-mobile-cart-items"></div>
+						<div class="centinela-mobile-cart-sheet__footer">
+							<p class="centinela-mobile-cart-sheet__subtotal">
+								<span class="centinela-mobile-cart-sheet__subtotal-label"><?php esc_html_e( 'Subtotal:', 'centinela-group-theme' ); ?></span>
+								<span id="centinela-mobile-cart-subtotal" class="centinela-mobile-cart-sheet__subtotal-value">0 COP</span>
+							</p>
+							<a href="<?php echo esc_url( $centinela_checkout_url ); ?>" id="centinela-mobile-cart-checkout" class="centinela-mobile-cart-sheet__cta centinela-mobile-cart-sheet__cta--primary"><?php esc_html_e( 'Finalizar compra', 'centinela-group-theme' ); ?></a>
+							<div class="centinela-mobile-cart-sheet__links">
+								<a href="<?php echo esc_url( $centinela_cart_url ); ?>" id="centinela-mobile-cart-view"><?php esc_html_e( 'Ver carrito', 'centinela-group-theme' ); ?></a>
+								<a href="<?php echo esc_url( $centinela_tienda_url ); ?>" id="centinela-mobile-cart-continue"><?php esc_html_e( 'Continuar comprando', 'centinela-group-theme' ); ?></a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<button
+			type="button"
+			id="centinela-mobile-cart-fab"
+			class="centinela-mobile-cart-fab"
+			aria-expanded="false"
+			aria-controls="centinela-mobile-cart-sheet"
+			aria-label="<?php esc_attr_e( 'Abrir carrito', 'centinela-group-theme' ); ?>"
+		>
+			<svg class="centinela-mobile-cart-fab__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+			<span class="centinela-mobile-cart-fab__count" id="centinela-mobile-cart-fab-count" data-count="0">0</span>
+		</button>
+	</div>
+	<?php
+}

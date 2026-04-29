@@ -17,10 +17,21 @@
   var currentProductUrl = '';
   var currentImagenes = [];
   var currentImagenesLarge = [];
+  var quickviewRequestToken = 0;
+  var quickviewBox = modal.querySelector('.centinela-quickview__box');
   var zoomEl = document.getElementById('centinela-quickview-zoom');
   var mainArea = document.getElementById('centinela-quickview-main-area');
   var mainImageWrap = document.querySelector('.centinela-quickview__main-image');
   var transitionDuration = 280;
+  function isMobileQuickviewViewport() {
+    return window.matchMedia('(max-width: 767px)').matches;
+  }
+
+  function syncQuickviewQtyInputMode() {
+    var qtyInput = document.getElementById('centinela-quickview-qty');
+    if (!qtyInput) return;
+    qtyInput.readOnly = isMobileQuickviewViewport();
+  }
 
   function openModal() {
     modal.setAttribute('aria-hidden', 'false');
@@ -29,9 +40,69 @@
   }
 
   function closeModal() {
+    // Invalida respuestas en vuelo para evitar que se pinte contenido tarde.
+    quickviewRequestToken += 1;
     modal.setAttribute('aria-hidden', 'true');
     modal.classList.remove('centinela-quickview--open');
     document.body.style.overflow = '';
+  }
+
+  function setQuickviewLoadingState(isLoading) {
+    var categoriaEl = document.getElementById('centinela-quickview-categoria');
+    var title = document.getElementById('centinela-quickview-title');
+    var price = document.getElementById('centinela-quickview-price');
+    var qtyInput = document.getElementById('centinela-quickview-qty');
+    var addcartBtn = document.getElementById('centinela-quickview-addcart');
+    var link = document.getElementById('centinela-quickview-link');
+    var thumbs = document.getElementById('centinela-quickview-thumbs');
+    var img = document.getElementById('centinela-quickview-img');
+    var stockWrap = document.getElementById('centinela-quickview-stock');
+    var stockValueEl = document.getElementById('centinela-quickview-stock-value');
+    if (quickviewBox) {
+      quickviewBox.classList.toggle('centinela-quickview__box--loading', !!isLoading);
+      quickviewBox.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    }
+    if (isLoading) {
+      currentProductId = null;
+      currentProductData = null;
+      currentAddToCartUrl = null;
+      currentProductUrl = '';
+      currentImagenes = [];
+      currentImagenesLarge = [];
+      if (categoriaEl) categoriaEl.style.display = 'none';
+      if (title) title.textContent = 'Cargando producto...';
+      if (price) price.textContent = '';
+      if (qtyInput) {
+        qtyInput.value = '1';
+        qtyInput.min = '1';
+        qtyInput.removeAttribute('max');
+        qtyInput.disabled = true;
+      }
+      if (addcartBtn) addcartBtn.disabled = true;
+      if (link) {
+        link.href = '#';
+        link.textContent = 'Cargando...';
+      }
+      if (thumbs) thumbs.innerHTML = '';
+      if (img) {
+        img.src = '';
+        img.style.display = 'none';
+      }
+      if (stockWrap) {
+        stockWrap.removeAttribute('data-stock-total');
+        stockWrap.style.display = 'none';
+      }
+      if (stockValueEl) stockValueEl.textContent = '';
+      if (zoomEl) {
+        zoomEl.style.backgroundImage = 'none';
+        zoomEl.classList.remove('centinela-quickview__zoom-panel--visible');
+      }
+      return;
+    }
+    if (qtyInput) qtyInput.disabled = false;
+    if (link && link.textContent === 'Cargando...') {
+      link.textContent = 'Ver producto';
+    }
   }
 
   // Formato Syscom: CO $ X,XXX.XX (miles con coma, decimales con punto).
@@ -106,6 +177,7 @@
         qtyInput.value = 1;
         qtyInput.removeAttribute('max');
       }
+      syncQuickviewQtyInputMode();
     }
 
     if (categoriaEl) {
@@ -210,12 +282,42 @@
     }
   }
 
+  function changeQuickviewQty(step) {
+    var qtyInput = document.getElementById('centinela-quickview-qty');
+    if (!qtyInput) return;
+    var min = parseInt(qtyInput.min, 10);
+    var max = parseInt(qtyInput.max, 10);
+    var current = parseInt(qtyInput.value, 10);
+    if (isNaN(min)) min = 1;
+    if (isNaN(current)) current = min;
+    if (current < min) current = min;
+    var next = current + step;
+    if (!isNaN(max)) next = Math.min(next, max);
+    next = Math.max(min, next);
+    qtyInput.value = next;
+    updateQuickviewStockDisplay();
+  }
+
   (function () {
     var qtyInput = document.getElementById('centinela-quickview-qty');
     if (qtyInput) {
       qtyInput.addEventListener('input', updateQuickviewStockDisplay);
       qtyInput.addEventListener('change', updateQuickviewStockDisplay);
+      syncQuickviewQtyInputMode();
     }
+    modal.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-quickview-qty-step]');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var step = parseInt(btn.getAttribute('data-quickview-qty-step'), 10);
+      if (!isNaN(step) && step !== 0) {
+        changeQuickviewQty(step);
+      }
+    });
+    window.addEventListener('resize', function () {
+      syncQuickviewQtyInputMode();
+    });
   })();
 
   function updateZoom(ev) {
@@ -302,6 +404,10 @@
 
   function loadQuickView(productId, source) {
     currentQuickViewSource = source || '';
+    quickviewRequestToken += 1;
+    var requestToken = quickviewRequestToken;
+    setQuickviewLoadingState(true);
+    openModal();
     var isWc = source === 'wc';
     var url = isWc
       ? restBase + '/centinela/v1/producto-wc-quick-view?id=' + encodeURIComponent(productId)
@@ -309,11 +415,20 @@
     fetch(url, { headers: { Accept: 'application/json' } })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data.error) return;
+        if (requestToken !== quickviewRequestToken) return;
+        if (data.error) {
+          var title = document.getElementById('centinela-quickview-title');
+          if (title) title.textContent = 'No fue posible cargar este producto.';
+          return;
+        }
+        setQuickviewLoadingState(false);
         fillModal(data);
-        openModal();
       })
-      .catch(function () {});
+      .catch(function () {
+        if (requestToken !== quickviewRequestToken) return;
+        var title = document.getElementById('centinela-quickview-title');
+        if (title) title.textContent = 'No fue posible cargar este producto.';
+      });
   }
 
   document.addEventListener('click', function (e) {

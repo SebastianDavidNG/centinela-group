@@ -28,5 +28,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</div>
 
 	<?php centinela_theme_mobile_menu_overlay(); ?>
+	<?php
+	if ( function_exists( 'centinela_theme_mobile_cart_shell' ) ) {
+		centinela_theme_mobile_cart_shell();
+	}
+	?>
 
 	<main id="content" class="site-main flex-grow">

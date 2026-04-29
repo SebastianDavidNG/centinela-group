@@ -53,6 +53,25 @@ function centinela_checkout_wompi_config_diagnostic() {
 }
 
 /**
+ * Inicializa sesión y carrito de WooCommerce en contextos sin el front completo (p. ej. REST).
+ * Varias pasarelas llaman a WC()->session dentro de process_payment(); si es null, puede producirse error fatal.
+ *
+ * @return void
+ */
+function centinela_checkout_bootstrap_wc_for_api() {
+	if ( ! function_exists( 'WC' ) || ! WC() ) {
+		return;
+	}
+	$wc = WC();
+	if ( is_callable( array( $wc, 'initialize_session' ) ) ) {
+		$wc->initialize_session();
+	}
+	if ( is_callable( array( $wc, 'initialize_cart' ) ) ) {
+		$wc->initialize_cart();
+	}
+}
+
+/**
  * Agrega un fee no gravable a una orden WooCommerce.
  *
  * @param WC_Order $order  Orden destino.
@@ -116,9 +135,12 @@ function centinela_get_or_create_tienda_placeholder_product() {
  * @return array { 'success' => bool, 'redirect' => string|null, 'message' => string, 'order_id' => int }
  */
 function centinela_checkout_create_wc_order( $items, $form ) {
-	if ( ! class_exists( 'WooCommerce' ) || ! function_exists( 'wc_create_order' ) ) {
+	if ( ! class_exists( 'WooCommerce' ) || ! function_exists( 'wc_create_order' ) || ! function_exists( 'WC' ) || ! WC() ) {
 		return array( 'success' => false, 'redirect' => null, 'message' => __( 'WooCommerce no está disponible.', 'centinela-group-theme' ), 'order_id' => 0 );
 	}
+
+	centinela_checkout_bootstrap_wc_for_api();
+
 	$diag = centinela_checkout_wompi_config_diagnostic();
 	if ( empty( $diag['ok'] ) ) {
 		return array( 'success' => false, 'redirect' => null, 'message' => (string) $diag['message'], 'order_id' => 0 );
@@ -165,11 +187,20 @@ function centinela_checkout_create_wc_order( $items, $form ) {
 
 	try {
 		$order = wc_create_order( array( 'status' => 'pending' ) );
+		if ( is_wp_error( $order ) ) {
+			$msg = $order->get_error_message();
+			return array(
+				'success'  => false,
+				'redirect' => null,
+				'message'  => $msg !== '' ? $msg : __( 'No se pudo crear el pedido.', 'centinela-group-theme' ),
+				'order_id' => 0,
+			);
+		}
 		if ( ! $order || ! ( $order instanceof WC_Order ) ) {
 			return array( 'success' => false, 'redirect' => null, 'message' => __( 'No se pudo crear el pedido.', 'centinela-group-theme' ), 'order_id' => 0 );
 		}
 
-		$order->set_payment_method( 'wompi' );
+		$order->set_payment_method( isset( $gateways['wompi'] ) ? $gateways['wompi'] : 'wompi' );
 		$order->set_billing_first_name( $nombre );
 		$order->set_billing_last_name( '' );
 		$order->set_billing_email( $email );
@@ -280,7 +311,11 @@ function centinela_checkout_create_wc_order( $items, $form ) {
 				if ( is_array( $payment_result ) && isset( $payment_result['result'] ) && $payment_result['result'] === 'success' && ! empty( $payment_result['redirect'] ) ) {
 					$redirect = (string) $payment_result['redirect'];
 				}
-			} catch ( Exception $e ) {
+			} catch ( \Throwable $e ) {
+				if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+					error_log( 'centinela Wompi process_payment: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+				}
 				$redirect = '';
 			}
 		}
@@ -292,7 +327,11 @@ function centinela_checkout_create_wc_order( $items, $form ) {
 		}
 
 		return array( 'success' => true, 'redirect' => $redirect, 'message' => '', 'order_id' => (int) $order->get_id() );
-	} catch ( Exception $e ) {
+	} catch ( \Throwable $e ) {
+		if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( 'centinela_checkout_create_wc_order: ' . $e->getMessage() . "\n" . $e->getTraceAsString() );
+		}
 		return array(
 			'success'  => false,
 			'redirect' => null,
@@ -342,38 +381,49 @@ function centinela_checkout_wompi_rest_routes() {
 			'centinela_cot_iva_pct'  => array( 'type' => array( 'string', 'number' ) ),
 		),
 		'callback' => function ( WP_REST_Request $request ) {
-			$items = $request->get_param( 'items' );
-			$form  = array(
-				'centinela_nombre'        => $request->get_param( 'centinela_nombre' ),
-				'centinela_email'         => $request->get_param( 'centinela_email' ),
-				'centinela_telefono'      => $request->get_param( 'centinela_telefono' ),
-				'centinela_direccion'     => $request->get_param( 'centinela_direccion' ),
-				'centinela_complemento'   => $request->get_param( 'centinela_complemento' ),
-				'centinela_ciudad'        => $request->get_param( 'centinela_ciudad' ),
-				'centinela_departamento'  => $request->get_param( 'centinela_departamento' ),
-				'centinela_codigo_postal' => $request->get_param( 'centinela_codigo_postal' ),
-				'centinela_pais'          => $request->get_param( 'centinela_pais' ),
-				'centinela_notas'         => $request->get_param( 'centinela_notas' ),
-				'centinela_cot_moneda'    => $request->get_param( 'centinela_cot_moneda' ),
-				'centinela_cot_subtotal'  => $request->get_param( 'centinela_cot_subtotal' ),
-				'centinela_cot_iva_valor' => $request->get_param( 'centinela_cot_iva_valor' ),
-				'centinela_cot_total'     => $request->get_param( 'centinela_cot_total' ),
-				'centinela_cot_iva_pct'   => $request->get_param( 'centinela_cot_iva_pct' ),
-			);
+			try {
+				$items = $request->get_param( 'items' );
+				$form  = array(
+					'centinela_nombre'        => $request->get_param( 'centinela_nombre' ),
+					'centinela_email'         => $request->get_param( 'centinela_email' ),
+					'centinela_telefono'      => $request->get_param( 'centinela_telefono' ),
+					'centinela_direccion'     => $request->get_param( 'centinela_direccion' ),
+					'centinela_complemento'   => $request->get_param( 'centinela_complemento' ),
+					'centinela_ciudad'        => $request->get_param( 'centinela_ciudad' ),
+					'centinela_departamento'  => $request->get_param( 'centinela_departamento' ),
+					'centinela_codigo_postal' => $request->get_param( 'centinela_codigo_postal' ),
+					'centinela_pais'          => $request->get_param( 'centinela_pais' ),
+					'centinela_notas'         => $request->get_param( 'centinela_notas' ),
+					'centinela_cot_moneda'    => $request->get_param( 'centinela_cot_moneda' ),
+					'centinela_cot_subtotal'  => $request->get_param( 'centinela_cot_subtotal' ),
+					'centinela_cot_iva_valor' => $request->get_param( 'centinela_cot_iva_valor' ),
+					'centinela_cot_total'     => $request->get_param( 'centinela_cot_total' ),
+					'centinela_cot_iva_pct'   => $request->get_param( 'centinela_cot_iva_pct' ),
+				);
 
-			$result = centinela_checkout_create_wc_order( $items, $form );
+				$result = centinela_checkout_create_wc_order( $items, $form );
 
-			if ( $result['success'] ) {
+				if ( $result['success'] ) {
+					return new WP_REST_Response( array(
+						'success'  => true,
+						'redirect' => $result['redirect'],
+					), 200 );
+				}
+
 				return new WP_REST_Response( array(
-					'success'  => true,
-					'redirect' => $result['redirect'],
-				), 200 );
+					'success' => false,
+					'message' => $result['message'],
+				), 400 );
+			} catch ( \Throwable $e ) {
+				if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+					error_log( sprintf( 'centinela REST checkout-create-order: %s in %s:%d', $e->getMessage(), $e->getFile(), $e->getLine() ) );
+				}
+				return new WP_REST_Response( array(
+					'success' => false,
+					'message' => __( 'No se pudo completar el pedido. Intente de nuevo o contacte al sitio.', 'centinela-group-theme' ),
+				), 500 );
 			}
-
-			return new WP_REST_Response( array(
-				'success' => false,
-				'message' => $result['message'],
-			), 400 );
 		},
 	) );
 }
