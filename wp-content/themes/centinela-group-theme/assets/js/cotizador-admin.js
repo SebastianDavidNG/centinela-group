@@ -240,7 +240,21 @@ jQuery(function ($) {
 			var precioOferta = parseNum(p.precio_oferta);
 			var tieneOferta = !!p.tiene_oferta;
 			if (precioOferta <= 0) precioOferta = precioLista;
-			var btn = $('<button type="button" role="option" data-id="' + id + '" data-titulo="' + titulo + '" data-modelo="' + modelo + '" data-precio-lista="' + precioLista + '" data-precio-oferta="' + precioOferta + '" data-tiene-oferta="' + (tieneOferta ? '1' : '0') + '">' +
+			var tcSug = getTcEfectivo();
+			var origenUsd = !!(p.lista_origen_usd) && parseNum(p.precio_lista_usd) > 0;
+			var listaUsdAttr;
+			var ofertaUsdAttr;
+			if (origenUsd) {
+				listaUsdAttr = parseNum(p.precio_lista_usd);
+				ofertaUsdAttr = parseNum(p.precio_oferta_usd) > 0 ? parseNum(p.precio_oferta_usd) : '';
+			} else if (tcSug > 0) {
+				listaUsdAttr = precioLista / tcSug;
+				ofertaUsdAttr = (tieneOferta && precioOferta > 0 && precioOferta < precioLista) ? (precioOferta / tcSug) : '';
+			} else {
+				listaUsdAttr = '';
+				ofertaUsdAttr = '';
+			}
+			var btn = $('<button type="button" role="option" data-id="' + id + '" data-titulo="' + titulo + '" data-modelo="' + modelo + '" data-precio-lista="' + precioLista + '" data-precio-oferta="' + precioOferta + '" data-tiene-oferta="' + (tieneOferta ? '1' : '0') + '" data-lista-origen-usd="' + (listaUsdAttr !== '' && listaUsdAttr !== undefined ? '1' : '0') + '" data-precio-lista-usd="' + listaUsdAttr + '" data-precio-oferta-usd="' + ofertaUsdAttr + '">' +
 				'<span class="centinela-cotizador-sug-titulo">' + (titulo || modelo || id) + '</span>' +
 				(modelo ? '<span class="centinela-cotizador-sug-modelo">' + modelo + '</span>' : '') +
 				'<span class="centinela-cotizador-sug-precio">' + formatPrecio(precioLista) + (tieneOferta ? ' / Oferta: ' + formatPrecio(precioOferta) : '') + '</span>' +
@@ -298,6 +312,51 @@ jQuery(function ($) {
 		return tipoPrecio === 'oferta' && tieneOferta ? oferta : lista;
 	}
 
+	/** Catálogo (no manual): precios COP se derivan de anclas USD × TRM del campo (lista Syscom en COP o en USD). */
+	function refreshCatalogRowsPreciosCopDesdeUsd() {
+		var tc = getTcEfectivo();
+		$tbody.find('tr.producto-fila').each(function () {
+			var $tr = $(this);
+			if ($tr.attr('data-manual') === '1') return;
+			var listaUsd = parseNum($tr.attr('data-precio-lista-usd'));
+			if (!(listaUsd > 0)) {
+				var listaCopLegacy = parseNum($tr.attr('data-precio-lista'));
+				if (listaCopLegacy > 0 && tc > 0) {
+					listaUsd = listaCopLegacy / tc;
+					$tr.attr('data-lista-origen-usd', '1').attr('data-precio-lista-usd', listaUsd);
+				}
+			}
+			if (!(listaUsd > 0)) return;
+			var ofertaUsd = parseNum($tr.attr('data-precio-oferta-usd'));
+			var listaCop = listaUsd * tc;
+			var ofertaCop = (ofertaUsd > 0 && ofertaUsd < listaUsd) ? ofertaUsd * tc : listaCop;
+			var tieneOferta = ofertaUsd > 0 && ofertaUsd < listaUsd;
+			$tr.attr('data-precio-lista', listaCop);
+			$tr.attr('data-precio-oferta', ofertaCop);
+			$tr.attr('data-tiene-oferta', tieneOferta ? '1' : '0');
+			var tipoPrecio = $('#centinela-cotizador-tipo-precio').val() || 'lista';
+			var precioCop = tipoPrecio === 'oferta' && tieneOferta ? ofertaCop : listaCop;
+			$tr.attr('data-precio-cop', precioCop);
+			var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
+			var desc = parseNum($tr.find('.centinela-cotizador-input-descuento').val());
+			var imp = cant * precioCop * (1 - desc / 100);
+			$tr.find('.centinela-cotizador-importe').attr('data-importe', imp);
+			syncFilaMontosVisibles($tr);
+		});
+	}
+
+	function recalcManualRowsPorTrm() {
+		$tbody.find('tr.producto-fila[data-manual="1"]').each(function () {
+			$(this).find('.centinela-cotizador-input-precio').trigger('change');
+		});
+	}
+
+	function aplicarTipoCambioATotales() {
+		refreshCatalogRowsPreciosCopDesdeUsd();
+		recalcManualRowsPorTrm();
+		updateResumen();
+	}
+
 	function addFila(producto, opts) {
 		opts = opts || {};
 		var isManual = !!producto.manual;
@@ -323,6 +382,31 @@ jQuery(function ($) {
 		} else if (precioOferta <= 0) {
 			precioOferta = precioLista;
 		}
+		var tcRow = getTcEfectivo();
+		var listaUsdApi = !isManual && !!producto.lista_origen_usd && parseNum(producto.precio_lista_usd) > 0;
+		var precioListaUsd = 0;
+		var precioOfertaUsd = 0;
+		if (!isManual) {
+			if (listaUsdApi) {
+				precioListaUsd = parseNum(producto.precio_lista_usd);
+				precioOfertaUsd = parseNum(producto.precio_oferta_usd) > 0 ? parseNum(producto.precio_oferta_usd) : 0;
+				precioLista = precioListaUsd * tcRow;
+				if (precioOfertaUsd > 0 && precioOfertaUsd < precioListaUsd) {
+					precioOferta = precioOfertaUsd * tcRow;
+					tieneOferta = true;
+				} else {
+					precioOferta = precioLista;
+					tieneOferta = false;
+				}
+			} else if (tcRow > 0) {
+				precioListaUsd = precioLista / tcRow;
+				if (tieneOferta && precioOferta > 0 && precioOferta < precioLista) {
+					precioOfertaUsd = precioOferta / tcRow;
+				} else {
+					precioOfertaUsd = 0;
+				}
+			}
+		}
 		var precioInicial = producto.precio_inicial != null ? parseNum(producto.precio_inicial) : getPrecioSegunTipo({ precio_lista: precioLista, precio_oferta: precioOferta, tiene_oferta: tieneOferta });
 		var cantidad = producto.cantidad_inicial != null ? Math.max(1, parseInt(producto.cantidad_inicial, 10) || 1) : 1;
 		var descuento = producto.descuento_inicial != null ? parseNum(producto.descuento_inicial) : 0;
@@ -335,8 +419,11 @@ jQuery(function ($) {
 		var refAttr = escHtml(referencia);
 		var refBlock = referencia ? '<span class="centinela-cotizador-producto-ref">' + escHtml(referencia) + '</span>' : '';
 		var manualAttr = isManual ? ' data-manual="1"' : '';
+		var listaUsdAttr = (!isManual && precioListaUsd > 0)
+			? (' data-lista-origen-usd="1" data-precio-lista-usd="' + precioListaUsd + '" data-precio-oferta-usd="' + (precioOfertaUsd > 0 ? precioOfertaUsd : '') + '"')
+			: '';
 		var manualEditBtn = isManual ? '<button type="button" class="button button-small centinela-cotizador-btn-editar-manual">' + (i18n.manual_edit || 'Editar') + '</button>' : '';
-		var $tr = $('<tr class="producto-fila"' + manualAttr + ' data-producto-id="' + escHtml(id) + '" data-modelo="' + modeloAttr + '" data-titulo="' + tituloAttr + '" data-referencia="' + refAttr + '" data-precio-lista="' + precioLista + '" data-precio-oferta="' + precioOferta + '" data-tiene-oferta="' + (tieneOferta ? '1' : '0') + '">' +
+		var $tr = $('<tr class="producto-fila"' + manualAttr + listaUsdAttr + ' data-producto-id="' + escHtml(id) + '" data-modelo="' + modeloAttr + '" data-titulo="' + tituloAttr + '" data-referencia="' + refAttr + '" data-precio-lista="' + precioLista + '" data-precio-oferta="' + precioOferta + '" data-tiene-oferta="' + (tieneOferta ? '1' : '0') + '">' +
 			'<td class="centinela-cotizador-col-orden"><span class="centinela-cotizador-drag-handle">⋮⋮</span></td>' +
 			'<td class="centinela-cotizador-col-modelo"><div class="centinela-cotizador-producto-cell">' +
 			refBlock +
@@ -357,6 +444,18 @@ jQuery(function ($) {
 			var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
 			var desc = parseNum($tr.find('.centinela-cotizador-input-descuento').val());
 			var precCop = precioInputToCop(parseNum($tr.find('.centinela-cotizador-input-precio').val()));
+			var prevCop = parseNum($tr.attr('data-precio-cop'));
+			if (!isManual) {
+				var tcR = getTcEfectivo();
+				if (tcR > 0 && Math.abs(precCop - prevCop) > 0.0005) {
+					$tr.attr('data-precio-lista-usd', precCop / tcR);
+					$tr.attr('data-precio-oferta-usd', '');
+					$tr.attr('data-precio-lista', precCop);
+					$tr.attr('data-precio-oferta', precCop);
+					$tr.attr('data-tiene-oferta', '0');
+					$tr.attr('data-lista-origen-usd', '1');
+				}
+			}
 			$tr.attr('data-precio-cop', precCop);
 			var imp = cant * precCop * (1 - desc / 100);
 			var $importeSpan = $tr.find('.centinela-cotizador-importe');
@@ -557,7 +656,7 @@ jQuery(function ($) {
 					if (tcApplySyscomToField || force) {
 						$tipoCambio.val(res.data.tipo_cambio).attr('placeholder', '');
 					}
-					updateResumen();
+					aplicarTipoCambioATotales();
 					if (tcApplySyscomToField || force) {
 						showTcMsg(i18n.trm_syscom_ok || 'TRM Syscom cargado. Totales actualizados.');
 					}
@@ -583,15 +682,37 @@ jQuery(function ($) {
 
 	function applyTipoPrecioToRows() {
 		var tipoPrecio = $('#centinela-cotizador-tipo-precio').val() || 'lista';
+		var tc = getTcEfectivo();
 		$tbody.find('tr.producto-fila').each(function () {
 			var $tr = $(this);
 			if ($tr.attr('data-manual') === '1') {
 				return;
 			}
-			var lista = parseNum($tr.attr('data-precio-lista'));
-			var oferta = parseNum($tr.attr('data-precio-oferta'));
-			var tieneOferta = $tr.attr('data-tiene-oferta') === '1';
-			if (oferta <= 0) oferta = lista;
+			var lista;
+			var oferta;
+			var tieneOferta;
+			var listaUsd = parseNum($tr.attr('data-precio-lista-usd'));
+			if (!(listaUsd > 0) && tc > 0) {
+				var listaCop0 = parseNum($tr.attr('data-precio-lista'));
+				if (listaCop0 > 0) {
+					listaUsd = listaCop0 / tc;
+					$tr.attr('data-lista-origen-usd', '1').attr('data-precio-lista-usd', listaUsd);
+				}
+			}
+			if (listaUsd > 0) {
+				var ofertaUsd = parseNum($tr.attr('data-precio-oferta-usd'));
+				lista = listaUsd * tc;
+				oferta = (ofertaUsd > 0 && ofertaUsd < listaUsd) ? ofertaUsd * tc : lista;
+				tieneOferta = ofertaUsd > 0 && ofertaUsd < listaUsd;
+				$tr.attr('data-precio-lista', lista);
+				$tr.attr('data-precio-oferta', oferta);
+				$tr.attr('data-tiene-oferta', tieneOferta ? '1' : '0');
+			} else {
+				lista = parseNum($tr.attr('data-precio-lista'));
+				oferta = parseNum($tr.attr('data-precio-oferta'));
+				tieneOferta = $tr.attr('data-tiene-oferta') === '1';
+				if (oferta <= 0) oferta = lista;
+			}
 			var precioCop = tipoPrecio === 'oferta' && tieneOferta ? oferta : lista;
 			$tr.attr('data-precio-cop', precioCop);
 			var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
@@ -612,7 +733,17 @@ jQuery(function ($) {
 		var precioLista = parseNum($btn.data('precio-lista'));
 		var precioOferta = parseNum($btn.data('precio-oferta'));
 		var tieneOferta = $btn.data('tiene-oferta') === 1 || $btn.data('tiene-oferta') === '1';
-		var producto = { id: id, titulo: titulo, modelo: modelo, precio_lista: precioLista, precio_oferta: precioOferta, tiene_oferta: tieneOferta };
+		var producto = {
+			id: id,
+			titulo: titulo,
+			modelo: modelo,
+			precio_lista: precioLista,
+			precio_oferta: precioOferta,
+			tiene_oferta: tieneOferta,
+			lista_origen_usd: $btn.attr('data-lista-origen-usd') === '1' && parseNum($btn.attr('data-precio-lista-usd')) > 0,
+			precio_lista_usd: parseNum($btn.attr('data-precio-lista-usd')),
+			precio_oferta_usd: parseNum($btn.attr('data-precio-oferta-usd'))
+		};
 		var $filaExistente = $tbody.find('tr.producto-fila[data-producto-id="' + id + '"]');
 		if ($filaExistente.length) {
 			var $cant = $filaExistente.find('.centinela-cotizador-input-cantidad');
@@ -777,7 +908,7 @@ jQuery(function ($) {
 			$tipoCambio.trigger('focus');
 			return;
 		}
-		updateResumen();
+		aplicarTipoCambioATotales();
 		showTcMsg(i18n.tc_recalculado || 'Totales actualizados con el tipo de cambio del campo.');
 	});
 
@@ -832,6 +963,14 @@ jQuery(function ($) {
 			}
 			if ($tr.attr('data-manual') === '1') {
 				row.manual = true;
+			}
+			if ($tr.attr('data-lista-origen-usd') === '1' && parseNum($tr.attr('data-precio-lista-usd')) > 0) {
+				row.lista_origen_usd = true;
+				row.precio_lista_usd = parseNum($tr.attr('data-precio-lista-usd'));
+				var pou = parseNum($tr.attr('data-precio-oferta-usd'));
+				if (pou > 0) {
+					row.precio_oferta_usd = pou;
+				}
 			}
 			productos.push(row);
 		});
@@ -1273,11 +1412,18 @@ jQuery(function ($) {
 		destroyCotizadorFilasSortable();
 		$tbody.find('tr.producto-fila').remove();
 		$filaVacia.show();
+
+		$moneda.val(datos.moneda || 'COP');
+		$tipoCambio.val(parseNum(datos.tipo_cambio));
+		$('#centinela-cotizador-tipo-precio').val(datos.tipo_precio || 'lista');
+		$ivaPct.val(parseNum(datos.iva_pct) || 19);
+
+		var tcGuardado = parseNum(datos.tipo_cambio);
 		var productos = datos.productos || [];
 		productos.forEach(function (p) {
 			var precio = parseNum(p.precio);
 			var isManual = !!p.manual;
-			addFila({
+			var fila = {
 				manual: isManual,
 				id: p.id || '',
 				referencia: p.referencia || '',
@@ -1286,10 +1432,28 @@ jQuery(function ($) {
 				precio_lista: precio,
 				precio_oferta: precio,
 				tiene_oferta: false,
-				precio_inicial: precio,
 				cantidad_inicial: parseNum(p.cantidad) || 1,
 				descuento_inicial: parseNum(p.descuento) || 0
-			}, { skipSortableRefresh: true });
+			};
+			var usdMeta = !isManual && p.lista_origen_usd && parseNum(p.precio_lista_usd) > 0;
+			if (!isManual) {
+				if (usdMeta) {
+					fila.lista_origen_usd = true;
+					fila.precio_lista_usd = parseNum(p.precio_lista_usd);
+					if (parseNum(p.precio_oferta_usd) > 0) {
+						fila.precio_oferta_usd = parseNum(p.precio_oferta_usd);
+					}
+				} else if (precio > 0 && tcGuardado > 0) {
+					fila.lista_origen_usd = true;
+					fila.precio_lista_usd = precio / tcGuardado;
+					fila.precio_oferta_usd = 0;
+				} else {
+					fila.precio_inicial = precio;
+				}
+			} else {
+				fila.precio_inicial = precio;
+			}
+			addFila(fila, { skipSortableRefresh: true });
 			$tbody.find('tr.producto-fila').last().find('.centinela-cotizador-input-cantidad').trigger('change');
 		});
 
@@ -1323,11 +1487,6 @@ jQuery(function ($) {
 		$('#centinela-cotizador-envio-direccion').val(envio.direccion || '');
 		$('#centinela-cotizador-envio-ciudad').val(envio.ciudad || '');
 		$('#centinela-cotizador-envio-cel').val(envio.cel || '');
-
-		$moneda.val(datos.moneda || 'COP');
-		$tipoCambio.val(parseNum(datos.tipo_cambio));
-		$('#centinela-cotizador-tipo-precio').val(datos.tipo_precio || 'lista');
-		$ivaPct.val(parseNum(datos.iva_pct) || 19);
 
 		var logoUrl = datos.logo_url || logoDefaultUrl || '';
 		$('#centinela-cotizador-logo-url').val(logoUrl);

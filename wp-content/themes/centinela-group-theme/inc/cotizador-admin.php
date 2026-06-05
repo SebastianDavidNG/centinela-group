@@ -1736,6 +1736,14 @@ function centinela_cotizador_ajax_buscar_productos() {
 			}
 		}
 	}
+	$tc_syscom = 0.0;
+	if ( class_exists( 'Centinela_Syscom_API' ) && method_exists( 'Centinela_Syscom_API', 'get_tipo_cambio_usd_cop' ) ) {
+		$tc_x = Centinela_Syscom_API::get_tipo_cambio_usd_cop();
+		if ( ! is_wp_error( $tc_x ) ) {
+			$tc_syscom = (float) $tc_x;
+		}
+	}
+
 	$productos = array();
 	foreach ( $productos_raw as $p ) {
 		if ( ! is_array( $p ) ) {
@@ -1760,13 +1768,37 @@ function centinela_cotizador_ajax_buscar_productos() {
 		if ( $haystack === '' || strpos( $haystack, $q_norm ) === false ) {
 			continue;
 		}
+
+		$lista_origen_usd  = false;
+		$precio_lista_usd  = 0.0;
+		$precio_oferta_usd = 0.0;
+		if ( function_exists( 'centinela_syscom_compute_precios_lista_oferta_internal' ) && $tc_syscom > 0 && $precio_lista > 0 ) {
+			$internal   = centinela_syscom_compute_precios_lista_oferta_internal( $p );
+			$raw_lista  = isset( $internal['precio_lista'] ) ? (float) $internal['precio_lista'] : 0.0;
+			$raw_oferta = isset( $internal['precio_oferta'] ) ? (float) $internal['precio_oferta'] : 0.0;
+			if ( $raw_lista > 0 && $raw_lista <= 25000 ) {
+				$esp_lista_cop = round( $raw_lista * $tc_syscom, 2 );
+				$tolerance     = max( 0.02, $esp_lista_cop * 0.02 );
+				if ( abs( $precio_lista - $esp_lista_cop ) <= $tolerance ) {
+					$lista_origen_usd = true;
+					$precio_lista_usd = $raw_lista;
+					if ( $raw_oferta > 0 && $raw_oferta < $raw_lista ) {
+						$precio_oferta_usd = $raw_oferta;
+					}
+				}
+			}
+		}
+
 		$productos[] = array(
-			'id'            => (string) $id,
-			'titulo'        => $titulo,
-			'modelo'        => $modelo,
-			'precio_lista'  => $precio_lista,
-			'precio_oferta' => $precio_oferta > 0 ? $precio_oferta : $precio_lista,
-			'tiene_oferta'  => $precio_oferta > 0,
+			'id'                 => (string) $id,
+			'titulo'             => $titulo,
+			'modelo'             => $modelo,
+			'precio_lista'       => $precio_lista,
+			'precio_oferta'      => $precio_oferta > 0 ? $precio_oferta : $precio_lista,
+			'tiene_oferta'       => $precio_oferta > 0,
+			'lista_origen_usd'   => $lista_origen_usd,
+			'precio_lista_usd'   => $precio_lista_usd,
+			'precio_oferta_usd'  => $precio_oferta_usd,
 		);
 	}
 	$productos = array_slice( $productos, 0, 20 );
