@@ -13,6 +13,37 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Detecta envíos del cotizador (cabecera X-Centinela-Cotizacion-Trace o asunto típico).
+ *
+ * @param array $wp_mail_args Argumentos de wp_mail (headers, subject, …).
+ * @return bool
+ */
+function centinela_cotizador_wp_mail_args_is_cotizacion( $wp_mail_args ) {
+	if ( ! is_array( $wp_mail_args ) ) {
+		return false;
+	}
+	$headers = isset( $wp_mail_args['headers'] ) ? $wp_mail_args['headers'] : '';
+	if ( is_array( $headers ) ) {
+		$list = $headers;
+	} else {
+		$list = array_filter( explode( "\n", str_replace( "\r\n", "\n", (string) $headers ) ) );
+	}
+	foreach ( $list as $header_name => $header_val ) {
+		if ( is_string( $header_name ) && preg_match( '/^X-Centinela-Cotizacion-Trace$/i', trim( $header_name ) ) ) {
+			return true;
+		}
+		if ( is_string( $header_val ) && preg_match( '/^\s*X-Centinela-Cotizacion-Trace\s*:/i', $header_val ) ) {
+			return true;
+		}
+	}
+	$subject = isset( $wp_mail_args['subject'] ) ? (string) $wp_mail_args['subject'] : '';
+	if ( $subject !== '' && ( stripos( $subject, 'Cotización Web de Centinela Group' ) !== false || stripos( $subject, 'Link de pago de tu cotización' ) !== false ) ) {
+		return true;
+	}
+	return false;
+}
+
+/**
  * WP Mail SMTP (desde ~4.0): la opción «Optimizar envío de correos» encola wp_mail en peticiones normales
  * (p. ej. admin-ajax del cotizador). El correo de prueba del plugin no se encola porque lleva
  * X-Mailer-Type: WPMailSMTP/Admin/Test. Si el cron/Action Scheduler no procesa la cola, el correo nunca sale
@@ -24,23 +55,60 @@ function centinela_cotizador_wp_mail_smtp_skip_queue_when_trace_header( $enqueue
 	if ( true !== $enqueue || ! is_array( $wp_mail_args ) ) {
 		return $enqueue;
 	}
-	$headers = isset( $wp_mail_args['headers'] ) ? $wp_mail_args['headers'] : '';
-	if ( is_array( $headers ) ) {
-		$list = $headers;
-	} else {
-		$list = array_filter( explode( "\n", str_replace( "\r\n", "\n", (string) $headers ) ) );
-	}
-	foreach ( $list as $header_name => $header_val ) {
-		if ( is_string( $header_name ) && preg_match( '/^X-Centinela-Cotizacion-Trace$/i', trim( $header_name ) ) ) {
-			return false;
-		}
-		if ( is_string( $header_val ) && preg_match( '/^\s*X-Centinela-Cotizacion-Trace\s*:/i', $header_val ) ) {
-			return false;
-		}
+	if ( centinela_cotizador_wp_mail_args_is_cotizacion( $wp_mail_args ) ) {
+		return false;
 	}
 	return $enqueue;
 }
 add_filter( 'wp_mail_smtp_mail_catcher_send_enqueue_email', 'centinela_cotizador_wp_mail_smtp_skip_queue_when_trace_header', 100, 2 );
+
+/**
+ * Site Mailer (Elementor) engancha pre_wp_mail y envía por su API, ignorando WP Mail SMTP.
+ * Si ambos plugins están activos, los correos del cotizador deben ir por WP Mail SMTP.
+ *
+ * @return void
+ */
+function centinela_cotizador_unhook_site_mailer_pre_wp_mail() {
+	global $wp_filter;
+	if ( empty( $wp_filter['pre_wp_mail'] ) ) {
+		return;
+	}
+	$hook = $wp_filter['pre_wp_mail'];
+	if ( ! is_object( $hook ) || ! isset( $hook->callbacks ) || ! is_array( $hook->callbacks ) ) {
+		return;
+	}
+	foreach ( $hook->callbacks as $priority => $callbacks ) {
+		foreach ( $callbacks as $callback ) {
+			if ( empty( $callback['function'] ) || ! is_array( $callback['function'] ) ) {
+				continue;
+			}
+			$object = $callback['function'][0];
+			$method = isset( $callback['function'][1] ) ? $callback['function'][1] : '';
+			if ( is_object( $object ) && $method === 'send' && is_a( $object, 'SiteMailer\Modules\Mailer\Module' ) ) {
+				remove_filter( 'pre_wp_mail', $callback['function'], (int) $priority );
+			}
+		}
+	}
+}
+
+/**
+ * Deja pasar correos del cotizador a wp_mail + WP Mail SMTP (no Site Mailer pre_wp_mail).
+ *
+ * @param null|bool $sent Valor devuelto por filtros previos de pre_wp_mail.
+ * @param array     $atts Argumentos de wp_mail.
+ * @return null|bool
+ */
+function centinela_cotizador_pre_wp_mail_bypass_site_mailer( $sent, $atts ) {
+	if ( null !== $sent ) {
+		return $sent;
+	}
+	if ( ! centinela_cotizador_wp_mail_args_is_cotizacion( $atts ) ) {
+		return null;
+	}
+	centinela_cotizador_unhook_site_mailer_pre_wp_mail();
+	return null;
+}
+add_filter( 'pre_wp_mail', 'centinela_cotizador_pre_wp_mail_bypass_site_mailer', 9, 2 );
 
 /**
  * Tras un envío exitoso desde el cotizador, ejecutar Action Scheduler en shutdown para procesar
@@ -1655,8 +1723,12 @@ function centinela_cotizador_ajax_buscar_productos() {
 
 	// Misma lógica que el buscador del sitio: variantes API + barrido de catálogo + coincidencia flexible (p. ej. TK-3000-KV2).
 	if ( function_exists( 'centinela_search_productos_syscom' ) ) {
-		// Modo rápido para autocompletar del cotizador: evita timeouts/errores AJAX en referencias complejas.
-		$rows      = centinela_search_productos_syscom( $busqueda, 50, true );
+		// Referencias/modelo: búsqueda completa (como /tienda/?marca= y search.php con Enter).
+		// Modo rápido solo para títulos genéricos; evita perder SKUs tipo DS-2CD2143G2-I.
+		$use_fast = ( $tipo !== 'modelo' )
+			&& ! ( function_exists( 'centinela_search_query_looks_like_product_reference' )
+				&& centinela_search_query_looks_like_product_reference( $busqueda ) );
+		$rows      = centinela_search_productos_syscom( $busqueda, 50, $use_fast );
 		$productos = array();
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {

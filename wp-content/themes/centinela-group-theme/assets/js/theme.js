@@ -386,7 +386,7 @@
       e.stopPropagation();
       window.location.href = href;
     });
-    var storageKey = 'centinelaSearchSuggestionsV3';
+    var storageKey = 'centinelaSearchSuggestionsV4';
     var storageTtlMs = 15 * 60 * 1000; // 15 min
     var persistentStore = null;
 
@@ -554,11 +554,12 @@
 
       var apiUrl = (typeof centinelaTheme !== 'undefined' && centinelaTheme.searchApiUrl) ? centinelaTheme.searchApiUrl : (window.location.origin + '/wp-json/centinela/v1/search');
       var likelyBrandQuery = /^[a-zA-Z\s]+$/.test(q) && q.trim().length >= 4;
+      var likelyRefQuery = /[a-zA-Z]/.test(q) && /\d/.test(q) && q.trim().length >= 5;
       // Desktop conserva más amplitud; mobile mantiene carga controlada.
       // Límite acotado: evita payloads grandes y acelera render en autocompletado.
       var inlineBrandLimit = isDesktopInline ? 36 : 18;
-      var inlineRefLimit = isDesktopInline ? 24 : 12;
-      var limitProductos = isInlineSearch ? (likelyBrandQuery ? inlineBrandLimit : inlineRefLimit) : 8;
+      var inlineRefLimit = isDesktopInline ? 48 : 24;
+      var limitProductos = isInlineSearch ? (likelyBrandQuery ? inlineBrandLimit : (likelyRefQuery ? inlineRefLimit : inlineRefLimit)) : 8;
       var limitContent = isInlineSearch ? 0 : 5;
       var params = 'q=' + encodeURIComponent(q) + '&limit_content=' + limitContent + '&limit_productos=' + limitProductos + '&suggestions=1';
       var url = apiUrl + (apiUrl.indexOf('?') !== -1 ? '&' : '?') + params;

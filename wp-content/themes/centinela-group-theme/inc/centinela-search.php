@@ -154,6 +154,9 @@ function centinela_search_extract_primary_model_query( $query ) {
 	if ( preg_match( '/\b(PKT-?300[A-Z0-9]*)\b/i', $query, $m ) ) {
 		return strtoupper( $m[1] );
 	}
+	if ( preg_match( '/\b(DS-?[0-9][A-Z0-9-]{4,})\b/i', $query, $m ) ) {
+		return strtoupper( $m[1] );
+	}
 	return $query;
 }
 
@@ -647,7 +650,7 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 		return array();
 	}
 	if ( $fast ) {
-		$cache_key = 'centinela_search_fast_' . md5( strtolower( $query ) . '|' . (int) $limit );
+		$cache_key = 'centinela_search_fast_v2_' . md5( strtolower( $query ) . '|' . (int) $limit );
 		$cached = get_transient( $cache_key );
 		if ( is_array( $cached ) ) {
 			return $cached;
@@ -785,6 +788,31 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 			$trust_api_extra_terms[] = strtolower( $pkt_term );
 		}
 		$variantes_busqueda[] = strtolower( centinela_normalize_for_match( $ref_query ) );
+	}
+	// Hikvision DS-2CD…: la API suele indexar DS+2CD2143 o la familia DS-2CD2143, no siempre el sufijo G2-I completo.
+	if ( centinela_search_query_looks_like_product_reference( $ref_query ) && preg_match( '/\b(DS-?2CD(\d{4}))[A-Z0-9-]*/i', $ref_query, $m_ds ) ) {
+		$base_ds   = strtoupper( preg_replace( '/\s+/', '', $m_ds[1] ) );
+		$series_ds = $m_ds[2];
+		if ( strlen( $base_ds ) >= 8 ) {
+			$variantes_busqueda[] = $base_ds;
+			$variantes_busqueda[] = centinela_normalize_search_term_for_api( $base_ds );
+			if ( strpos( $base_ds, '-' ) === false && preg_match( '/^DS2CD\d{4}$/', $base_ds ) ) {
+				$h = 'DS-2CD' . $series_ds;
+				$variantes_busqueda[] = $h;
+				$variantes_busqueda[] = centinela_normalize_search_term_for_api( $h );
+			}
+			$ds_plus = 'DS+2CD' . $series_ds;
+			$ds_sp   = 'DS 2CD' . $series_ds;
+			$variantes_busqueda[]    = $ds_plus;
+			$variantes_busqueda[]    = $ds_sp;
+			$trust_api_extra_terms[] = strtolower( $ds_plus );
+			$trust_api_extra_terms[] = strtolower( $ds_sp );
+			$ds_compact = strtolower( centinela_normalize_for_match( $ref_query ) );
+			if ( $ds_compact !== '' ) {
+				$variantes_busqueda[]    = $ds_compact;
+				$trust_api_extra_terms[] = $ds_compact;
+			}
+		}
 	}
 	$variantes_busqueda = array_values( array_unique( array_filter( array_map( 'trim', $variantes_busqueda ) ) ) );
 	$trust_api_extra_terms = array_values( array_unique( array_filter( array_map( 'strtolower', array_map( 'trim', $trust_api_extra_terms ) ) ) ) );
@@ -1223,6 +1251,43 @@ function centinela_search_get_prompts_syscom( $limit = 10 ) {
 }
 
 /**
+ * ¿Algún ítem de la lista de búsqueda coincide con la referencia consultada?
+ *
+ * @param array  $productos Filas formateadas (id, titulo, modelo, …) o crudas API.
+ * @param string $query     Referencia o término.
+ * @return bool
+ */
+function centinela_search_list_has_reference_match( $productos, $query ) {
+	if ( empty( $productos ) || ! is_array( $productos ) ) {
+		return false;
+	}
+	$query = trim( (string) $query );
+	if ( $query === '' ) {
+		return false;
+	}
+	$q_norm = centinela_normalize_for_match( $query );
+	if ( $q_norm === '' ) {
+		return false;
+	}
+	foreach ( $productos as $p ) {
+		if ( ! is_array( $p ) ) {
+			continue;
+		}
+		if ( function_exists( 'centinela_producto_matches_search' ) && centinela_producto_matches_search( $query, $p ) ) {
+			return true;
+		}
+		if ( function_exists( 'centinela_producto_reference_fields_match_query' ) && centinela_producto_reference_fields_match_query( $query, $p ) ) {
+			return true;
+		}
+		$modelo = isset( $p['modelo'] ) ? centinela_normalize_for_match( $p['modelo'] ) : '';
+		if ( $modelo !== '' && ( $modelo === $q_norm || strpos( $modelo, $q_norm ) !== false ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Registra el endpoint REST para búsqueda unificada (contenido + productos).
  * Útil para búsqueda en vivo en el header.
  */
@@ -1261,8 +1326,15 @@ function centinela_register_search_rest_route() {
 			$limit_p = (int) $request->get_param( 'limit_productos' );
 			$limit_c = max( 1, min( 20, $limit_c ) );
 			$limit_p = max( 1, min( 80, $limit_p ) );
-			$fast = (bool) $request->get_param( 'suggestions' );
-			if ( $fast && (int) $request->get_param( 'limit_content' ) <= 0 ) {
+			$use_suggestions = (bool) $request->get_param( 'suggestions' );
+			$is_ref          = function_exists( 'centinela_search_query_looks_like_product_reference' )
+				&& centinela_search_query_looks_like_product_reference( $q );
+			// Referencias (DS-2CD2143G2-I, TK-3000, …): búsqueda completa como cotizador y search.php con Enter.
+			$fast = $use_suggestions && ! $is_ref;
+			if ( $is_ref ) {
+				$limit_p = min( 80, max( $limit_p, 48 ) );
+			}
+			if ( $use_suggestions && (int) $request->get_param( 'limit_content' ) <= 0 ) {
 				$limit_c = 0;
 			}
 
@@ -1289,6 +1361,12 @@ function centinela_register_search_rest_route() {
 			}
 
 			$productos = function_exists( 'centinela_search_productos_syscom' ) ? centinela_search_productos_syscom( $q, $limit_p, $fast ) : array();
+			if ( $use_suggestions && $is_ref && ! empty( $productos )
+				&& ! centinela_search_list_has_reference_match( $productos, $q ) ) {
+				$productos = centinela_search_productos_syscom( $q, $limit_p, false );
+			} elseif ( $fast && empty( $productos ) && $is_ref ) {
+				$productos = centinela_search_productos_syscom( $q, $limit_p, false );
+			}
 			return new WP_REST_Response( array( 'contenido' => $contenido, 'productos' => $productos ), 200 );
 		},
 	) );
