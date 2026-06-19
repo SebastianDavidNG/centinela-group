@@ -403,26 +403,85 @@ function centinela_cotizador_format_vigencia_fecha( $fecha_ymd ) {
 }
 
 /**
+ * Normaliza fecha de cotización a Y-m-d (entrada type="date" o d/m/Y).
+ *
+ * @param string $raw Valor del campo.
+ * @return string Y-m-d o cadena vacía si no es válida.
+ */
+function centinela_cotizador_sanitize_fecha_cotizacion( $raw ) {
+	$raw = is_string( $raw ) ? trim( $raw ) : '';
+	if ( $raw === '' ) {
+		return '';
+	}
+	if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $raw ) ) {
+		return $raw;
+	}
+	if ( preg_match( '/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $raw, $m ) ) {
+		$d  = (int) $m[1];
+		$mo = (int) $m[2];
+		$y  = (int) $m[3];
+		if ( checkdate( $mo, $d, $y ) ) {
+			return sprintf( '%04d-%02d-%02d', $y, $mo, $d );
+		}
+	}
+	return '';
+}
+
+/**
+ * Fecha Y-m-d de la cotización (meta, post o hoy).
+ *
+ * @param array $datos   Datos de la cotización.
+ * @param int   $post_id ID del post (opcional).
+ * @return string Y-m-d
+ */
+function centinela_cotizador_fecha_cotizacion_ymd_from_datos( $datos, $post_id = 0 ) {
+	if ( is_array( $datos ) && ! empty( $datos['fecha_cotizacion'] ) ) {
+		$ymd = centinela_cotizador_sanitize_fecha_cotizacion( (string) $datos['fecha_cotizacion'] );
+		if ( $ymd !== '' ) {
+			return $ymd;
+		}
+	}
+	$pid = $post_id > 0 ? $post_id : ( is_array( $datos ) && ! empty( $datos['cotizacion_post_id'] ) ? absint( $datos['cotizacion_post_id'] ) : 0 );
+	if ( $pid > 0 ) {
+		$p = get_post( $pid );
+		if ( $p && $p->post_type === 'cotizacion' ) {
+			$t = get_post_time( 'Y-m-d', false, $p );
+			if ( is_string( $t ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $t ) ) {
+				return $t;
+			}
+		}
+	}
+	return wp_date( 'Y-m-d' );
+}
+
+/**
+ * Fecha de cotización para mostrar en PDF/correo (d/m/Y).
+ *
+ * @param string $ymd Fecha Y-m-d.
+ * @return string
+ */
+function centinela_cotizador_fecha_cotizacion_display_dmY( $ymd ) {
+	$ymd = centinela_cotizador_sanitize_fecha_cotizacion( $ymd );
+	if ( $ymd === '' ) {
+		return wp_date( 'd/m/Y' );
+	}
+	try {
+		$dt = new DateTimeImmutable( $ymd . ' 00:00:00', wp_timezone() );
+		return $dt->format( 'd/m/Y' );
+	} catch ( Exception $e ) {
+		return wp_date( 'd/m/Y' );
+	}
+}
+
+/**
  * Fecha de emisión mostrada en cotización (PDF/correo).
  *
  * @param array $datos Puede incluir fecha_cotizacion (string), cotizacion_post_id (int).
  * @return string Formato d/m/Y.
  */
 function centinela_cotizador_email_fecha_emision( $datos ) {
-	if ( ! is_array( $datos ) ) {
-		return wp_date( 'd/m/Y' );
-	}
-	if ( ! empty( $datos['fecha_cotizacion'] ) ) {
-		return sanitize_text_field( (string) $datos['fecha_cotizacion'] );
-	}
-	$pid = ! empty( $datos['cotizacion_post_id'] ) ? absint( $datos['cotizacion_post_id'] ) : 0;
-	if ( $pid > 0 ) {
-		$p = get_post( $pid );
-		if ( $p && $p->post_type === 'cotizacion' ) {
-			return get_the_date( 'd/m/Y', $p );
-		}
-	}
-	return wp_date( 'd/m/Y' );
+	$ymd = centinela_cotizador_fecha_cotizacion_ymd_from_datos( is_array( $datos ) ? $datos : array() );
+	return centinela_cotizador_fecha_cotizacion_display_dmY( $ymd );
 }
 
 /**
@@ -456,15 +515,7 @@ function centinela_cotizador_diff_days_ymd( $from_ymd, $to_ymd ) {
  * @return string Y-m-d
  */
 function centinela_cotizador_email_fecha_cotizacion_ymd( $datos ) {
-	$pid = ! empty( $datos['cotizacion_post_id'] ) ? absint( $datos['cotizacion_post_id'] ) : 0;
-	if ( $pid > 0 ) {
-		$p = get_post( $pid );
-		if ( $p && $p->post_type === 'cotizacion' ) {
-			$t = get_post_time( 'Y-m-d', false, $p );
-			return ( is_string( $t ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $t ) ) ? $t : wp_date( 'Y-m-d' );
-		}
-	}
-	return wp_date( 'Y-m-d' );
+	return centinela_cotizador_fecha_cotizacion_ymd_from_datos( is_array( $datos ) ? $datos : array() );
 }
 
 /**
@@ -727,15 +778,23 @@ function centinela_cotizador_email_condiciones_comerciales_fragment( $datos ) {
  * @return string HTML del cuerpo del correo.
  */
 function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
+	if ( function_exists( 'centinela_cotizador_recalc_totales_desde_lineas' ) ) {
+		$datos = centinela_cotizador_recalc_totales_desde_lineas( $datos );
+	}
 	$productos   = isset( $datos['productos'] ) && is_array( $datos['productos'] ) ? $datos['productos'] : array();
 	$cliente     = isset( $datos['cliente'] ) && is_array( $datos['cliente'] ) ? $datos['cliente'] : array();
 	$contacto    = isset( $datos['contacto'] ) && is_array( $datos['contacto'] ) ? $datos['contacto'] : array();
 	$moneda      = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
 	$simbolo     = $moneda === 'USD' ? 'USD $' : 'CO $';
-	$subtotal    = isset( $datos['subtotal'] ) ? floatval( $datos['subtotal'] ) : 0;
-	$iva_valor   = isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0;
-	$total       = isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
-	$iva_pct     = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
+	$subtotal        = isset( $datos['subtotal'] ) ? floatval( $datos['subtotal'] ) : 0;
+	$descuento_pct   = isset( $datos['descuento_pct'] ) ? floatval( $datos['descuento_pct'] ) : 0;
+	$descuento_valor = isset( $datos['descuento_valor'] ) ? floatval( $datos['descuento_valor'] ) : 0;
+	if ( $descuento_pct <= 0 ) {
+		$descuento_valor = 0.0;
+	}
+	$iva_valor       = isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0;
+	$total           = isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0;
+	$iva_pct         = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
 	$tipo_cambio_tabla = isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0;
 	$lineas_precio_usd = ( $moneda === 'USD' && $tipo_cambio_tabla > 0 );
 
@@ -1119,6 +1178,15 @@ function centinela_cotizador_build_email_html( $datos, $for_pdf = false ) {
 	$html .= '<td style="' . $tot_td_l . '">' . $texto_anticipo_html . '</td>';
 	$html .= '<td style="' . $tot_td_r . '">';
 	$html .= '<p style="' . $p_tot_r . '"><strong style="text-transform:uppercase;">' . esc_html__( 'Subtotal:', 'centinela-group-theme' ) . '</strong> ' . $simbolo . ' ' . number_format( $subtotal, 2, ',', '.' ) . '</p>';
+	if ( $descuento_valor > 0 && $descuento_pct > 0 ) {
+		$desc_pct_fmt = rtrim( rtrim( number_format( $descuento_pct, 2, ',', '.' ), '0' ), ',' );
+		$desc_label   = sprintf(
+			/* translators: %s: discount percentage (abbreviated label for PDF totals). */
+			__( 'DTO. %s%%:', 'centinela-group-theme' ),
+			$desc_pct_fmt
+		);
+		$html .= '<p style="' . $p_tot_r . '"><strong style="text-transform:uppercase;">' . esc_html( $desc_label ) . '</strong> ' . $simbolo . ' ' . number_format( $descuento_valor, 2, ',', '.' ) . '</p>';
+	}
 	$html .= '<p style="' . $p_tot_r . '"><strong>' . esc_html__( 'RET.FTE.:', 'centinela-group-theme' ) . '</strong> ' . esc_html( $cero_fmt ) . '</p>';
 	$html .= '<p style="' . $p_tot_r . '"><strong>' . esc_html__( 'RET.ICA.:', 'centinela-group-theme' ) . '</strong> ' . esc_html( $cero_fmt ) . '</p>';
 	$html .= '<p style="' . $p_tot_r . '"><strong>' . esc_html__( 'I.V.A.', 'centinela-group-theme' ) . ' (' . esc_html( (string) $iva_pct ) . '%):</strong> ' . $simbolo . ' ' . number_format( $iva_valor, 2, ',', '.' ) . '</p>';
@@ -1225,9 +1293,19 @@ function centinela_cotizador_save_cotizacion( $datos, $editar_id = null ) {
 		$orden_compra_save = substr( $orden_compra_save, 0, 120 );
 	}
 
+	if ( function_exists( 'centinela_cotizador_recalc_totales_desde_lineas' ) ) {
+		$datos = centinela_cotizador_recalc_totales_desde_lineas( $datos );
+	}
+
+	$fecha_cotizacion_save = isset( $datos['fecha_cotizacion'] ) ? centinela_cotizador_sanitize_fecha_cotizacion( (string) $datos['fecha_cotizacion'] ) : '';
+	if ( $fecha_cotizacion_save === '' ) {
+		$fecha_cotizacion_save = centinela_cotizador_fecha_cotizacion_ymd_from_datos( $datos, $post_id ? (int) $post_id : 0 );
+	}
+
 	$datos_safe = array(
-		'titulo'        => $titulo,
-		'orden_compra'  => $orden_compra_save,
+		'titulo'           => $titulo,
+		'fecha_cotizacion' => $fecha_cotizacion_save,
+		'orden_compra'     => $orden_compra_save,
 		'productos'     => isset( $datos['productos'] ) && is_array( $datos['productos'] ) ? $datos['productos'] : array(),
 		'cliente'       => $cliente_safe,
 		'contacto'      => $contacto_safe,
@@ -1235,13 +1313,28 @@ function centinela_cotizador_save_cotizacion( $datos, $editar_id = null ) {
 		'moneda'        => centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' ),
 		'tipo_cambio'   => isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0,
 		'tipo_precio'   => isset( $datos['tipo_precio'] ) ? sanitize_text_field( $datos['tipo_precio'] ) : 'lista',
-		'iva_pct'       => isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19,
-		'subtotal'      => isset( $datos['subtotal'] ) ? floatval( $datos['subtotal'] ) : 0,
-		'iva_valor'     => isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0,
-		'total'         => isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0,
+		'iva_pct'         => isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19,
+		'descuento_pct'   => isset( $datos['descuento_pct'] ) ? floatval( $datos['descuento_pct'] ) : 0,
+		'subtotal'        => isset( $datos['subtotal'] ) ? floatval( $datos['subtotal'] ) : 0,
+		'descuento_valor' => isset( $datos['descuento_valor'] ) ? floatval( $datos['descuento_valor'] ) : 0,
+		'iva_valor'       => isset( $datos['iva_valor'] ) ? floatval( $datos['iva_valor'] ) : 0,
+		'total'           => isset( $datos['total'] ) ? floatval( $datos['total'] ) : 0,
 		'logo_url'      => isset( $datos['logo_url'] ) ? esc_url_raw( trim( $datos['logo_url'] ) ) : '',
 	);
 	update_post_meta( $post_id, '_cotizacion_datos', $datos_safe );
+
+	if ( $post_id > 0 && $fecha_cotizacion_save !== '' ) {
+		$hora_actual = wp_date( 'H:i:s' );
+		$post_local  = $fecha_cotizacion_save . ' ' . $hora_actual;
+		wp_update_post(
+			array(
+				'ID'            => (int) $post_id,
+				'post_date'     => $post_local,
+				'post_date_gmt' => get_gmt_from_date( $post_local ),
+			)
+		);
+	}
+
 	return $post_id;
 }
 
@@ -1288,6 +1381,7 @@ function centinela_cotizador_duplicate_cotizacion_post( $source_id ) {
 		$orig_title .= $ellipsis;
 	}
 	$datos_copy['titulo'] = $orig_title . $suffix;
+	unset( $datos_copy['fecha_cotizacion'] );
 	return centinela_cotizador_save_cotizacion( $datos_copy, null );
 }
 
@@ -1303,11 +1397,85 @@ function centinela_cotizador_normalize_moneda( $moneda ) {
 }
 
 /**
- * Recalcula subtotal / IVA / total a partir de las líneas (importes en COP del catálogo).
+ * Base en COP para el descuento global: suma cantidad × precio de líneas marcadas.
+ *
+ * @param array $productos Líneas de la cotización.
+ * @return float
+ */
+function centinela_cotizador_compute_descuento_base_cop( $productos ) {
+	$base = 0.0;
+	if ( ! is_array( $productos ) ) {
+		return $base;
+	}
+	foreach ( $productos as $line ) {
+		if ( ! is_array( $line ) || empty( $line['descuento_global'] ) ) {
+			continue;
+		}
+		$cant   = isset( $line['cantidad'] ) ? max( 0.0, (float) $line['cantidad'] ) : 0.0;
+		$precio = isset( $line['precio'] ) ? max( 0.0, (float) $line['precio'] ) : 0.0;
+		$base  += $cant * $precio;
+	}
+	return $base;
+}
+
+/**
+ * Base del descuento global: por líneas marcadas, o subtotal completo en cotizaciones antiguas.
+ *
+ * @param array $productos Líneas de la cotización.
+ * @param float $sub_cop   Suma de importes en COP.
+ * @return float
+ */
+function centinela_cotizador_resolve_descuento_base_cop( $productos, $sub_cop ) {
+	$base_marcada = centinela_cotizador_compute_descuento_base_cop( $productos );
+	if ( $base_marcada > 0 ) {
+		return $base_marcada;
+	}
+	// Sin líneas marcadas: el % aplica sobre el subtotal completo.
+	return max( 0.0, (float) $sub_cop );
+}
+
+/**
+ * Calcula subtotal, descuento global, IVA y total (importes de línea en COP).
+ *
+ * @param float      $sub_cop            Suma de importes de línea en COP.
+ * @param float      $iva_pct            Porcentaje IVA.
+ * @param float      $descuento_pct      Porcentaje de descuento global.
+ * @param string     $moneda             COP o USD.
+ * @param float      $tc                 Tipo de cambio (1 USD = X COP).
+ * @param float|null $descuento_base_cop Base del % (líneas marcadas). Null = subtotal completo.
+ * @return array{ subtotal: float, descuento_pct: float, descuento_valor: float, iva_valor: float, total: float }
+ */
+function centinela_cotizador_compute_totales( $sub_cop, $iva_pct, $descuento_pct, $moneda = 'COP', $tc = 0, $descuento_base_cop = null ) {
+	$sub_cop       = max( 0.0, (float) $sub_cop );
+	$iva_pct       = max( 0.0, min( 100.0, (float) $iva_pct ) );
+	$descuento_pct = max( 0.0, min( 100.0, (float) $descuento_pct ) );
+	if ( $descuento_base_cop === null ) {
+		$descuento_base_cop = $sub_cop;
+	} else {
+		$descuento_base_cop = max( 0.0, (float) $descuento_base_cop );
+	}
+	$desc_cop = $descuento_pct > 0 ? $descuento_base_cop * ( $descuento_pct / 100 ) : 0.0;
+	$net_cop       = $sub_cop - $desc_cop;
+	$iva_cop       = $net_cop * ( $iva_pct / 100 );
+	$total_cop     = $net_cop + $iva_cop;
+	$moneda        = centinela_cotizador_normalize_moneda( $moneda );
+	$tc            = (float) $tc;
+	$divisor       = ( $moneda === 'USD' && $tc > 0 ) ? $tc : 1.0;
+	return array(
+		'subtotal'        => $sub_cop / $divisor,
+		'descuento_pct'   => $descuento_pct,
+		'descuento_valor' => $desc_cop / $divisor,
+		'iva_valor'       => $iva_cop / $divisor,
+		'total'           => $total_cop / $divisor,
+	);
+}
+
+/**
+ * Recalcula subtotal / descuento / IVA / total a partir de las líneas (importes en COP del catálogo).
  * Si moneda es USD y hay tipo de cambio > 0, los agregados se guardan en USD (división por TRM).
  *
  * @param array $datos Estructura _cotizacion_datos.
- * @return array Datos con subtotal, iva_valor, total actualizados.
+ * @return array Datos con subtotal, descuento_valor, iva_valor, total actualizados.
  */
 function centinela_cotizador_recalc_totales_desde_lineas( $datos ) {
 	if ( ! is_array( $datos ) ) {
@@ -1321,21 +1489,17 @@ function centinela_cotizador_recalc_totales_desde_lineas( $datos ) {
 			}
 		}
 	}
-	$iva_pct   = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
-	$sub_cop   = $sub;
-	$iva_cop   = $sub_cop * ( $iva_pct / 100 );
-	$total_cop = $sub_cop + $iva_cop;
-	$moneda    = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
-	$tc        = isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0;
-	if ( $moneda === 'USD' && $tc > 0 ) {
-		$datos['subtotal']  = $sub_cop / $tc;
-		$datos['iva_valor'] = $iva_cop / $tc;
-		$datos['total']     = $total_cop / $tc;
-	} else {
-		$datos['subtotal']  = $sub_cop;
-		$datos['iva_valor'] = $iva_cop;
-		$datos['total']     = $total_cop;
-	}
+	$iva_pct       = isset( $datos['iva_pct'] ) ? floatval( $datos['iva_pct'] ) : 19;
+	$descuento_pct = isset( $datos['descuento_pct'] ) ? floatval( $datos['descuento_pct'] ) : 0;
+	$moneda        = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
+	$tc            = isset( $datos['tipo_cambio'] ) ? floatval( $datos['tipo_cambio'] ) : 0;
+	$base_desc     = centinela_cotizador_resolve_descuento_base_cop( isset( $datos['productos'] ) ? $datos['productos'] : array(), $sub );
+	$totales       = centinela_cotizador_compute_totales( $sub, $iva_pct, $descuento_pct, $moneda, $tc, $base_desc );
+	$datos['subtotal']        = $totales['subtotal'];
+	$datos['descuento_pct']   = $totales['descuento_pct'];
+	$datos['descuento_valor'] = $totales['descuento_valor'];
+	$datos['iva_valor']       = $totales['iva_valor'];
+	$datos['total']           = $totales['total'];
 	return $datos;
 }
 
@@ -1624,6 +1788,9 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 		if ( $post && $post->post_type === 'cotizacion' && $post->post_status === 'publish' ) {
 			$datos = get_post_meta( $editar_id, '_cotizacion_datos', true );
 			if ( is_array( $datos ) ) {
+				if ( empty( $datos['fecha_cotizacion'] ) ) {
+					$datos['fecha_cotizacion'] = centinela_cotizador_fecha_cotizacion_ymd_from_datos( $datos, $editar_id );
+				}
 				$cotizacion_editar = array( 'id' => $editar_id, 'datos' => $datos );
 			}
 		}
@@ -1639,6 +1806,7 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 		'iva_default'            => 19,
 		'logo_default_url'       => $logo_default_url ? $logo_default_url : '',
 		'cotizacion_editar'      => $cotizacion_editar,
+		'fecha_hoy'              => wp_date( 'Y-m-d' ),
 		'ciudad_departamento_map' => centinela_cotizador_ciudad_departamento_map(),
 		'debug_precios_admin' => current_user_can( 'manage_options' ),
 		/** wp-config: define( 'CENTINELA_COTIZADOR_DEV_MAIL_META', true ); — consola + bloque JSON en el modal al enviar cotización. */
@@ -1696,6 +1864,8 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'manual_error_precio'         => __( 'Indique un precio mayor que cero.', 'centinela-group-theme' ),
 			'tabla_vacia'                 => __( 'Agrega productos con el buscador o con «Producto manual».', 'centinela-group-theme' ),
 			'orden_arrastrar'             => __( 'Arrastrar para cambiar la posición de la línea en la cotización', 'centinela-group-theme' ),
+			'descuento_global_col'        => __( 'Dto. cot.', 'centinela-group-theme' ),
+			'descuento_global_col_title'  => __( 'Incluir esta línea en la base del descuento global (%)', 'centinela-group-theme' ),
 		),
 	) );
 }
@@ -2140,6 +2310,10 @@ function centinela_cotizador_ajax_enviar_guardar() {
 	$email_cliente_primary = $mail_parse['primary'];
 	$email_cliente_to      = $mail_parse['to'];
 
+	$datos_guardados = get_post_meta( $post_id, '_cotizacion_datos', true );
+	if ( is_array( $datos_guardados ) && ! empty( $datos_guardados ) ) {
+		$datos = $datos_guardados;
+	}
 	$datos['numero']             = get_post_meta( $post_id, '_cotizacion_numero', true );
 	$datos['cotizacion_post_id'] = $post_id;
 	$titulo_cot = isset( $datos['titulo'] ) && $datos['titulo'] !== '' ? $datos['titulo'] : '';
@@ -2522,6 +2696,10 @@ function centinela_cotizador_ajax_preview_envio() {
 	$base_url = $upload_dir['baseurl'] . '/cotizador-preview';
 	$prefijo  = 'cotizacion-' . gmdate( 'Y-m-d_H-i-s' ) . '-';
 
+	$datos_guardados = get_post_meta( $post_id, '_cotizacion_datos', true );
+	if ( is_array( $datos_guardados ) && ! empty( $datos_guardados ) ) {
+		$datos = $datos_guardados;
+	}
 	$datos['numero']             = get_post_meta( $post_id, '_cotizacion_numero', true );
 	$datos['cotizacion_post_id'] = $post_id;
 	$cuerpo_html = centinela_cotizador_build_email_html( $datos );
@@ -2579,6 +2757,9 @@ add_action( 'wp_ajax_centinela_cotizador_preview_envio', 'centinela_cotizador_aj
  * @return string Ruta al archivo temporal o vacío.
  */
 function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
+	if ( function_exists( 'centinela_cotizador_recalc_totales_desde_lineas' ) ) {
+		$datos = centinela_cotizador_recalc_totales_desde_lineas( $datos );
+	}
 	$productos = isset( $datos['productos'] ) && is_array( $datos['productos'] ) ? $datos['productos'] : array();
 	$titulo    = isset( $datos['titulo'] ) ? $datos['titulo'] : __( 'Cotización', 'centinela-group-theme' );
 	$moneda    = centinela_cotizador_normalize_moneda( isset( $datos['moneda'] ) ? $datos['moneda'] : 'COP' );
@@ -2637,6 +2818,8 @@ function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 		$orden_csv = substr( $orden_csv, 0, 120 );
 	}
 	fputcsv( $fp, array( __( 'Orden de compra', 'centinela-group-theme' ), $orden_csv ), ';' );
+	$fecha_csv_ymd = centinela_cotizador_fecha_cotizacion_ymd_from_datos( $datos, $post_id );
+	fputcsv( $fp, array( __( 'Fecha', 'centinela-group-theme' ), centinela_cotizador_fecha_cotizacion_display_dmY( $fecha_csv_ymd ) ), ';' );
 	fputcsv( $fp, array( '' ), ';' );
 	fputcsv( $fp, array( __( 'Item', 'centinela-group-theme' ), __( 'Modelo', 'centinela-group-theme' ), __( 'Descripción', 'centinela-group-theme' ), __( 'Cantidad', 'centinela-group-theme' ), __( 'Subtotal', 'centinela-group-theme' ), __( 'Importe', 'centinela-group-theme' ) ), ';' );
 	$item_csv = 0;
@@ -2657,7 +2840,15 @@ function centinela_cotizador_generar_excel_fallback( $post_id, $datos ) {
 	}
 	fputcsv( $fp, array( '' ), ';' );
 	$pad4 = array( '', '', '', '' );
+	$descuento_pct_excel   = isset( $datos['descuento_pct'] ) ? floatval( $datos['descuento_pct'] ) : 0;
+	$descuento_valor_excel = isset( $datos['descuento_valor'] ) ? floatval( $datos['descuento_valor'] ) : 0;
 	fputcsv( $fp, array_merge( array( __( 'Subtotal', 'centinela-group-theme' ) ), $pad4, array( $simbolo . ' ' . number_format( $subtotal, 2, ',', '.' ) ) ), ';' );
+	if ( $descuento_valor_excel > 0 && $descuento_pct_excel > 0 ) {
+		$desc_row_label = $descuento_pct_excel > 0
+			? sprintf( __( 'DTO. %s%%', 'centinela-group-theme' ), rtrim( rtrim( number_format( $descuento_pct_excel, 2, ',', '.' ), '0' ), ',' ) )
+			: __( 'DTO.', 'centinela-group-theme' );
+		fputcsv( $fp, array_merge( array( $desc_row_label ), $pad4, array( $simbolo . ' ' . number_format( $descuento_valor_excel, 2, ',', '.' ) ) ), ';' );
+	}
 	fputcsv( $fp, array_merge( array( __( 'I.V.A.', 'centinela-group-theme' ) ), $pad4, array( $simbolo . ' ' . number_format( $iva_valor, 2, ',', '.' ) ) ), ';' );
 	fputcsv( $fp, array_merge( array( __( 'TOTAL', 'centinela-group-theme' ) ), $pad4, array( $simbolo . ' ' . number_format( $total, 2, ',', '.' ) ) ), ';' );
 	fclose( $fp );
@@ -3180,10 +3371,17 @@ function centinela_cotizador_render_page() {
 				<label for="centinela-cotizador-titulo"><?php esc_html_e( 'Título de la Cotización', 'centinela-group-theme' ); ?></label>
 				<input type="text" id="centinela-cotizador-titulo" class="regular-text" placeholder="<?php esc_attr_e( 'Ej: Cotización proyecto videovigilancia', 'centinela-group-theme' ); ?>" />
 			</div>
-			<div class="centinela-cotizador-field">
-				<label for="centinela-cotizador-orden-compra"><?php esc_html_e( 'Orden de compra', 'centinela-group-theme' ); ?></label>
-				<input type="text" id="centinela-cotizador-orden-compra" class="regular-text" maxlength="120" placeholder="<?php esc_attr_e( 'Número u orden emitida por el cliente (opcional)', 'centinela-group-theme' ); ?>" />
-				<p class="description"><?php esc_html_e( 'Si la completa, aparecerá en el PDF y el correo junto a «ORDEN DE COMPRA». Si la deja vacía, solo se mostrará el rótulo.', 'centinela-group-theme' ); ?></p>
+			<div class="centinela-cotizador-fila-fecha-orden">
+				<div class="centinela-cotizador-field centinela-cotizador-field-fecha">
+					<label for="centinela-cotizador-fecha-cotizacion"><?php esc_html_e( 'Fecha', 'centinela-group-theme' ); ?></label>
+					<input type="date" id="centinela-cotizador-fecha-cotizacion" class="regular-text" value="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" />
+					<p class="description"><?php esc_html_e( 'Fecha de la cotización en el PDF y correo (FECHA). Puede cambiarla antes de enviar.', 'centinela-group-theme' ); ?></p>
+				</div>
+				<div class="centinela-cotizador-field centinela-cotizador-field-orden-compra">
+					<label for="centinela-cotizador-orden-compra"><?php esc_html_e( 'Orden de compra', 'centinela-group-theme' ); ?></label>
+					<input type="text" id="centinela-cotizador-orden-compra" class="regular-text" maxlength="120" placeholder="<?php esc_attr_e( 'Número u orden emitida por el cliente (opcional)', 'centinela-group-theme' ); ?>" />
+					<p class="description"><?php esc_html_e( 'Si la completa, aparecerá en el PDF y el correo junto a «ORDEN DE COMPRA». Si la deja vacía, solo se mostrará el rótulo.', 'centinela-group-theme' ); ?></p>
+				</div>
 			</div>
 
 			<div class="centinela-cotizador-section">
@@ -3211,6 +3409,7 @@ function centinela_cotizador_render_page() {
 								<th><?php esc_html_e( 'Modelo', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-cantidad"><?php esc_html_e( 'Cantidad', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-descuento"><?php esc_html_e( 'Descuento %', 'centinela-group-theme' ); ?></th>
+								<th class="centinela-cotizador-col-descuento-global" title="<?php esc_attr_e( 'Incluir esta línea en la base del descuento global (%)', 'centinela-group-theme' ); ?>"><?php esc_html_e( 'Dto. cot.', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-precio"><?php esc_html_e( 'Precio', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-importe"><?php esc_html_e( 'Importe', 'centinela-group-theme' ); ?></th>
 								<th class="centinela-cotizador-col-acciones"><?php esc_html_e( 'Acciones', 'centinela-group-theme' ); ?></th>
@@ -3218,7 +3417,7 @@ function centinela_cotizador_render_page() {
 						</thead>
 						<tbody id="centinela-cotizador-filas">
 							<tr class="centinela-cotizador-tabla-vacia" id="centinela-cotizador-fila-vacia">
-								<td colspan="7"><?php esc_html_e( 'Agrega productos con el buscador o con «Producto manual».', 'centinela-group-theme' ); ?></td>
+								<td colspan="8"><?php esc_html_e( 'Agrega productos con el buscador o con «Producto manual».', 'centinela-group-theme' ); ?></td>
 							</tr>
 						</tbody>
 					</table>
@@ -3459,6 +3658,13 @@ function centinela_cotizador_render_page() {
 							<span id="centinela-cotizador-subtotal-usd-ref" class="centinela-cotizador-monto-usd-ref" hidden></span>
 						</span>
 					</div>
+					<div class="centinela-cotizador-resumen-fila centinela-cotizador-resumen-descuento" id="centinela-cotizador-resumen-descuento-fila" hidden>
+						<span class="centinela-cotizador-resumen-label"><?php esc_html_e( 'Descuento', 'centinela-group-theme' ); ?></span>
+						<span class="centinela-cotizador-resumen-valor centinela-cotizador-resumen-valor-apilado">
+							<span id="centinela-cotizador-descuento-valor" class="centinela-cotizador-monto-principal">0</span>
+							<span id="centinela-cotizador-descuento-valor-usd-ref" class="centinela-cotizador-monto-usd-ref" hidden></span>
+						</span>
+					</div>
 					<div class="centinela-cotizador-resumen-fila centinela-cotizador-resumen-iva">
 						<div class="centinela-cotizador-resumen-iva-pct">
 							<label for="centinela-cotizador-iva-pct"><?php esc_html_e( 'I.V.A. %', 'centinela-group-theme' ); ?></label>
@@ -3468,6 +3674,12 @@ function centinela_cotizador_render_page() {
 							<span id="centinela-cotizador-iva-valor" class="centinela-cotizador-monto-principal">0</span>
 							<span id="centinela-cotizador-iva-valor-usd-ref" class="centinela-cotizador-monto-usd-ref" hidden></span>
 						</span>
+					</div>
+					<div class="centinela-cotizador-resumen-fila centinela-cotizador-resumen-descuento-pct">
+						<div class="centinela-cotizador-resumen-iva-pct">
+							<label for="centinela-cotizador-descuento-pct"><?php esc_html_e( 'Descuento %', 'centinela-group-theme' ); ?></label>
+							<input type="number" id="centinela-cotizador-descuento-pct" min="0" max="100" step="0.01" value="0" />
+						</div>
 					</div>
 					<div class="centinela-cotizador-resumen-fila centinela-cotizador-resumen-total">
 						<span class="centinela-cotizador-resumen-label"><?php esc_html_e( 'TOTAL', 'centinela-group-theme' ); ?></span>
@@ -3726,7 +3938,9 @@ function centinela_cotizador_mis_cotizaciones_row_payload( $post_id ) {
 		'nit'              => $cli_nit_d,
 		'moneda'           => $moneda,
 		'total_fmt'        => $total_fmt,
-		'fecha'            => mysql2date( get_option( 'date_format' ), $post->post_date ),
+		'fecha'            => centinela_cotizador_fecha_cotizacion_display_dmY(
+			centinela_cotizador_fecha_cotizacion_ymd_from_datos( is_array( $datos ) ? $datos : array(), $post_id )
+		),
 		'editar_url'       => $editar_url,
 		'duplicar_url'     => $duplicar_url,
 		'eliminar_url'     => $eliminar_url,

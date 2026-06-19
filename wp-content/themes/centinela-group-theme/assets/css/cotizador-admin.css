@@ -60,6 +60,27 @@
 	font-size: 16px;
 }
 
+.centinela-cotizador-fila-fecha-orden {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 1rem 1.5rem;
+	margin-bottom: 1.5em;
+}
+
+.centinela-cotizador-fila-fecha-orden .centinela-cotizador-field {
+	flex: 1 1 240px;
+	margin-bottom: 0;
+}
+
+.centinela-cotizador-fila-fecha-orden .centinela-cotizador-field-fecha {
+	flex: 0 1 220px;
+}
+
+.centinela-cotizador-fila-fecha-orden .centinela-cotizador-field-fecha input[type="date"] {
+	max-width: 220px;
+}
+
 /* Inputs y selects: estilo outline (borde completo, redondeado, focus con color primario) */
 .centinela-cotizador-wrap input[type="text"],
 .centinela-cotizador-wrap input[type="email"],
@@ -561,9 +582,19 @@
 
 .centinela-cotizador-tabla .centinela-cotizador-col-cantidad,
 .centinela-cotizador-tabla .centinela-cotizador-col-descuento,
+.centinela-cotizador-tabla .centinela-cotizador-col-descuento-global,
 .centinela-cotizador-tabla .centinela-cotizador-col-importe {
 	width: 1%;
 	white-space: nowrap;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-descuento-global {
+	text-align: center;
+}
+
+.centinela-cotizador-tabla .centinela-cotizador-col-descuento-global input[type="checkbox"] {
+	margin: 0;
+	vertical-align: middle;
 }
 
 .centinela-cotizador-tabla .centinela-cotizador-col-precio {

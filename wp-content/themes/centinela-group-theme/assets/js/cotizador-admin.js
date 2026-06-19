@@ -16,6 +16,7 @@ jQuery(function ($) {
 	var ivaDefault = typeof config.iva_default !== 'undefined' ? config.iva_default : 19;
 	var logoDefaultUrl = config.logo_default_url || '';
 	var cotizacionEditar = config.cotizacion_editar || null;
+	var fechaHoy = config.fecha_hoy || '';
 	var misCotizacionesUrl = config.mis_cotizaciones_url || '';
 	var ciudadDepartamentoMap = (config.ciudad_departamento_map && typeof config.ciudad_departamento_map === 'object') ? config.ciudad_departamento_map : {};
 
@@ -29,10 +30,14 @@ jQuery(function ($) {
 	var $tipoCambio = $('#centinela-cotizador-tipo-cambio');
 	var $moneda = $('#centinela-cotizador-moneda');
 	var $ivaPct = $('#centinela-cotizador-iva-pct');
+	var $descuentoPct = $('#centinela-cotizador-descuento-pct');
 	var $subtotalEl = $('#centinela-cotizador-subtotal');
+	var $descuentoValorEl = $('#centinela-cotizador-descuento-valor');
+	var $descuentoFila = $('#centinela-cotizador-resumen-descuento-fila');
 	var $ivaValorEl = $('#centinela-cotizador-iva-valor');
 	var $totalEl = $('#centinela-cotizador-total');
 	var $subtotalUsdRef = $('#centinela-cotizador-subtotal-usd-ref');
+	var $descuentoValorUsdRef = $('#centinela-cotizador-descuento-valor-usd-ref');
 	var $ivaValorUsdRef = $('#centinela-cotizador-iva-valor-usd-ref');
 	var $totalUsdRef = $('#centinela-cotizador-total-usd-ref');
 	var $refUsdBloque = $('#centinela-cotizador-ref-usd-bloque');
@@ -410,6 +415,7 @@ jQuery(function ($) {
 		var precioInicial = producto.precio_inicial != null ? parseNum(producto.precio_inicial) : getPrecioSegunTipo({ precio_lista: precioLista, precio_oferta: precioOferta, tiene_oferta: tieneOferta });
 		var cantidad = producto.cantidad_inicial != null ? Math.max(1, parseInt(producto.cantidad_inicial, 10) || 1) : 1;
 		var descuento = producto.descuento_inicial != null ? parseNum(producto.descuento_inicial) : 0;
+		var descuentoGlobal = !!producto.descuento_global_inicial;
 		var importe = cantidad * precioInicial * (1 - descuento / 100);
 
 		$filaVacia.hide();
@@ -431,6 +437,8 @@ jQuery(function ($) {
 			'<span class="centinela-cotizador-producto-titulo">' + (titulo ? escHtml(titulo) : '') + '</span></div></td>' +
 			'<td class="centinela-cotizador-col-cantidad"><input type="number" class="centinela-cotizador-input-cantidad" min="1" step="1" value="' + cantidad + '" /></td>' +
 			'<td class="centinela-cotizador-col-descuento"><input type="number" class="centinela-cotizador-input-descuento" min="0" max="100" step="0.01" value="' + descuento + '" /></td>' +
+			'<td class="centinela-cotizador-col-descuento-global"><label class="screen-reader-text">' + escHtml(i18n.descuento_global_col_title || 'Incluir en descuento global') + '</label>' +
+			'<input type="checkbox" class="centinela-cotizador-input-descuento-global"' + (descuentoGlobal ? ' checked' : '') + ' title="' + escHtml(i18n.descuento_global_col_title || 'Incluir en descuento global') + '" /></td>' +
 			'<td class="centinela-cotizador-col-precio"><input type="number" class="centinela-cotizador-input-precio" min="0" step="0.01" value="' + precioInicial + '" /></td>' +
 			'<td class="centinela-cotizador-col-importe"><span class="centinela-cotizador-importe">' + formatPrecio(importe) + '</span></td>' +
 			'<td class="centinela-cotizador-col-acciones">' + '<button type="button" class="button button-link-delete centinela-cotizador-btn-eliminar">' + (i18n.eliminar || 'Eliminar') + '</button>' + manualEditBtn + '</td>' +
@@ -493,17 +501,59 @@ jQuery(function ($) {
 		updateResumen();
 	}
 
+	function clampPct(n) {
+		n = parseNum(n);
+		if (n < 0) n = 0;
+		if (n > 100) n = 100;
+		return n;
+	}
+
+	function getDescuentoBaseCop(subtotalCOP) {
+		var baseMarcada = 0;
+		$tbody.find('tr.producto-fila').each(function () {
+			var $tr = $(this);
+			if (!$tr.find('.centinela-cotizador-input-descuento-global').prop('checked')) {
+				return;
+			}
+			var cant = parseNum($tr.find('.centinela-cotizador-input-cantidad').val());
+			var prec = getRowPrecioCop($tr);
+			baseMarcada += cant * prec;
+		});
+		// Sin líneas marcadas: el % aplica sobre el subtotal completo.
+		return baseMarcada > 0 ? baseMarcada : subtotalCOP;
+	}
+
+	function computeTotalesCop(subtotalCOP, ivaPct, descuentoPct, descuentoBaseCOP) {
+		var descPct = clampPct(descuentoPct);
+		var ivaP = clampPct(ivaPct);
+		var base = descPct <= 0 ? 0 : (descuentoBaseCOP != null ? Math.max(0, descuentoBaseCOP) : subtotalCOP);
+		var descValor = base * (descPct / 100);
+		var subNeto = subtotalCOP - descValor;
+		var ivaValor = subNeto * (ivaP / 100);
+		var total = subNeto + ivaValor;
+		return {
+			subtotalCOP: subtotalCOP,
+			descuentoPct: descPct,
+			descuentoValor: descValor,
+			subNeto: subNeto,
+			ivaValor: ivaValor,
+			total: total
+		};
+	}
+
 	function updateResumen() {
 		var subtotalCOP = 0;
 		$tbody.find('tr.producto-fila').each(function () {
 			var imp = parseNum($(this).find('.centinela-cotizador-importe').attr('data-importe'));
 			subtotalCOP += imp;
 		});
-		var ivaPct = parseNum($ivaPct.val());
-		if (ivaPct < 0) ivaPct = 0;
-		if (ivaPct > 100) ivaPct = 100;
-		var ivaValorCOP = subtotalCOP * (ivaPct / 100);
-		var totalCOP = subtotalCOP + ivaValorCOP;
+		var ivaPct = clampPct($ivaPct.val());
+		var descuentoPct = clampPct($descuentoPct.val());
+		var descuentoBaseCOP = getDescuentoBaseCop(subtotalCOP);
+		var tot = computeTotalesCop(subtotalCOP, ivaPct, descuentoPct, descuentoBaseCOP);
+		var descuentoValorCOP = tot.descuentoValor;
+		var ivaValorCOP = tot.ivaValor;
+		var totalCOP = tot.total;
 		var tcRaw = parseNum($tipoCambio.val());
 		var tc = tcRaw > 0 ? tcRaw : 1;
 		var moneda = getMonedaSeleccionada();
@@ -513,8 +563,13 @@ jQuery(function ($) {
 		if ($resTotales.length) {
 			$resTotales.toggleClass('is-moneda-usd', moneda === 'USD');
 		}
+		var mostrarDescuento = descuentoPct > 0 && descuentoValorCOP > 0;
+		if ($descuentoFila.length) {
+			$descuentoFila.prop('hidden', !mostrarDescuento);
+		}
 		function hideCopUsdRefs() {
 			$subtotalUsdRef.prop('hidden', true).text('');
+			$descuentoValorUsdRef.prop('hidden', true).text('');
 			$ivaValorUsdRef.prop('hidden', true).text('');
 			$totalUsdRef.prop('hidden', true).text('');
 		}
@@ -522,6 +577,9 @@ jQuery(function ($) {
 		if (moneda === 'USD') {
 			hideCopUsdRefs();
 			$subtotalEl.text('USD $ ' + formatPrecioUSD(subtotalCOP / tc));
+			if ($descuentoValorEl.length) {
+				$descuentoValorEl.text(mostrarDescuento ? ('USD $ ' + formatPrecioUSD(descuentoValorCOP / tc)) : 'USD $ 0.00');
+			}
 			$ivaValorEl.text('USD $ ' + formatPrecioUSD(ivaValorCOP / tc));
 			$totalEl.text('USD $ ' + formatPrecioUSD(totalCOP / tc));
 			if ($refUsdBloque.length) {
@@ -529,10 +587,14 @@ jQuery(function ($) {
 			}
 		} else {
 			$subtotalEl.text('CO $ ' + formatPrecio(subtotalCOPMostrado));
+			if ($descuentoValorEl.length) {
+				$descuentoValorEl.text(mostrarDescuento ? ('CO $ ' + formatPrecio(descuentoValorCOP)) : 'CO $ 0,00');
+			}
 			$ivaValorEl.text('CO $ ' + formatPrecio(ivaValorCOPMostrado));
 			$totalEl.text('CO $ ' + formatPrecio(totalCOPMostrado));
 			if (tcRaw > 0) {
 				var usdSub = subtotalCOPMostrado / tcRaw;
+				var usdDesc = descuentoValorCOP / tcRaw;
 				var usdIva = ivaValorCOPMostrado / tcRaw;
 				var usdTot = totalCOPMostrado / tcRaw;
 				var aprox = i18n.aprox_usd_prefix || '≈ USD $ ';
@@ -541,6 +603,13 @@ jQuery(function ($) {
 				};
 				if ($subtotalUsdRef.length) {
 					$subtotalUsdRef.prop('hidden', false).text(lineUsd(usdSub));
+				}
+				if ($descuentoValorUsdRef.length) {
+					if (mostrarDescuento) {
+						$descuentoValorUsdRef.prop('hidden', false).text(lineUsd(usdDesc));
+					} else {
+						$descuentoValorUsdRef.prop('hidden', true).text('');
+					}
 				}
 				if ($ivaValorUsdRef.length) {
 					$ivaValorUsdRef.prop('hidden', false).text(lineUsd(usdIva));
@@ -801,9 +870,17 @@ jQuery(function ($) {
 	// Resumen: IVA por defecto desde config
 	$ivaPct.val(ivaDefault);
 
-	// Resumen: moneda (delegado por si el DOM aún no existía al evaluar el script), IVA
+	// Resumen: moneda (delegado por si el DOM aún no existía al evaluar el script), IVA, descuento global
 	$(document).on('input change', '#centinela-cotizador-moneda', updateResumen);
 	$ivaPct.on('input change', updateResumen);
+	$descuentoPct.on('input change', updateResumen);
+	$descuentoPct.on('blur', function () {
+		if ($(this).val() === '' || isNaN(parseNum($(this).val()))) {
+			$(this).val(0);
+		}
+		updateResumen();
+	});
+	$(document).on('change', '.centinela-cotizador-input-descuento-global', updateResumen);
 
 	function markTcEditedByUser() {
 		tcApplySyscomToField = false;
@@ -964,6 +1041,7 @@ jQuery(function ($) {
 			if ($tr.attr('data-manual') === '1') {
 				row.manual = true;
 			}
+			row.descuento_global = $tr.find('.centinela-cotizador-input-descuento-global').prop('checked');
 			if ($tr.attr('data-lista-origen-usd') === '1' && parseNum($tr.attr('data-precio-lista-usd')) > 0) {
 				row.lista_origen_usd = true;
 				row.precio_lista_usd = parseNum($tr.attr('data-precio-lista-usd'));
@@ -978,18 +1056,21 @@ jQuery(function ($) {
 		$tbody.find('tr.producto-fila').each(function () {
 			subtotalCOP += parseNum($(this).find('.centinela-cotizador-importe').attr('data-importe'));
 		});
-		var ivaPct = parseNum($ivaPct.val());
-		var ivaValorCop = subtotalCOP * (ivaPct / 100);
-		var totalCop = subtotalCOP + ivaValorCop;
+		var ivaPct = clampPct($ivaPct.val());
+		var descuentoPct = clampPct($descuentoPct.val());
+		var descuentoBaseCOP = getDescuentoBaseCop(subtotalCOP);
+		var totPayload = computeTotalesCop(subtotalCOP, ivaPct, descuentoPct, descuentoBaseCOP);
 		var monedaSel = getMonedaSeleccionada();
 		var tcPayload = parseNum($tipoCambio.val());
 		var tcUsd = tcPayload > 0 ? tcPayload : 1;
 		var divisor = monedaSel === 'USD' ? tcUsd : 1;
 		var subtotalOut = subtotalCOP / divisor;
-		var ivaValorOut = ivaValorCop / divisor;
-		var totalOut = totalCop / divisor;
+		var descuentoValorOut = totPayload.descuentoValor / divisor;
+		var ivaValorOut = totPayload.ivaValor / divisor;
+		var totalOut = totPayload.total / divisor;
 		return {
 			titulo: $('#centinela-cotizador-titulo').val(),
+			fecha_cotizacion: String($('#centinela-cotizador-fecha-cotizacion').val() || '').trim(),
 			orden_compra: String($('#centinela-cotizador-orden-compra').val() || '').trim(),
 			productos: productos,
 			cliente: {
@@ -1023,7 +1104,9 @@ jQuery(function ($) {
 			tipo_cambio: parseNum($tipoCambio.val()),
 			tipo_precio: $('#centinela-cotizador-tipo-precio').val() || 'lista',
 			iva_pct: ivaPct,
+			descuento_pct: descuentoPct,
 			subtotal: subtotalOut,
+			descuento_valor: descuentoValorOut,
 			iva_valor: ivaValorOut,
 			total: totalOut,
 			logo_url: $('#centinela-cotizador-logo-url').val() || ''
@@ -1407,6 +1490,7 @@ jQuery(function ($) {
 		if (id) $('#centinela-cotizador-editar-id').val(id);
 
 		$titulo.val(datos.titulo || '');
+		$('#centinela-cotizador-fecha-cotizacion').val(datos.fecha_cotizacion || fechaHoy || '');
 		$('#centinela-cotizador-orden-compra').val(datos.orden_compra || '');
 
 		destroyCotizadorFilasSortable();
@@ -1417,6 +1501,7 @@ jQuery(function ($) {
 		$tipoCambio.val(parseNum(datos.tipo_cambio));
 		$('#centinela-cotizador-tipo-precio').val(datos.tipo_precio || 'lista');
 		$ivaPct.val(parseNum(datos.iva_pct) || 19);
+		$descuentoPct.val(parseNum(datos.descuento_pct) || 0);
 
 		var tcGuardado = parseNum(datos.tipo_cambio);
 		var productos = datos.productos || [];
@@ -1433,7 +1518,8 @@ jQuery(function ($) {
 				precio_oferta: precio,
 				tiene_oferta: false,
 				cantidad_inicial: parseNum(p.cantidad) || 1,
-				descuento_inicial: parseNum(p.descuento) || 0
+				descuento_inicial: parseNum(p.descuento) || 0,
+				descuento_global_inicial: !!p.descuento_global
 			};
 			var usdMeta = !isManual && p.lista_origen_usd && parseNum(p.precio_lista_usd) > 0;
 			if (!isManual) {
