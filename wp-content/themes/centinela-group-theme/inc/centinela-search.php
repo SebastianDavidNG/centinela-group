@@ -161,6 +161,66 @@ function centinela_search_extract_primary_model_query( $query ) {
 }
 
 /**
+ * Añade variantes por prefijos con guión (XBS-CAN-AC-800 → XBS-CAN-AC, XBS-CAN, …).
+ *
+ * @param array  $variantes_busqueda    Variantes API (por referencia).
+ * @param array  $trust_api_extra_terms Términos en los que confiar en relevancia API.
+ * @param string $ref_query             Referencia/modelo.
+ */
+function centinela_search_append_hyphen_family_variants( array &$variantes_busqueda, array &$trust_api_extra_terms, $ref_query ) {
+	if ( ! centinela_search_query_looks_like_product_reference( $ref_query ) ) {
+		return;
+	}
+	$parts = preg_split( '/-+/', strtoupper( trim( (string) $ref_query ) ), -1, PREG_SPLIT_NO_EMPTY );
+	if ( count( $parts ) < 2 ) {
+		return;
+	}
+	$prefix = $parts[0];
+	for ( $i = 1; $i < count( $parts ); $i++ ) {
+		$prefix .= '-' . $parts[ $i ];
+		if ( strlen( $prefix ) < 5 ) {
+			continue;
+		}
+		$variantes_busqueda[]    = $prefix;
+		$variantes_busqueda[]    = centinela_normalize_search_term_for_api( $prefix );
+		$trust_api_extra_terms[] = strtolower( centinela_normalize_for_match( $prefix ) );
+	}
+}
+
+/**
+ * Limita variantes de API en cotizador (prioriza término normalizado y referencia exacta).
+ *
+ * @param array  $variantes    Lista de términos.
+ * @param string $busqueda_api Término normalizado para API.
+ * @param string $ref_query    Referencia original.
+ * @param int    $max          Máximo de variantes.
+ * @return array
+ */
+function centinela_search_limit_variantes_for_cotizador( $variantes, $busqueda_api, $ref_query, $max = 8 ) {
+	$variantes = array_values( array_unique( array_filter( array_map( 'trim', (array) $variantes ) ) ) );
+	$max       = max( 3, (int) $max );
+	if ( count( $variantes ) <= $max ) {
+		return $variantes;
+	}
+	$var_sin_sep = strtolower( preg_replace( '/[-_\s]+/', '', (string) $ref_query ) );
+	$prio        = array();
+	foreach ( array( $busqueda_api, strtolower( (string) $ref_query ), (string) $ref_query, $var_sin_sep ) as $p ) {
+		if ( $p !== '' && in_array( $p, $variantes, true ) ) {
+			$prio[] = $p;
+		}
+	}
+	foreach ( $variantes as $v ) {
+		if ( ! in_array( $v, $prio, true ) ) {
+			$prio[] = $v;
+		}
+		if ( count( $prio ) >= $max ) {
+			break;
+		}
+	}
+	return array_slice( $prio, 0, $max );
+}
+
+/**
  * Coincidencia flexible para referencias NX/TK/PKT cuando modelo y título no repiten el SKU exacto.
  *
  * @param string $term     Referencia (p. ej. NX-1300-AK4).
@@ -637,11 +697,12 @@ function centinela_search_kenwood_radio_boost_score( $producto ) {
 }
 
 /**
- * @param string $query Término de búsqueda.
- * @param int    $limit Número máximo de productos.
- * @param bool   $fast  Si true, solo 1–2 páginas y busqueda API (para sugerencias en el overlay).
+ * @param string $query   Término de búsqueda.
+ * @param int    $limit   Número máximo de productos.
+ * @param bool   $fast    Si true, solo 1–2 páginas y busqueda API (para sugerencias en el overlay).
+ * @param string $context 'site' (tienda/buscador) o 'cotizador' (admin: menos llamadas API).
  */
-function centinela_search_productos_syscom( $query, $limit = 12, $fast = false ) {
+function centinela_search_productos_syscom( $query, $limit = 12, $fast = false, $context = 'site' ) {
 	$query = trim( (string) $query );
 	if ( $query === '' || strlen( $query ) < 2 ) {
 		return array();
@@ -649,11 +710,20 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
 		return array();
 	}
+	$context      = is_string( $context ) ? strtolower( trim( $context ) ) : 'site';
+	$is_cotizador = ( $context === 'cotizador' );
 	if ( $fast ) {
 		$cache_key = 'centinela_search_fast_v2_' . md5( strtolower( $query ) . '|' . (int) $limit );
 		$cached = get_transient( $cache_key );
 		if ( is_array( $cached ) ) {
 			return $cached;
+		}
+	}
+	if ( $is_cotizador ) {
+		$cache_key_cot = 'centinela_cotizador_search_v1_' . md5( strtolower( $query ) . '|' . (int) $limit );
+		$cached_cot    = get_transient( $cache_key_cot );
+		if ( is_array( $cached_cot ) ) {
+			return $cached_cot;
 		}
 	}
 
@@ -814,12 +884,31 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 			}
 		}
 	}
+	centinela_search_append_hyphen_family_variants( $variantes_busqueda, $trust_api_extra_terms, $ref_query );
+	if ( centinela_search_query_looks_like_product_reference( $ref_query ) && preg_match( '/\b(XBS-?CAN-?AC(?:-\d+)?)/i', $ref_query, $m_xbs ) ) {
+		$base_xbs = strtoupper( preg_replace( '/\s+/', '', $m_xbs[1] ) );
+		if ( strlen( $base_xbs ) >= 6 ) {
+			$variantes_busqueda[]    = $base_xbs;
+			$variantes_busqueda[]    = centinela_normalize_search_term_for_api( $base_xbs );
+			$variantes_busqueda[]    = 'XBS+CAN+AC';
+			$variantes_busqueda[]    = 'XBS CAN AC';
+			$trust_api_extra_terms[] = 'xbs+can+ac';
+			$trust_api_extra_terms[] = 'xbscanac';
+		}
+	}
 	$variantes_busqueda = array_values( array_unique( array_filter( array_map( 'trim', $variantes_busqueda ) ) ) );
 	$trust_api_extra_terms = array_values( array_unique( array_filter( array_map( 'strtolower', array_map( 'trim', $trust_api_extra_terms ) ) ) ) );
-	// En sugerencias, limitar páginas para priorizar respuesta inmediata.
-	$api_max_paginas = $fast
-		? ( $query_is_likely_brand ? 3 : 2 )
-		: ( centinela_search_query_looks_like_product_reference( $ref_query ) ? 12 : 8 );
+	if ( $is_cotizador ) {
+		$variantes_busqueda = centinela_search_limit_variantes_for_cotizador( $variantes_busqueda, $busqueda_api, $ref_query, 8 );
+	}
+	// En sugerencias / cotizador, limitar páginas para priorizar respuesta inmediata.
+	if ( $is_cotizador ) {
+		$api_max_paginas = centinela_search_query_looks_like_product_reference( $ref_query ) ? 3 : 2;
+	} elseif ( $fast ) {
+		$api_max_paginas = $query_is_likely_brand ? 3 : 2;
+	} else {
+		$api_max_paginas = centinela_search_query_looks_like_product_reference( $ref_query ) ? 12 : 8;
+	}
 	$busqueda_sin_plus = str_replace( '+', '', $busqueda_api );
 	foreach ( $variantes_busqueda as $term_api ) {
 		if ( $term_api === '' ) {
@@ -873,6 +962,18 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 				break;
 			}
 		}
+		if ( $is_cotizador && count( $productos_raw ) >= $limit ) {
+			break;
+		}
+		if ( $is_cotizador && centinela_search_query_looks_like_product_reference( $ref_query ) && ! empty( $productos_raw ) ) {
+			foreach ( $productos_raw as $pr ) {
+				if ( centinela_producto_matches_search( $ref_query, $pr )
+					|| centinela_producto_reference_fields_match_query( $ref_query, $pr )
+					|| ( function_exists( 'centinela_producto_reference_fuzzy_matches_query' ) && centinela_producto_reference_fuzzy_matches_query( $ref_query, $pr ) ) ) {
+					break 2;
+				}
+			}
+		}
 		if ( $fast ) {
 			// Marca: no recorrer variantes extra cuando ya hay volumen suficiente para sugerencias.
 			if ( $query_is_likely_brand && count( $productos_raw ) >= $limit ) {
@@ -885,6 +986,12 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 		}
 	}
 
+	if ( $is_cotizador ) {
+		$result = centinela_search_build_productos_output( $productos_raw, $ref_query, $limit, false );
+		set_transient( $cache_key_cot, $result, 20 * MINUTE_IN_SECONDS );
+		return $result;
+	}
+
 	// En modo sugerencias no hacemos barrido de catálogo completo: prioriza latencia baja.
 	if ( $fast ) {
 		$result = centinela_search_build_productos_output( $productos_raw, $ref_query, $limit, true );
@@ -892,57 +999,59 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 		return $result;
 	}
 
-	// Barrido por páginas del catálogo (con primera categoría si hace falta). En modo rápido solo 2 páginas.
-	$max_paginas = $fast ? ( $query_is_likely_brand ? 2 : 1 ) : 15;
-	$categoria_id = '';
-	for ( $pag = 1; $pag <= $max_paginas; $pag++ ) {
-		$args = array(
-			'pagina' => $pag,
-			'orden'  => 'relevancia',
-			'cop'    => true,
-		);
-		if ( $categoria_id !== '' ) {
-			$args['categoria'] = $categoria_id;
-		}
-		$resp = Centinela_Syscom_API::get_productos( $args );
-		$lista = $get_lista( $resp );
-		if ( empty( $lista ) && $pag === 1 && $categoria_id === '' && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
-			$arbol = Centinela_Syscom_API::get_categorias_arbol();
-			if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
-				$categoria_id = (string) $arbol[0]['id'];
+	// Barrido por páginas del catálogo (con primera categoría si hace falta). Solo sitio web, no cotizador.
+	if ( ! $is_cotizador ) {
+		$max_paginas  = $fast ? ( $query_is_likely_brand ? 2 : 1 ) : 15;
+		$categoria_id = '';
+		for ( $pag = 1; $pag <= $max_paginas; $pag++ ) {
+			$args = array(
+				'pagina' => $pag,
+				'orden'  => 'relevancia',
+				'cop'    => true,
+			);
+			if ( $categoria_id !== '' ) {
 				$args['categoria'] = $categoria_id;
-				$args['pagina']    = 1;
-				$resp = Centinela_Syscom_API::get_productos( $args );
-				$lista = $get_lista( $resp );
 			}
-		}
-		if ( empty( $lista ) ) {
-			continue;
-		}
-		foreach ( $lista as $p ) {
-			if ( ! is_array( $p ) ) {
+			$resp  = Centinela_Syscom_API::get_productos( $args );
+			$lista = $get_lista( $resp );
+			if ( empty( $lista ) && $pag === 1 && $categoria_id === '' && method_exists( 'Centinela_Syscom_API', 'get_categorias_arbol' ) ) {
+				$arbol = Centinela_Syscom_API::get_categorias_arbol();
+				if ( ! is_wp_error( $arbol ) && ! empty( $arbol ) && isset( $arbol[0]['id'] ) ) {
+					$categoria_id      = (string) $arbol[0]['id'];
+					$args['categoria'] = $categoria_id;
+					$args['pagina']    = 1;
+					$resp              = Centinela_Syscom_API::get_productos( $args );
+					$lista             = $get_lista( $resp );
+				}
+			}
+			if ( empty( $lista ) ) {
 				continue;
 			}
-			if ( ! centinela_producto_matches_search( $ref_query, $p ) ) {
-				continue;
+			foreach ( $lista as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				if ( ! centinela_producto_matches_search( $ref_query, $p ) ) {
+					continue;
+				}
+				$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : '' );
+				if ( $pid === '' ) {
+					continue;
+				}
+				$pid = (string) $pid;
+				if ( ! empty( $ids_vistos[ $pid ] ) ) {
+					continue;
+				}
+				$productos_raw[]    = $p;
+				$ids_vistos[ $pid ] = true;
 			}
-			$pid = isset( $p['producto_id'] ) ? $p['producto_id'] : ( isset( $p['id'] ) ? $p['id'] : '' );
-			if ( $pid === '' ) {
-				continue;
+			if ( count( $productos_raw ) >= $limit * ( $fast ? 1 : 3 ) ) {
+				break;
 			}
-			$pid = (string) $pid;
-			if ( ! empty( $ids_vistos[ $pid ] ) ) {
-				continue;
-			}
-			$productos_raw[] = $p;
-			$ids_vistos[ $pid ] = true;
-		}
-		if ( count( $productos_raw ) >= $limit * ( $fast ? 1 : 3 ) ) {
-			break;
 		}
 	}
 
-	if ( ! $fast && centinela_search_query_looks_like_product_reference( $ref_query ) ) {
+	if ( ! $fast && ! $is_cotizador && centinela_search_query_looks_like_product_reference( $ref_query ) ) {
 		$max_detail = (int) apply_filters( 'centinela_search_enrich_reference_max_detail_fetches', 28, $ref_query, $productos_raw );
 		$max_detail = max( 0, min( 40, $max_detail ) );
 		$n_detail   = 0;
@@ -979,6 +1088,9 @@ function centinela_search_productos_syscom( $query, $limit = 12, $fast = false )
 	if ( $fast ) {
 		// TTL corto para sugerencias: acelera tecleo repetido sin estancar resultados.
 		set_transient( $cache_key, $result, 8 * MINUTE_IN_SECONDS );
+	}
+	if ( $is_cotizador ) {
+		set_transient( $cache_key_cot, $result, 20 * MINUTE_IN_SECONDS );
 	}
 	return $result;
 }

@@ -58,6 +58,8 @@ jQuery(function ($) {
 
 	var timerBusqueda = null;
 	var DEBOUNCE_MS = 180;
+	var DEBOUNCE_MS_MODELO = 400;
+	var BUSQUEDA_AJAX_TIMEOUT_MS = 45000;
 	var xhrBusqueda = null;
 	var lastSuggestions = [];
 	var lastSuggestionsMessage = '';
@@ -286,21 +288,44 @@ jQuery(function ($) {
 			xhrBusqueda.abort();
 		}
 		showLoading(true);
-		xhrBusqueda = $.post(ajaxUrl, {
-			action: 'centinela_cotizador_buscar_productos',
-			nonce: nonce,
-			busqueda: q,
-			tipo: $tipo.val() || 'titulo'
+		xhrBusqueda = $.ajax({
+			url: ajaxUrl,
+			method: 'POST',
+			timeout: BUSQUEDA_AJAX_TIMEOUT_MS,
+			data: {
+				action: 'centinela_cotizador_buscar_productos',
+				nonce: nonce,
+				busqueda: q,
+				tipo: $tipo.val() || 'titulo'
+			}
 		})
 			.done(function (res) {
-				if (res.success && res.data && res.data.productos && res.data.productos.length) {
+				if (!res || res.success === false) {
+					var errMsg = (res && res.data && res.data.message)
+						? res.data.message
+						: (i18n.error_busqueda || 'Error al buscar. Revisa la API Syscom.');
+					showSugerencias([], errMsg);
+					return;
+				}
+				if (res.data && res.data.productos && res.data.productos.length) {
 					showSugerencias(res.data.productos, null);
 				} else {
 					showSugerencias([], i18n.sin_resultados || 'Sin resultados.');
 				}
 			})
-			.fail(function () {
-				showSugerencias([], i18n.error_busqueda || 'Error al buscar.');
+			.fail(function (xhr, status) {
+				if (status === 'abort') {
+					return;
+				}
+				var msg;
+				if (status === 'timeout') {
+					msg = i18n.busqueda_timeout || 'La búsqueda tardó demasiado. Intenta de nuevo o con un término más corto.';
+				} else if (xhr && xhr.status >= 500) {
+					msg = i18n.error_busqueda || 'Error al buscar. Revisa la API Syscom.';
+				} else {
+					msg = i18n.error_busqueda || 'Error al buscar. Revisa la API Syscom.';
+				}
+				showSugerencias([], msg);
 			})
 			.always(function () {
 				xhrBusqueda = null;
@@ -832,7 +857,13 @@ jQuery(function ($) {
 
 	$busqueda.on('input', function () {
 		clearTimeout(timerBusqueda);
-		timerBusqueda = setTimeout(buscarProductos, DEBOUNCE_MS);
+		var q = $busqueda.val().trim();
+		var tipo = $tipo.val() || 'titulo';
+		var debounceMs = DEBOUNCE_MS;
+		if (tipo === 'modelo' || /[-_]/.test(q) || q.length >= 10) {
+			debounceMs = DEBOUNCE_MS_MODELO;
+		}
+		timerBusqueda = setTimeout(buscarProductos, debounceMs);
 	});
 
 	$busqueda.on('focus', function () {

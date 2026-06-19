@@ -1816,6 +1816,7 @@ function centinela_cotizador_enqueue_assets( $hook_suffix ) {
 			'buscar_placeholder_titulo'  => __( 'Buscar por título…', 'centinela-group-theme' ),
 			'sin_resultados'            => __( 'Sin resultados.', 'centinela-group-theme' ),
 			'error_busqueda'             => __( 'Error al buscar. Revisa la API Syscom.', 'centinela-group-theme' ),
+			'busqueda_timeout'           => __( 'La búsqueda tardó demasiado. Intenta de nuevo o con un término más corto.', 'centinela-group-theme' ),
 			'eliminar'                  => __( 'Eliminar', 'centinela-group-theme' ),
 			'importe'                   => __( 'Importe', 'centinela-group-theme' ),
 			'actualizar_tc'              => __( 'Actualizar tipo de cambio', 'centinela-group-theme' ),
@@ -1890,15 +1891,18 @@ function centinela_cotizador_ajax_buscar_productos() {
 	if ( ! class_exists( 'Centinela_Syscom_API' ) ) {
 		wp_send_json_error( array( 'message' => 'API no disponible' ) );
 	}
+	if ( function_exists( 'set_time_limit' ) ) {
+		@set_time_limit( 50 );
+	}
 
-	// Misma lógica que el buscador del sitio: variantes API + barrido de catálogo + coincidencia flexible (p. ej. TK-3000-KV2).
+	// Misma lógica que el buscador del sitio, con contexto cotizador (menos llamadas API, sin barrido de catálogo).
 	if ( function_exists( 'centinela_search_productos_syscom' ) ) {
 		// Referencias/modelo: búsqueda completa (como /tienda/?marca= y search.php con Enter).
 		// Modo rápido solo para títulos genéricos; evita perder SKUs tipo DS-2CD2143G2-I.
 		$use_fast = ( $tipo !== 'modelo' )
 			&& ! ( function_exists( 'centinela_search_query_looks_like_product_reference' )
 				&& centinela_search_query_looks_like_product_reference( $busqueda ) );
-		$rows      = centinela_search_productos_syscom( $busqueda, 50, $use_fast );
+		$rows      = centinela_search_productos_syscom( $busqueda, 50, $use_fast, 'cotizador' );
 		$productos = array();
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {
